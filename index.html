@@ -291,8 +291,7 @@ function loadBatch() {
     .map((w) => w.id);
   batchIds.sort((a, b) => a - b);
   checked = new Set();
-  // 恢复本批里曾经点开过的中文
-  revealed = new Set(savedRevealedIds.filter((id) => batchIds.includes(id)));
+  revealed = new Set();
   renderList();
   savePersist();
   updateStats();
@@ -328,12 +327,12 @@ function renderList() {
     const w = wordById(id);
     if (!w) continue;
     const item = document.createElement("div");
-    item.className = "item" + (checked.has(id) ? " known-mark" : "");
+    const on = viewMode === "known" ? revealed.has(id) : checked.has(id);
+    item.className = "item" + (on && viewMode !== "known" ? " known-mark" : "");
     item.dataset.id = id;
 
-    const meaningText = revealed.has(id) ? w.meaning : "点击显示中文";
-    const meaningClass = revealed.has(id) ? "meaning open" : "meaning";
-
+    const meaningText = on ? w.meaning : "点击显示中文";
+    const meaningClass = on ? "meaning open" : "meaning";
     const mid = viewMode === "known"
       ? `<button type="button" class="btn-restore" data-act="restore">恢复</button>`
       : `<div class="check"><input type="checkbox" data-act="check" title="已会" ${checked.has(id) ? "checked" : ""} /></div>`;
@@ -423,49 +422,63 @@ $("list").addEventListener("click", (e) => {
   const item = e.target.closest(".item");
   if (!item) return;
   const id = +item.dataset.id;
-
-  if (e.target.matches('input[data-act="check"]')) {
-    if (e.target.checked) checked.add(id);
-    else checked.delete(id);
-    item.classList.toggle("known-mark", e.target.checked);
-    // 勾选时自动显示中文并发音
-    if (e.target.checked) {
+  if (viewMode === "known") {
+    if (e.target.matches('[data-act="restore"]')) {
+      knownIds = knownIds.filter((x) => x !== id);
+      savePersist();
+      showKnownList();
+    } else if (e.target.matches('[data-act="reveal"]')) {
+      const box = e.target;
       const w = wordById(id);
-      const box = item.querySelector('[data-act="reveal"]');
-      if (w && box) {
+      if (revealed.has(id)) {
+        revealed.delete(id);
+        box.className = "meaning";
+        box.textContent = "点击显示中文";
+        stopSpeak();
+      } else {
         revealed.add(id);
         box.className = "meaning open";
         box.textContent = w.meaning;
         speakWord(w.word);
       }
+      scheduleSave();
     }
-    updateStats();
-    scheduleSave();
     return;
   }
 
-  if (e.target.matches('[data-act="restore"]')) {
-    knownIds = knownIds.filter((x) => x !== id);
-    savePersist();
-    showKnownList();
-    return;
-  }
+  const box = item.querySelector('[data-act="reveal"]');
+  const cb = item.querySelector('input[data-act="check"]');
+  const w = wordById(id);
+  if (!w || !box || !cb) return;
 
-  if (e.target.matches('[data-act="reveal"]')) {
-    const box = e.target;
-    const w = wordById(id);
-    if (revealed.has(id)) {
+  function setLinked(on, doSpeak) {
+    cb.checked = on;
+    item.classList.toggle("known-mark", on);
+    if (on) {
+      checked.add(id);
+      revealed.add(id);
+      box.className = "meaning open";
+      box.textContent = w.meaning;
+      if (doSpeak) speakWord(w.word);
+    } else {
+      checked.delete(id);
       revealed.delete(id);
       box.className = "meaning";
       box.textContent = "点击显示中文";
       stopSpeak();
-    } else {
-      revealed.add(id);
-      box.className = "meaning open";
-      box.textContent = w.meaning;
-      speakWord(w.word);
     }
+    updateStats();
     scheduleSave();
+  }
+
+  if (e.target.matches('input[data-act="check"]')) {
+    // 用当前勾选结果联动（浏览器已先改了 checked）
+    setLinked(cb.checked, cb.checked);
+    return;
+  }
+
+  if (e.target.matches('[data-act="reveal"]')) {
+    setLinked(!checked.has(id), !checked.has(id));
   }
 });
 
@@ -530,17 +543,23 @@ $("btnNext").onclick = () => {
 };
 
 $("btnRevealAll").onclick = () => {
-  batchIds.forEach((id) => revealed.add(id));
-  renderList();
-};
-$("btnHideAll").onclick = () => {
-  revealed = new Set();
-  renderList();
-};
-$("btnCheckAll").onclick = () => {
-  batchIds.forEach((id) => checked.add(id));
+  batchIds.forEach((id) => { checked.add(id); revealed.add(id); });
   renderList();
   updateStats();
+  scheduleSave();
+};
+$("btnHideAll").onclick = () => {
+  checked = new Set();
+  revealed = new Set();
+  renderList();
+  updateStats();
+  scheduleSave();
+};
+$("btnCheckAll").onclick = () => {
+  batchIds.forEach((id) => { checked.add(id); revealed.add(id); });
+  renderList();
+  updateStats();
+  scheduleSave();
 };
 $("btnResetKnown").onclick = () => {
   if (!confirm("确定清空全部已会记录？")) return;
