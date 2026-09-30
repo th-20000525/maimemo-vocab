@@ -94,7 +94,14 @@
   .meaning:hover { border-color: var(--teal); }
   .meaning.open {
     border-style: solid; border-color: #f0d2a0; background: #fff8ec; color: var(--text);
+    flex-direction: column; align-items: flex-start; gap: 2px;
   }
+  .meaning .pos-line { display: block; line-height: 1.35; }
+  .meaning .pos-v { color: #d64545; font-weight: 650; }      /* 动 红 */
+  .meaning .pos-n { color: #1f9d55; font-weight: 650; }      /* 名 绿 */
+  .meaning .pos-adj { color: #c99700; font-weight: 650; }    /* 形 黄 */
+  .meaning .pos-adv { color: #6b5ce7; font-weight: 650; }    /* 副 */
+  .meaning .pos-other { color: var(--text); }
   .check {
     display: flex; align-items: center; justify-content: center;
   }
@@ -331,7 +338,7 @@ function renderList() {
     item.className = "item" + (on && viewMode !== "known" ? " known-mark" : "");
     item.dataset.id = id;
 
-    const meaningText = on ? w.meaning : "点击显示中文";
+    const meaningHtml = on ? formatMeaningHtml(w.meaning) : "点击显示中文";
     const meaningClass = on ? "meaning open" : "meaning";
     const mid = viewMode === "known"
       ? `<button type="button" class="btn-restore" data-act="restore">恢复</button>`
@@ -345,7 +352,7 @@ function renderList() {
       </div>
       <div class="pos">${escapeHtml(w.pos || "—")}</div>
       ${mid}
-      <div class="${meaningClass}" data-act="reveal">${escapeHtml(meaningText)}</div>
+      <div class="${meaningClass}" data-act="reveal">${on ? meaningHtml : escapeHtml(meaningHtml)}</div>
     `;
     list.appendChild(item);
   }
@@ -418,6 +425,47 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;");
 }
 
+function meaningPosClass(tag) {
+  const t = (tag || "").trim();
+  if (t === "动" || /^v/i.test(t)) return "pos-v";
+  if (t === "名" || /^n/i.test(t)) return "pos-n";
+  if (t === "形" || /^adj/i.test(t)) return "pos-adj";
+  if (t === "副" || /^adv/i.test(t)) return "pos-adv";
+  return "pos-other";
+}
+
+/** 按 [动]/[名]/[形] 等拆成多行，并上色 */
+function formatMeaningHtml(meaning) {
+  const raw = String(meaning || "").replace(/\s*[；;]\s*(?=\[)/g, "\n").trim();
+  if (!raw) return "";
+  // 已有换行，或按 [词性] 切开
+  let parts = raw.split(/\n+/).map((s) => s.trim()).filter(Boolean);
+  if (parts.length === 1 && /\[[^\]]+\].*\[[^\]]+\]/.test(parts[0])) {
+    parts = parts[0].split(/(?=\[)/).map((s) => s.trim()).filter(Boolean);
+  }
+  return parts.map((line) => {
+    const m = line.match(/^\[([^\]]+)\]\s*(.*)$/);
+    if (!m) {
+      return `<span class="pos-line pos-other">${escapeHtml(line)}</span>`;
+    }
+    const tag = m[1];
+    const rest = m[2] || "";
+    const cls = meaningPosClass(tag);
+    return `<span class="pos-line ${cls}">[${escapeHtml(tag)}]${escapeHtml(rest ? " " + rest : "")}</span>`;
+  }).join("");
+}
+
+function setMeaningBox(box, meaning, open) {
+  if (!box) return;
+  if (open) {
+    box.className = "meaning open";
+    box.innerHTML = formatMeaningHtml(meaning);
+  } else {
+    box.className = "meaning";
+    box.textContent = "点击显示中文";
+  }
+}
+
 $("list").addEventListener("click", (e) => {
   const item = e.target.closest(".item");
   if (!item) return;
@@ -427,18 +475,16 @@ $("list").addEventListener("click", (e) => {
       knownIds = knownIds.filter((x) => x !== id);
       savePersist();
       showKnownList();
-    } else if (e.target.matches('[data-act="reveal"]')) {
-      const box = e.target;
+    } else if (e.target.closest('[data-act="reveal"]')) {
+      const box = item.querySelector('[data-act="reveal"]');
       const w = wordById(id);
       if (revealed.has(id)) {
         revealed.delete(id);
-        box.className = "meaning";
-        box.textContent = "点击显示中文";
+        setMeaningBox(box, "", false);
         stopSpeak();
       } else {
         revealed.add(id);
-        box.className = "meaning open";
-        box.textContent = w.meaning;
+        setMeaningBox(box, w.meaning, true);
         speakWord(w.word);
       }
       scheduleSave();
@@ -457,14 +503,12 @@ $("list").addEventListener("click", (e) => {
     if (on) {
       checked.add(id);
       revealed.add(id);
-      box.className = "meaning open";
-      box.textContent = w.meaning;
+      setMeaningBox(box, w.meaning, true);
       if (doSpeak) speakWord(w.word);
     } else {
       checked.delete(id);
       revealed.delete(id);
-      box.className = "meaning";
-      box.textContent = "点击显示中文";
+      setMeaningBox(box, "", false);
       stopSpeak();
     }
     updateStats();
@@ -472,12 +516,11 @@ $("list").addEventListener("click", (e) => {
   }
 
   if (e.target.matches('input[data-act="check"]')) {
-    // 用当前勾选结果联动（浏览器已先改了 checked）
     setLinked(cb.checked, cb.checked);
     return;
   }
 
-  if (e.target.matches('[data-act="reveal"]')) {
+  if (e.target.closest('[data-act="reveal"]')) {
     setLinked(!checked.has(id), !checked.has(id));
   }
 });
