@@ -434,25 +434,39 @@ function meaningPosClass(tag) {
   return "pos-other";
 }
 
-/** 按 [动]/[名]/[形] 等拆成多行，并上色 */
+function meaningPosOrder(tag) {
+  const t = (tag || "").trim();
+  if (t === "形" || /^adj/i.test(t)) return 1; // 最上：形容词
+  if (t === "动" || /^v/i.test(t)) return 2;   // 中间：动词
+  if (t === "名" || /^n/i.test(t)) return 3;   // 最下：名词
+  if (t === "副" || /^adv/i.test(t)) return 4;
+  return 5;
+}
+
+/** 按 [形] → [动] → [名] 排序换行，并上色 */
 function formatMeaningHtml(meaning) {
   const raw = String(meaning || "").replace(/\s*[；;]\s*(?=\[)/g, "\n").trim();
   if (!raw) return "";
-  // 已有换行，或按 [词性] 切开
   let parts = raw.split(/\n+/).map((s) => s.trim()).filter(Boolean);
   if (parts.length === 1 && /\[[^\]]+\].*\[[^\]]+\]/.test(parts[0])) {
     parts = parts[0].split(/(?=\[)/).map((s) => s.trim()).filter(Boolean);
   }
-  return parts.map((line) => {
+  const parsed = parts.map((line, idx) => {
     const m = line.match(/^\[([^\]]+)\]\s*(.*)$/);
     if (!m) {
-      return `<span class="pos-line pos-other">${escapeHtml(line)}</span>`;
+      return { order: 9, idx, html: `<span class="pos-line pos-other">${escapeHtml(line)}</span>` };
     }
     const tag = m[1];
     const rest = m[2] || "";
     const cls = meaningPosClass(tag);
-    return `<span class="pos-line ${cls}">[${escapeHtml(tag)}]${escapeHtml(rest ? " " + rest : "")}</span>`;
-  }).join("");
+    return {
+      order: meaningPosOrder(tag),
+      idx,
+      html: `<span class="pos-line ${cls}">[${escapeHtml(tag)}]${escapeHtml(rest ? " " + rest : "")}</span>`,
+    };
+  });
+  parsed.sort((a, b) => a.order - b.order || a.idx - b.idx);
+  return parsed.map((p) => p.html).join("");
 }
 
 function setMeaningBox(box, meaning, open) {
