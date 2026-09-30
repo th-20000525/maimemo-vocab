@@ -444,6 +444,17 @@ $("list").addEventListener("click", (e) => {
     if (e.target.checked) checked.add(id);
     else checked.delete(id);
     item.classList.toggle("known-mark", e.target.checked);
+    // 勾选时自动显示中文并发音
+    if (e.target.checked) {
+      const w = wordById(id);
+      const box = item.querySelector('[data-act="reveal"]');
+      if (w && box) {
+        revealed.add(id);
+        box.className = "meaning open";
+        box.textContent = w.meaning;
+        speakWord(w.word);
+      }
+    }
     updateStats();
     scheduleSave();
     return;
