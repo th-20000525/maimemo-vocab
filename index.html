@@ -151,10 +151,6 @@
       <button class="btn-ghost" type="button" id="btnCheckAll">全选已会</button>
       <button class="btn-ghost" type="button" id="btnViewKnown">查看已会</button>
       <button class="btn-ghost" type="button" id="btnResetKnown">清空已会记录</button>
-      <button class="btn-ghost" type="button" id="btnExport">导出进度</button>
-      <button class="btn-ghost" type="button" id="btnImport">导入进度</button>
-      <button class="btn-ghost" type="button" id="btnTestSound">测试发音</button>
-      <input type="file" id="importFile" accept="application/json,.json" style="display:none" />
     </div>
     <div class="row" style="margin-top:8px;">
       <label>同步码 <input id="syncCode" type="text" placeholder="自己设一个密码" style="width:160px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;" /></label>
@@ -266,18 +262,6 @@ window.addEventListener("beforeunload", () => savePersist());
 setInterval(() => savePersist(), 15000); // 每 15 秒兜底保存一次
 
 
-function downloadBackup(payload, silent) {
-  const data = payload || buildPayload();
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-  const a = document.createElement("a");
-  const d = new Date();
-  const stamp = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}_${String(d.getHours()).padStart(2,"0")}${String(d.getMinutes()).padStart(2,"0")}${String(d.getSeconds()).padStart(2,"0")}`;
-  a.href = URL.createObjectURL(blob);
-  a.download = `背单词进度_${stamp}_已会${data.knownCount}.json`;
-  a.click();
-  URL.revokeObjectURL(a.href);
-  if (!silent) alert("已导出进度文件到「下载」文件夹");
-}
 
 function updateStats() {
   const modeTip = viewMode === "known" ? "（正在查看已会）" : "";
@@ -668,45 +652,7 @@ $("btnCloudUp").onclick = cloudUpload;
 $("btnCloudDown").onclick = cloudDownload;
 $("syncCode").addEventListener("change", () => savePersist());
 
-$("btnExport").onclick = () => downloadBackup(null, false);
-$("btnImport").onclick = () => $("importFile").click();
 
-$("importFile").onchange = async (e) => {
-  const file = e.target.files && e.target.files[0];
-  e.target.value = "";
-  if (!file) return;
-  try {
-    const text = await file.text();
-    const data = JSON.parse(text);
-    if (!Array.isArray(data.knownIds)) throw new Error("文件里没有 knownIds");
-    const ids = data.knownIds.map(Number).filter((n) => Number.isFinite(n) && n > 0);
-    const merge = confirm(
-      `将导入已会 ${ids.length} 个词。\n\n确定 = 与当前进度合并\n取消 = 用导入文件完全覆盖`
-    );
-    if (merge) {
-      const set = new Set(knownIds);
-      ids.forEach((id) => set.add(id));
-      knownIds = [...set];
-    } else {
-      knownIds = ids;
-    }
-    if (Array.isArray(data.revealedIds)) savedRevealedIds = data.revealedIds.map(Number);
-    if (data.from) $("fromId").value = data.from;
-    if (data.to) $("toId").value = data.to;
-    savePersist();
-    loadBatch();
-    alert(`导入完成：当前已会 ${knownIds.length} 个，批次 ${$("fromId").value}-${$("toId").value}`);
-  } catch (err) {
-    alert("导入失败：" + (err && err.message ? err.message : err));
-  }
-};
-
-$("btnTestSound").onclick = () => {
-  speakWord("abandon");
-  setTimeout(() => {
-    alert("若没听到 abandon：\n1. 必须用 Chrome 或 Edge 打开本文件（不要用 WPS 打开）\n2. 电脑/浏览器不要静音\n3. 需要能上网\n4. 点地址栏右侧「站点设置」允许声音");
-  }, 1000);
-};
 
 // Chrome 需异步加载音色列表
 if (window.speechSynthesis) {
