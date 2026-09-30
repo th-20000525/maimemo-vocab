@@ -664,7 +664,7 @@ $("btnCloudUp").onclick = cloudUpload;
 $("btnCloudDown").onclick = cloudDownload;
 $("syncCode").addEventListener("change", () => savePersist(false));
 
-
+$("btnExport").onclick = () => downloadBackup(null, false);
 $("btnImport").onclick = () => $("importFile").click();
 
 $("importFile").onchange = async (e) => {
