@@ -334,12 +334,12 @@ function renderList() {
     const w = wordById(id);
     if (!w) continue;
     const item = document.createElement("div");
-    const on = viewMode === "known" ? revealed.has(id) : checked.has(id);
-    item.className = "item" + (on && viewMode !== "known" ? " known-mark" : "");
+    const shown = viewMode === "known" ? revealed.has(id) : (checked.has(id) || revealed.has(id));
+    item.className = "item" + (checked.has(id) && viewMode !== "known" ? " known-mark" : "");
     item.dataset.id = id;
 
-    const meaningHtml = on ? formatMeaningHtml(w.meaning) : "点击显示中文";
-    const meaningClass = on ? "meaning open" : "meaning";
+    const meaningText = shown ? formatMeaningHtml(w.meaning) : "点击显示中文";
+    const meaningClass = shown ? "meaning open" : "meaning";
     const mid = viewMode === "known"
       ? `<button type="button" class="btn-restore" data-act="restore">恢复</button>`
       : `<div class="check"><input type="checkbox" data-act="check" title="已会" ${checked.has(id) ? "checked" : ""} /></div>`;
@@ -352,7 +352,7 @@ function renderList() {
       </div>
       <div class="pos">${escapeHtml(w.pos || "—")}</div>
       ${mid}
-      <div class="${meaningClass}" data-act="reveal">${on ? meaningHtml : escapeHtml(meaningHtml)}</div>
+      <div class="${meaningClass}" data-act="reveal">${shown ? meaningText : escapeHtml("点击显示中文")}</div>
     `;
     list.appendChild(item);
   }
@@ -516,12 +516,29 @@ $("list").addEventListener("click", (e) => {
   }
 
   if (e.target.matches('input[data-act="check"]')) {
+    // 勾选方框 → 显示中文；取消 → 隐藏中文
     setLinked(cb.checked, cb.checked);
     return;
   }
 
   if (e.target.closest('[data-act="reveal"]')) {
-    setLinked(!checked.has(id), !checked.has(id));
+    // 点中文区域：只切换显示，绝不勾选/取消方框
+    if (checked.has(id)) {
+      // 已勾选则保持显示，再点只重播发音
+      setMeaningBox(box, w.meaning, true);
+      speakWord(w.word);
+      return;
+    }
+    if (revealed.has(id) || box.classList.contains("open")) {
+      revealed.delete(id);
+      setMeaningBox(box, "", false);
+      stopSpeak();
+    } else {
+      revealed.add(id);
+      setMeaningBox(box, w.meaning, true);
+      speakWord(w.word);
+    }
+    scheduleSave();
   }
 });
 
@@ -586,16 +603,17 @@ $("btnNext").onclick = () => {
 };
 
 $("btnRevealAll").onclick = () => {
-  batchIds.forEach((id) => { checked.add(id); revealed.add(id); });
+  batchIds.forEach((id) => revealed.add(id));
   renderList();
-  updateStats();
   scheduleSave();
 };
 $("btnHideAll").onclick = () => {
-  checked = new Set();
-  revealed = new Set();
+  // 只隐藏中文，不取消勾选
+  revealed = new Set([...checked]); // 已勾选的仍保持显示
+  // 实际上：清空未勾选的显示；已勾选继续显示
+  const keep = new Set(checked);
+  revealed = keep;
   renderList();
-  updateStats();
   scheduleSave();
 };
 $("btnCheckAll").onclick = () => {
