@@ -154,7 +154,6 @@
       <button class="btn-ghost" type="button" id="btnExport">导出进度</button>
       <button class="btn-ghost" type="button" id="btnImport">导入进度</button>
       <button class="btn-ghost" type="button" id="btnTestSound">测试发音</button>
-      <label class="auto-bak"><input type="checkbox" id="autoBackup" checked /> 删除时自动备份到下载文件夹</label>
       <input type="file" id="importFile" accept="application/json,.json" style="display:none" />
     </div>
     <div class="row" style="margin-top:8px;">
@@ -207,7 +206,6 @@ function loadPersist() {
     if (Array.isArray(data.knownIds)) knownIds = data.knownIds;
     if (data.from) $("fromId").value = data.from;
     if (data.to) $("toId").value = data.to;
-    if (typeof data.autoBackup === "boolean") $("autoBackup").checked = data.autoBackup;
     if (data.syncCode) $("syncCode").value = data.syncCode;
     if (Array.isArray(data.revealedIds)) savedRevealedIds = data.revealedIds.map(Number);
     if (data.scrollY != null) {
@@ -234,9 +232,8 @@ function buildPayload() {
   };
 }
 
-function savePersist(doDownload) {
+function savePersist() {
   const payload = buildPayload();
-  payload.autoBackup = !!$("autoBackup").checked;
   payload.syncCode = ($("syncCode").value || "").trim();
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -256,18 +253,17 @@ function savePersist(doDownload) {
     });
     localStorage.setItem(BACKUP_KEY, JSON.stringify(list.slice(0, 30)));
   } catch (e) {}
-  if (doDownload && $("autoBackup").checked) downloadBackup(payload, true);
 }
 
 // 滚动/操作时自动保存（节流）
 let _saveTimer = null;
 function scheduleSave() {
   clearTimeout(_saveTimer);
-  _saveTimer = setTimeout(() => savePersist(false), 400);
+  _saveTimer = setTimeout(() => savePersist(), 400);
 }
 window.addEventListener("scroll", scheduleSave, { passive: true });
-window.addEventListener("beforeunload", () => savePersist(false));
-setInterval(() => savePersist(false), 15000); // 每 15 秒兜底保存一次
+window.addEventListener("beforeunload", () => savePersist());
+setInterval(() => savePersist(), 15000); // 每 15 秒兜底保存一次
 
 
 function downloadBackup(payload, silent) {
@@ -314,7 +310,7 @@ function loadBatch() {
   // 恢复本批里曾经点开过的中文
   revealed = new Set(savedRevealedIds.filter((id) => batchIds.includes(id)));
   renderList();
-  savePersist(false);
+  savePersist();
   updateStats();
 }
 
@@ -455,7 +451,7 @@ $("list").addEventListener("click", (e) => {
 
   if (e.target.matches('[data-act="restore"]')) {
     knownIds = knownIds.filter((x) => x !== id);
-    savePersist(false);
+    savePersist();
     showKnownList();
     return;
   }
@@ -491,24 +487,23 @@ function deleteChecked(goNext) {
   for (const id of checked) {
     if (!knownIds.includes(id)) knownIds.push(id);
   }
-  savePersist(true); // 按开关决定是否下载备份
-  const bakTip = $("autoBackup").checked ? "（已自动备份）" : "";
+  savePersist();
   if (goNext) {
     const [from, to] = currentRange();
     const size = to - from + 1;
     const nextFrom = to + 1;
     const nextTo = Math.min(ALL_WORDS.length, to + size);
     if (nextFrom > ALL_WORDS.length) {
-      alert(`已删除 ${n} 个${bakTip}。已经到词库末尾了。`);
+      alert(`已删除 ${n} 个。已经到词库末尾了。`);
       loadBatch();
     } else {
       $("fromId").value = nextFrom;
       $("toId").value = nextTo;
-      alert(`已删除 ${n} 个${bakTip}，进入下一批 ${nextFrom}–${nextTo}`);
+      alert(`已删除 ${n} 个，进入下一批 ${nextFrom}–${nextTo}`);
       loadBatch();
     }
   } else {
-    alert(`已删除 ${n} 个${bakTip}${bakTip ? "到下载文件夹" : ""}`);
+    alert(`已删除 ${n} 个`);
     loadBatch();
   }
 }
@@ -555,7 +550,7 @@ $("btnCheckAll").onclick = () => {
 $("btnResetKnown").onclick = () => {
   if (!confirm("确定清空全部已会记录？")) return;
   knownIds = [];
-  savePersist(true);
+  savePersist();
   loadBatch();
 };
 
@@ -563,8 +558,6 @@ $("btnViewKnown").onclick = () => {
   if (viewMode === "known") loadBatch();
   else showKnownList();
 };
-
-$("autoBackup").onchange = () => savePersist(false);
 
 function sbHeaders(extra) {
   return Object.assign({
@@ -616,7 +609,7 @@ async function cloudUpload() {
       const t = await res.text();
       throw new Error(t || ("HTTP " + res.status));
     }
-    savePersist(false);
+    savePersist();
     setSyncStatus("已上传 " + new Date().toLocaleTimeString());
     alert("已上传到云端。另一台电脑用同一同步码点「拉取云端」即可。");
   } catch (e) {
@@ -650,7 +643,7 @@ async function cloudDownload() {
     if (data.from) $("fromId").value = data.from;
     if (data.to) $("toId").value = data.to;
     $("syncCode").value = code;
-    savePersist(false);
+    savePersist();
     loadBatch();
     setSyncStatus("已拉取 " + new Date().toLocaleTimeString());
     alert("已从云端恢复：已会 " + knownIds.length + " 个，批次 " + $("fromId").value + "-" + $("toId").value);
@@ -662,7 +655,7 @@ async function cloudDownload() {
 
 $("btnCloudUp").onclick = cloudUpload;
 $("btnCloudDown").onclick = cloudDownload;
-$("syncCode").addEventListener("change", () => savePersist(false));
+$("syncCode").addEventListener("change", () => savePersist());
 
 $("btnExport").onclick = () => downloadBackup(null, false);
 $("btnImport").onclick = () => $("importFile").click();
@@ -689,7 +682,7 @@ $("importFile").onchange = async (e) => {
     if (Array.isArray(data.revealedIds)) savedRevealedIds = data.revealedIds.map(Number);
     if (data.from) $("fromId").value = data.from;
     if (data.to) $("toId").value = data.to;
-    savePersist(false);
+    savePersist();
     loadBatch();
     alert(`导入完成：当前已会 ${knownIds.length} 个，批次 ${$("fromId").value}-${$("toId").value}`);
   } catch (err) {
