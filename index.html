@@ -157,11 +157,17 @@
       <label class="auto-bak"><input type="checkbox" id="autoBackup" checked /> 删除时自动备份到下载文件夹</label>
       <input type="file" id="importFile" accept="application/json,.json" style="display:none" />
     </div>
+    <div class="row" style="margin-top:8px;">
+      <label>同步码 <input id="syncCode" type="text" placeholder="自己设一个密码" style="width:160px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;" /></label>
+      <button class="btn-primary" type="button" id="btnCloudUp">上传云端</button>
+      <button class="btn-ghost" type="button" id="btnCloudDown">拉取云端</button>
+      <span id="syncStatus" style="font-size:0.78rem;color:var(--muted);"></span>
+    </div>
     <audio id="audioPlayer" preload="none"></audio>
     <div class="hint">
       顺序固定。词性后勾选表示已会；点释义框显示中文并朗读英文，再点隐藏；底部统一删除已勾选。<br/>
       已删除的词可点「查看已会」翻看，也可点「恢复」重新加入待背。<br/>
-      换电脑：导出/自动备份的 json + 本页面，到新电脑「导入进度」。
+      <b>跨设备同步：</b>设一个同步码 →「上传云端」；另一台电脑打开同一链接，输入相同同步码 →「拉取云端」。
     </div>
   </div>
 
@@ -184,6 +190,8 @@ const ALL_WORDS = [{"id": 1, "word": "abandon", "phonetic": "[aˈbændan]", "pos
 const STORAGE_KEY = "vocab_batch_v1";
 const BACKUP_KEY = "vocab_batch_backups_v1";
 const BATCH = 100;
+const SB_URL = "https://drtkvfcjbwvqpgolkwur.supabase.co";
+const SB_KEY = "sb_publishable_GFoECb3NXu0jHUUP3krFjQ_JgLLeUxH";
 const $ = (id) => document.getElementById(id);
 
 let knownIds = [];
@@ -200,6 +208,7 @@ function loadPersist() {
     if (data.from) $("fromId").value = data.from;
     if (data.to) $("toId").value = data.to;
     if (typeof data.autoBackup === "boolean") $("autoBackup").checked = data.autoBackup;
+    if (data.syncCode) $("syncCode").value = data.syncCode;
     if (Array.isArray(data.revealedIds)) savedRevealedIds = data.revealedIds.map(Number);
     if (data.scrollY != null) {
       setTimeout(() => window.scrollTo(0, data.scrollY || 0), 80);
@@ -228,6 +237,7 @@ function buildPayload() {
 function savePersist(doDownload) {
   const payload = buildPayload();
   payload.autoBackup = !!$("autoBackup").checked;
+  payload.syncCode = ($("syncCode").value || "").trim();
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   } catch (e) {
@@ -556,7 +566,104 @@ $("btnViewKnown").onclick = () => {
 
 $("autoBackup").onchange = () => savePersist(false);
 
-$("btnExport").onclick = () => downloadBackup(null, false);
+function sbHeaders(extra) {
+  return Object.assign({
+    apikey: SB_KEY,
+    Authorization: "Bearer " + SB_KEY,
+    "Content-Type": "application/json",
+  }, extra || {});
+}
+
+function getSyncCode() {
+  const code = ($("syncCode").value || "").trim();
+  if (!code) {
+    alert("请先设置同步码（自己想一个密码，两台设备要一样）");
+    return "";
+  }
+  if (code.length < 4) {
+    alert("同步码至少 4 位");
+    return "";
+  }
+  return code;
+}
+
+function setSyncStatus(msg) {
+  $("syncStatus").textContent = msg || "";
+}
+
+async function cloudUpload() {
+  const code = getSyncCode();
+  if (!code) return;
+  setSyncStatus("上传中…");
+  const payload = buildPayload();
+  payload.syncCode = code;
+  try {
+    const res = await fetch(
+      SB_URL + "/rest/v1/vocab_progress?on_conflict=sync_code",
+      {
+        method: "POST",
+        headers: sbHeaders({
+          Prefer: "resolution=merge-duplicates,return=minimal",
+        }),
+        body: JSON.stringify({
+          sync_code: code,
+          payload: payload,
+          updated_at: new Date().toISOString(),
+        }),
+      }
+    );
+    if (!res.ok) {
+      const t = await res.text();
+      throw new Error(t || ("HTTP " + res.status));
+    }
+    savePersist(false);
+    setSyncStatus("已上传 " + new Date().toLocaleTimeString());
+    alert("已上传到云端。另一台电脑用同一同步码点「拉取云端」即可。");
+  } catch (e) {
+    setSyncStatus("上传失败");
+    alert("上传失败：请确认已在 Supabase 执行建表 SQL。\n" + (e.message || e));
+  }
+}
+
+async function cloudDownload() {
+  const code = getSyncCode();
+  if (!code) return;
+  setSyncStatus("拉取中…");
+  try {
+    const res = await fetch(
+      SB_URL + "/rest/v1/vocab_progress?sync_code=eq." + encodeURIComponent(code) + "&select=payload,updated_at",
+      { headers: sbHeaders() }
+    );
+    if (!res.ok) {
+      const t = await res.text();
+      throw new Error(t || ("HTTP " + res.status));
+    }
+    const rows = await res.json();
+    if (!rows.length) {
+      setSyncStatus("云端无此同步码");
+      alert("云端还没有这个同步码的数据，请先在一台设备上「上传云端」。");
+      return;
+    }
+    const data = rows[0].payload || {};
+    if (Array.isArray(data.knownIds)) knownIds = data.knownIds.map(Number);
+    if (Array.isArray(data.revealedIds)) savedRevealedIds = data.revealedIds.map(Number);
+    if (data.from) $("fromId").value = data.from;
+    if (data.to) $("toId").value = data.to;
+    $("syncCode").value = code;
+    savePersist(false);
+    loadBatch();
+    setSyncStatus("已拉取 " + new Date().toLocaleTimeString());
+    alert("已从云端恢复：已会 " + knownIds.length + " 个，批次 " + $("fromId").value + "-" + $("toId").value);
+  } catch (e) {
+    setSyncStatus("拉取失败");
+    alert("拉取失败：请确认已在 Supabase 执行建表 SQL。\n" + (e.message || e));
+  }
+}
+
+$("btnCloudUp").onclick = cloudUpload;
+$("btnCloudDown").onclick = cloudDownload;
+$("syncCode").addEventListener("change", () => savePersist(false));
+
 
 $("btnImport").onclick = () => $("importFile").click();
 
