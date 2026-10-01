@@ -74,6 +74,7 @@
     border-radius: 8px;
     padding: 5px 8px;
     min-height: 0;
+    cursor: pointer;
   }
   .item.known-mark { background: var(--ok-bg); border-color: #b9e2d6; }
   .num { color: var(--teal-dark); font-weight: 700; font-size: 0.85rem; }
@@ -167,7 +168,7 @@
     </div>
     <audio id="audioPlayer" preload="none"></audio>
     <div class="hint">
-      顺序固定。词性后勾选表示已会；点释义框显示中文并朗读英文，再点隐藏；底部「删除已勾选」会记入已会并自动上传云端（需已设同步码）。<br/>
+      顺序固定。词性后勾选表示已会；点整行显示中文并朗读英文，再点隐藏（勾选框仅切换已会）；底部「删除已勾选」会记入已会并自动上传云端（需已设同步码）。<br/>
       已删除的词可点「查看已会」翻看，也可点「恢复」重新加入待背。<br/>
       <b>跨设备同步：</b>设一个同步码；打开页面会自动拉取云端（也可手动点「拉取云端」）；删除已勾选会自动上传。
     </div>
@@ -479,45 +480,57 @@ function setMeaningBox(box, meaning, open) {
   }
 }
 
+/** 点整行切换中文（不改动勾选状态） */
+function toggleRowMeaning(item, id, w, studyMode) {
+  const box = item.querySelector('[data-act="reveal"]');
+  if (!box || !w) return;
+  if (studyMode && checked.has(id)) {
+    setMeaningBox(box, w.meaning, true);
+    speakWord(w.word);
+    return;
+  }
+  if (revealed.has(id) || box.classList.contains("open")) {
+    revealed.delete(id);
+    setMeaningBox(box, "", false);
+    stopSpeak();
+  } else {
+    revealed.add(id);
+    setMeaningBox(box, w.meaning, true);
+    speakWord(w.word);
+  }
+  scheduleSave();
+}
+
 $("list").addEventListener("click", (e) => {
   const item = e.target.closest(".item");
   if (!item) return;
   const id = +item.dataset.id;
+  const w = wordById(id);
+  if (!w) return;
+
   if (viewMode === "known") {
-    if (e.target.matches('[data-act="restore"]')) {
+    if (e.target.matches('[data-act="restore"]') || e.target.closest('[data-act="restore"]')) {
       knownIds = knownIds.filter((x) => x !== id);
       savePersist();
       showKnownList();
-    } else if (e.target.closest('[data-act="reveal"]')) {
-      const box = item.querySelector('[data-act="reveal"]');
-      const w = wordById(id);
-      if (revealed.has(id)) {
-        revealed.delete(id);
-        setMeaningBox(box, "", false);
-        stopSpeak();
-      } else {
-        revealed.add(id);
-        setMeaningBox(box, w.meaning, true);
-        speakWord(w.word);
-      }
-      scheduleSave();
+      return;
     }
+    toggleRowMeaning(item, id, w, false);
     return;
   }
 
   const box = item.querySelector('[data-act="reveal"]');
   const cb = item.querySelector('input[data-act="check"]');
-  const w = wordById(id);
-  if (!w || !box || !cb) return;
+  if (!box || !cb) return;
 
-  function setLinked(on, doSpeak) {
-    cb.checked = on;
+  if (e.target.matches('input[data-act="check"]')) {
+    const on = cb.checked;
     item.classList.toggle("known-mark", on);
     if (on) {
       checked.add(id);
       revealed.add(id);
       setMeaningBox(box, w.meaning, true);
-      if (doSpeak) speakWord(w.word);
+      speakWord(w.word);
     } else {
       checked.delete(id);
       revealed.delete(id);
@@ -526,33 +539,10 @@ $("list").addEventListener("click", (e) => {
     }
     updateStats();
     scheduleSave();
-  }
-
-  if (e.target.matches('input[data-act="check"]')) {
-    // 勾选方框 → 显示中文；取消 → 隐藏中文
-    setLinked(cb.checked, cb.checked);
     return;
   }
 
-  if (e.target.closest('[data-act="reveal"]')) {
-    // 点中文区域：只切换显示，绝不勾选/取消方框
-    if (checked.has(id)) {
-      // 已勾选则保持显示，再点只重播发音
-      setMeaningBox(box, w.meaning, true);
-      speakWord(w.word);
-      return;
-    }
-    if (revealed.has(id) || box.classList.contains("open")) {
-      revealed.delete(id);
-      setMeaningBox(box, "", false);
-      stopSpeak();
-    } else {
-      revealed.add(id);
-      setMeaningBox(box, w.meaning, true);
-      speakWord(w.word);
-    }
-    scheduleSave();
-  }
+  toggleRowMeaning(item, id, w, true);
 });
 
 async function deleteChecked() {
