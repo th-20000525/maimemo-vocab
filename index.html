@@ -169,7 +169,7 @@
     <div class="hint">
       顺序固定。词性后勾选表示已会；点释义框显示中文并朗读英文，再点隐藏；底部「删除已勾选」会记入已会并自动上传云端（需已设同步码）。<br/>
       已删除的词可点「查看已会」翻看，也可点「恢复」重新加入待背。<br/>
-      <b>跨设备同步：</b>设一个同步码 →「上传云端」；另一台电脑打开同一链接，输入相同同步码 →「拉取云端」。
+      <b>跨设备同步：</b>设一个同步码；打开页面会自动拉取云端（也可手动点「拉取云端」）；删除已勾选会自动上传。
     </div>
   </div>
 
@@ -693,9 +693,10 @@ async function cloudUpload(options) {
   }
 }
 
-async function cloudDownload() {
-  const code = getSyncCode();
-  if (!code) return;
+async function cloudDownload(options) {
+  const silent = options && options.silent;
+  const code = getSyncCode(silent);
+  if (!code) return false;
   setSyncStatus("拉取中…");
   try {
     const res = await fetch(
@@ -709,8 +710,12 @@ async function cloudDownload() {
     const rows = await res.json();
     if (!rows.length) {
       setSyncStatus("云端无此同步码");
-      alert("云端还没有这个同步码的数据，请先在一台设备上「上传云端」。");
-      return;
+      if (!silent) {
+        alert("云端还没有这个同步码的数据，请先在一台设备上「上传云端」。");
+      } else {
+        loadBatch();
+      }
+      return false;
     }
     const data = rows[0].payload || {};
     if (Array.isArray(data.knownIds)) knownIds = data.knownIds.map(Number);
@@ -721,16 +726,28 @@ async function cloudDownload() {
     savePersist();
     loadBatch();
     setSyncStatus("已拉取 " + new Date().toLocaleTimeString());
-    alert("已从云端恢复：已会 " + knownIds.length + " 个，批次 " + $("fromId").value + "-" + $("toId").value);
+    if (!silent) {
+      alert("已从云端恢复：已会 " + knownIds.length + " 个，批次 " + $("fromId").value + "-" + $("toId").value);
+    }
+    return true;
   } catch (e) {
     setSyncStatus("拉取失败");
-    alert("拉取失败：请确认已在 Supabase 执行建表 SQL。\n" + (e.message || e));
+    if (!silent) {
+      alert("拉取失败：请确认已在 Supabase 执行建表 SQL。\n" + (e.message || e));
+    }
+    return false;
   }
 }
 
 $("btnCloudUp").onclick = cloudUpload;
-$("btnCloudDown").onclick = cloudDownload;
-$("syncCode").addEventListener("change", () => savePersist());
+$("btnCloudDown").onclick = () => cloudDownload();
+
+let bootDone = false;
+
+$("syncCode").addEventListener("change", () => {
+  savePersist();
+  if (bootDone) cloudDownload({ silent: true });
+});
 
 
 
@@ -747,7 +764,17 @@ $("fromId").max = ALL_WORDS.length;
 loadPersist();
 // 若没有记录，默认 1-100
 if (!$("toId").value) $("toId").value = Math.min(BATCH, ALL_WORDS.length);
-loadBatch();
+
+(async function boot() {
+  const code = getSyncCode(true);
+  if (code) {
+    const ok = await cloudDownload({ silent: true });
+    if (!ok) loadBatch();
+  } else {
+    loadBatch();
+  }
+  bootDone = true;
+})();
 </script>
 </body>
 </html>
