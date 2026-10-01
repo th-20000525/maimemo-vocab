@@ -167,7 +167,7 @@
     </div>
     <audio id="audioPlayer" preload="none"></audio>
     <div class="hint">
-      顺序固定。词性后勾选表示已会；点释义框显示中文并朗读英文，再点隐藏；底部统一删除已勾选。<br/>
+      顺序固定。词性后勾选表示已会；点释义框显示中文并朗读英文，再点隐藏；底部「删除已勾选」会记入已会并自动上传云端（需已设同步码）。<br/>
       已删除的词可点「查看已会」翻看，也可点「恢复」重新加入待背。<br/>
       <b>跨设备同步：</b>设一个同步码 →「上传云端」；另一台电脑打开同一链接，输入相同同步码 →「拉取云端」。
     </div>
@@ -182,7 +182,6 @@
     <div class="left" id="footerInfo">本批已勾选 <b>0</b> 个</div>
     <div class="row">
       <button class="btn-danger" type="button" id="btnDelete">删除已勾选</button>
-      <button class="btn-ok" type="button" id="btnDeleteAndNext">删除并下一批</button>
     </div>
   </div>
 </div>
@@ -556,7 +555,7 @@ $("list").addEventListener("click", (e) => {
   }
 });
 
-function deleteChecked(goNext) {
+async function deleteChecked() {
   if (viewMode === "known") {
     alert("当前在「已会」列表。点「返回背词」后再删除。");
     return;
@@ -570,29 +569,13 @@ function deleteChecked(goNext) {
     if (!knownIds.includes(id)) knownIds.push(id);
   }
   savePersist();
-  if (goNext) {
-    const [from, to] = currentRange();
-    const size = to - from + 1;
-    const nextFrom = to + 1;
-    const nextTo = Math.min(ALL_WORDS.length, to + size);
-    if (nextFrom > ALL_WORDS.length) {
-      alert(`已删除 ${n} 个。已经到词库末尾了。`);
-      loadBatch();
-    } else {
-      $("fromId").value = nextFrom;
-      $("toId").value = nextTo;
-      alert(`已删除 ${n} 个，进入下一批 ${nextFrom}–${nextTo}`);
-      loadBatch();
-    }
-  } else {
-    alert(`已删除 ${n} 个`);
-    loadBatch();
-  }
+  alert(`已删除 ${n} 个`);
+  loadBatch();
+  await cloudUpload({ silent: true });
 }
 
 $("btnLoad").onclick = loadBatch;
-$("btnDelete").onclick = () => deleteChecked(false);
-$("btnDeleteAndNext").onclick = () => deleteChecked(true);
+$("btnDelete").onclick = () => deleteChecked();
 
 $("btnPrev").onclick = () => {
   const [from, to] = currentRange();
@@ -656,14 +639,14 @@ function sbHeaders(extra) {
   }, extra || {});
 }
 
-function getSyncCode() {
+function getSyncCode(silent) {
   const code = ($("syncCode").value || "").trim();
   if (!code) {
-    alert("请先设置同步码（自己想一个密码，两台设备要一样）");
+    if (!silent) alert("请先设置同步码（自己想一个密码，两台设备要一样）");
     return "";
   }
   if (code.length < 4) {
-    alert("同步码至少 4 位");
+    if (!silent) alert("同步码至少 4 位");
     return "";
   }
   return code;
@@ -673,8 +656,9 @@ function setSyncStatus(msg) {
   $("syncStatus").textContent = msg || "";
 }
 
-async function cloudUpload() {
-  const code = getSyncCode();
+async function cloudUpload(options) {
+  const silent = options && options.silent;
+  const code = getSyncCode(silent);
   if (!code) return;
   setSyncStatus("上传中…");
   const payload = buildPayload();
@@ -700,7 +684,9 @@ async function cloudUpload() {
     }
     savePersist();
     setSyncStatus("已上传 " + new Date().toLocaleTimeString());
-    alert("已上传到云端。另一台电脑用同一同步码点「拉取云端」即可。");
+    if (!silent) {
+      alert("已上传到云端。另一台电脑用同一同步码点「拉取云端」即可。");
+    }
   } catch (e) {
     setSyncStatus("上传失败");
     alert("上传失败：请确认已在 Supabase 执行建表 SQL。\n" + (e.message || e));
