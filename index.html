@@ -556,7 +556,7 @@ $("list").addEventListener("click", (e) => {
   }
 });
 
-function deleteChecked(goNext) {
+async function deleteChecked(goNext, autoUpload) {
   if (viewMode === "known") {
     alert("当前在「已会」列表。点「返回背词」后再删除。");
     return;
@@ -587,11 +587,12 @@ function deleteChecked(goNext) {
   } else {
     alert(`已删除 ${n} 个`);
     loadBatch();
+    if (autoUpload) await cloudUpload({ silent: true });
   }
 }
 
 $("btnLoad").onclick = loadBatch;
-$("btnDelete").onclick = () => deleteChecked(false);
+$("btnDelete").onclick = () => deleteChecked(false, true);
 $("btnDeleteAndNext").onclick = () => deleteChecked(true);
 
 $("btnPrev").onclick = () => {
@@ -656,14 +657,14 @@ function sbHeaders(extra) {
   }, extra || {});
 }
 
-function getSyncCode() {
+function getSyncCode(silent) {
   const code = ($("syncCode").value || "").trim();
   if (!code) {
-    alert("请先设置同步码（自己想一个密码，两台设备要一样）");
+    if (!silent) alert("请先设置同步码（自己想一个密码，两台设备要一样）");
     return "";
   }
   if (code.length < 4) {
-    alert("同步码至少 4 位");
+    if (!silent) alert("同步码至少 4 位");
     return "";
   }
   return code;
@@ -673,8 +674,9 @@ function setSyncStatus(msg) {
   $("syncStatus").textContent = msg || "";
 }
 
-async function cloudUpload() {
-  const code = getSyncCode();
+async function cloudUpload(options) {
+  const silent = options && options.silent;
+  const code = getSyncCode(silent);
   if (!code) return;
   setSyncStatus("上传中…");
   const payload = buildPayload();
@@ -700,7 +702,9 @@ async function cloudUpload() {
     }
     savePersist();
     setSyncStatus("已上传 " + new Date().toLocaleTimeString());
-    alert("已上传到云端。另一台电脑用同一同步码点「拉取云端」即可。");
+    if (!silent) {
+      alert("已上传到云端。另一台电脑用同一同步码点「拉取云端」即可。");
+    }
   } catch (e) {
     setSyncStatus("上传失败");
     alert("上传失败：请确认已在 Supabase 执行建表 SQL。\n" + (e.message || e));
