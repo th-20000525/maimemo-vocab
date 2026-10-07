@@ -240,13 +240,14 @@
       <label>同步码 <input id="syncCode" type="text" placeholder="自己设一个密码" style="width:160px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;" /></label>
       <button class="btn-primary" type="button" id="btnCloudUp">上传云端</button>
       <button class="btn-ghost" type="button" id="btnCloudDown">拉取云端</button>
+      <span id="localSaveStatus" style="font-size:0.78rem;color:var(--teal-dark);"></span>
       <span id="syncStatus" style="font-size:0.78rem;color:var(--muted);"></span>
     </div>
     <audio id="audioPlayer" preload="none"></audio>
     <div class="hint">
       顺序固定。词性后勾选表示已会；点整行显示中文并朗读英文，再点隐藏（勾选框仅切换已会）；底部「删除已勾选」会记入已会、自动进入下一批并上传云端（需已设同步码）。<br/>
       已删除的词可点「查看已会」翻看，也可点「恢复」重新加入待背。<br/>
-      <b>跨设备同步：</b>设一个同步码；打开页面会自动拉取云端；卡片「认识」或列表「删除已勾选」会同步上传。<br/>
+      <b>自动保存：</b>已会、复习日程、批次范围会<strong>自动写入本机</strong>；设同步码后约 1.5 秒<strong>自动上传云端</strong>（打开页面会自动拉取）。<br/>
       卡片：认识→已会；不熟悉→明天复习；熟悉→本批队尾、下次再背。快捷键：空格 · 1/2/3
     </div>
   </div>
@@ -398,7 +399,21 @@ function buildPayload() {
   };
 }
 
-function savePersist() {
+function setLocalSaveStatus() {
+  const el = $("localSaveStatus");
+  if (el) el.textContent = "本地已保存 " + new Date().toLocaleTimeString();
+}
+
+let _cloudTimer = null;
+function scheduleCloudSync() {
+  if (!bootDone) return;
+  if (!getSyncCode(true)) return;
+  clearTimeout(_cloudTimer);
+  _cloudTimer = setTimeout(() => cloudUpload({ silent: true }), 1500);
+}
+
+function savePersist(options) {
+  const skipCloud = options && options.skipCloud;
   const payload = buildPayload();
   payload.syncCode = ($("syncCode").value || "").trim();
   try {
@@ -416,9 +431,12 @@ function savePersist() {
       from: payload.from,
       to: payload.to,
       knownIds: payload.knownIds,
+      reviewCount: Object.keys(reviewSchedule).length,
     });
     localStorage.setItem(BACKUP_KEY, JSON.stringify(list.slice(0, 30)));
   } catch (e) {}
+  setLocalSaveStatus();
+  if (!skipCloud) scheduleCloudSync();
 }
 
 // 滚动/操作时自动保存（节流）
@@ -843,7 +861,7 @@ function cardAnswer(act) {
   cardRevealed = false;
   if (!cardQueue.length) {
     showCardDone();
-    cloudUpload({ silent: true });
+    savePersist();
     return;
   }
   if (cardIndex >= cardQueue.length) cardIndex = 0;
@@ -864,9 +882,9 @@ $("cardActions").addEventListener("click", (e) => {
 });
 $("btnCardNextBatch").onclick = () => {
   if (goToNextBatch()) {
+    savePersist();
     rebuildCardQueue();
     renderCard();
-    cloudUpload({ silent: true });
   } else {
     alert("已经到词库末尾了");
   }
@@ -909,6 +927,7 @@ async function deleteChecked() {
   const n = checked.size;
   for (const id of checked) {
     if (!knownIds.includes(id)) knownIds.push(id);
+    clearWordSchedule(id);
   }
   savePersist();
   const moved = goToNextBatch();
@@ -918,7 +937,6 @@ async function deleteChecked() {
     alert(`已删除 ${n} 个。已经到词库末尾了。`);
   }
   loadBatch();
-  await cloudUpload({ silent: true });
 }
 
 $("btnLoad").onclick = loadBatch;
@@ -1023,14 +1041,16 @@ async function cloudUpload(options) {
       const t = await res.text();
       throw new Error(t || ("HTTP " + res.status));
     }
-    savePersist();
-    setSyncStatus("已上传 " + new Date().toLocaleTimeString());
+    savePersist({ skipCloud: true });
+    setSyncStatus("云端已同步 " + new Date().toLocaleTimeString());
     if (!silent) {
       alert("已上传到云端。另一台电脑用同一同步码点「拉取云端」即可。");
     }
   } catch (e) {
-    setSyncStatus("上传失败");
-    alert("上传失败：请确认已在 Supabase 执行建表 SQL。\n" + (e.message || e));
+    setSyncStatus("云端同步失败");
+    if (!silent) {
+      alert("上传失败：请确认已在 Supabase 执行建表 SQL。\n" + (e.message || e));
+    }
   }
 }
 
@@ -1095,8 +1115,12 @@ $("btnCloudDown").onclick = () => cloudDownload();
 let bootDone = false;
 
 $("syncCode").addEventListener("change", () => {
-  savePersist();
+  savePersist({ skipCloud: true });
   if (bootDone) cloudDownload({ silent: true });
+});
+
+["fromId", "toId"].forEach((id) => {
+  $(id).addEventListener("change", () => scheduleSave());
 });
 
 
@@ -1108,10 +1132,10 @@ if (window.speechSynthesis) {
 }
 
 // init
-$("toId").value = Math.min(BATCH, ALL_WORDS.length);
 $("toId").max = ALL_WORDS.length;
 $("fromId").max = ALL_WORDS.length;
 loadPersist();
+if (!$("fromId").value) $("fromId").value = 1;
 // 若没有记录，默认 1-1000
 if (!$("toId").value) $("toId").value = Math.min(BATCH, ALL_WORDS.length);
 
