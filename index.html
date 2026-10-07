@@ -213,7 +213,7 @@
   <header>
     <div>
       <h1>背单词 · 墨墨卡片</h1>
-      <div class="sub" id="subTitle">卡片模式：看英文想释义，点卡片翻转 · 认识/模糊/不认识</div>
+      <div class="sub" id="subTitle">卡片模式：认识=已会 · 不熟悉=明天复习 · 熟悉=稍后再背</div>
     </div>
     <div class="stats" id="stats"></div>
   </header>
@@ -247,7 +247,7 @@
       顺序固定。词性后勾选表示已会；点整行显示中文并朗读英文，再点隐藏（勾选框仅切换已会）；底部「删除已勾选」会记入已会、自动进入下一批并上传云端（需已设同步码）。<br/>
       已删除的词可点「查看已会」翻看，也可点「恢复」重新加入待背。<br/>
       <b>跨设备同步：</b>设一个同步码；打开页面会自动拉取云端；卡片「认识」或列表「删除已勾选」会同步上传。<br/>
-      卡片快捷键：空格翻转 · 1 不认识 · 2 模糊 · 3 认识
+      卡片：认识→已会；不熟悉→明天复习；熟悉→本批队尾、下次再背。快捷键：空格 · 1/2/3
     </div>
   </div>
 
@@ -269,7 +269,7 @@
     </div>
     <div class="card-actions" id="cardActions" hidden>
       <button type="button" class="act-forgot" data-card-act="forgot">不认识</button>
-      <button type="button" class="act-vague" data-card-act="vague">模糊</button>
+      <button type="button" class="act-vague" data-card-act="vague">熟悉</button>
       <button type="button" class="act-know" data-card-act="know">认识</button>
     </div>
     <div class="card-done" id="cardDone" hidden>
@@ -315,6 +315,46 @@ let cardQueue = [];
 let cardIndex = 0;
 let cardSessionTotal = 0;
 let cardRevealed = false;
+/** 单词 id → 最早出现日期 YYYY-MM-DD（「不熟悉」设为明天） */
+let reviewSchedule = {};
+
+function todayKey() {
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+function addDaysToKey(dateKey, days) {
+  const [y, mo, da] = dateKey.split("-").map(Number);
+  const t = new Date(y, mo - 1, da + days);
+  const m = String(t.getMonth() + 1).padStart(2, "0");
+  const day = String(t.getDate()).padStart(2, "0");
+  return `${t.getFullYear()}-${m}-${day}`;
+}
+
+function clearWordSchedule(id) {
+  if (reviewSchedule[id] != null) delete reviewSchedule[id];
+}
+
+function isWordAvailableToday(id) {
+  if (knownIds.includes(id)) return false;
+  const due = reviewSchedule[id];
+  if (!due) return true;
+  return due <= todayKey();
+}
+
+function idsDueForReview() {
+  return Object.keys(reviewSchedule)
+    .map(Number)
+    .filter((id) => !knownIds.includes(id) && reviewSchedule[id] <= todayKey())
+    .sort((a, b) => {
+      const da = reviewSchedule[a];
+      const db = reviewSchedule[b];
+      if (da !== db) return da < db ? -1 : 1;
+      return a - b;
+    });
+}
 
 function loadPersist() {
   try {
@@ -324,6 +364,13 @@ function loadPersist() {
     if (data.to) $("toId").value = data.to;
     if (data.syncCode) $("syncCode").value = data.syncCode;
     if (data.uiMode === "list" || data.uiMode === "card") uiMode = data.uiMode;
+    if (data.reviewSchedule && typeof data.reviewSchedule === "object") {
+      reviewSchedule = {};
+      for (const [k, v] of Object.entries(data.reviewSchedule)) {
+        const id = Number(k);
+        if (id && typeof v === "string") reviewSchedule[id] = v;
+      }
+    }
     if (Array.isArray(data.revealedIds)) savedRevealedIds = data.revealedIds.map(Number);
     if (data.scrollY != null) {
       setTimeout(() => window.scrollTo(0, data.scrollY || 0), 80);
@@ -345,6 +392,7 @@ function buildPayload() {
     scrollY: Math.round(window.scrollY || 0),
     viewMode,
     uiMode,
+    reviewSchedule: Object.assign({}, reviewSchedule),
     totalWords: ALL_WORDS.length,
     knownCount: knownIds.length,
   };
@@ -387,7 +435,9 @@ setInterval(() => savePersist(), 15000); // 每 15 秒兜底保存一次
 
 function updateStats() {
   const modeTip = viewMode === "known" ? "（正在查看已会）" : "";
-  $("stats").innerHTML = `已会 <b>${knownIds.length}</b> / ${ALL_WORDS.length}${modeTip}`;
+  const dueN = idsDueForReview().length;
+  const dueTip = dueN && viewMode !== "known" ? ` · 今日复习 <b>${dueN}</b>` : "";
+  $("stats").innerHTML = `已会 <b>${knownIds.length}</b> / ${ALL_WORDS.length}${dueTip}${modeTip}`;
   if (viewMode === "known") {
     $("footerInfo").innerHTML = `已会词 <b>${knownIds.length}</b> · 可点「恢复」重新背`;
   } else {
@@ -409,7 +459,7 @@ function loadBatch() {
   $("fromId").value = from;
   $("toId").value = to;
   batchIds = ALL_WORDS
-    .filter((w) => w.id >= from && w.id <= to && !knownIds.includes(w.id))
+    .filter((w) => w.id >= from && w.id <= to && isWordAvailableToday(w.id))
     .map((w) => w.id);
   batchIds.sort((a, b) => a - b);
   checked = new Set();
@@ -630,6 +680,7 @@ $("list").addEventListener("click", (e) => {
   if (viewMode === "known") {
     if (e.target.matches('[data-act="restore"]') || e.target.closest('[data-act="restore"]')) {
       knownIds = knownIds.filter((x) => x !== id);
+      clearWordSchedule(id);
       savePersist();
       showKnownList();
       return;
@@ -667,13 +718,19 @@ $("list").addEventListener("click", (e) => {
 function idsInCurrentBatch() {
   const [from, to] = currentRange();
   return ALL_WORDS
-    .filter((w) => w.id >= from && w.id <= to && !knownIds.includes(w.id))
+    .filter((w) => w.id >= from && w.id <= to && isWordAvailableToday(w.id))
     .map((w) => w.id)
     .sort((a, b) => a - b);
 }
 
 function rebuildCardQueue() {
-  cardQueue = idsInCurrentBatch();
+  const due = idsDueForReview();
+  const batch = idsInCurrentBatch();
+  const merged = due.slice();
+  for (const id of batch) {
+    if (!merged.includes(id)) merged.push(id);
+  }
+  cardQueue = merged;
   cardIndex = 0;
   cardSessionTotal = cardQueue.length;
   cardRevealed = false;
@@ -686,7 +743,7 @@ function syncUiChrome() {
   $("btnModeCard").classList.toggle("mode-active", card);
   $("btnModeList").classList.toggle("mode-active", !card);
   $("subTitle").textContent = card
-    ? "卡片模式：看英文想释义，点卡片翻转 · 认识/模糊/不认识"
+    ? "卡片模式：认识=已会 · 不熟悉=明天复习 · 熟悉=稍后再背"
     : "列表模式：一次约 100 个 · 点行显示中文 · 勾选已会 · 删除进入下一批";
 }
 
@@ -768,12 +825,20 @@ function cardAnswer(act) {
   const id = cardQueue[cardIndex];
   if (act === "know") {
     if (id && !knownIds.includes(id)) knownIds.push(id);
+    clearWordSchedule(id);
+    cardQueue.splice(cardIndex, 1);
+    savePersist();
+    updateStats();
+  } else if (act === "forgot") {
+    if (id) reviewSchedule[id] = addDaysToKey(todayKey(), 1);
     cardQueue.splice(cardIndex, 1);
     savePersist();
     updateStats();
   } else {
+    if (id) clearWordSchedule(id);
     const picked = cardQueue.splice(cardIndex, 1)[0];
     if (picked != null) cardQueue.push(picked);
+    savePersist();
   }
   cardRevealed = false;
   if (!cardQueue.length) {
@@ -897,6 +962,7 @@ $("btnCheckAll").onclick = () => {
 $("btnResetKnown").onclick = () => {
   if (!confirm("确定清空全部已会记录？")) return;
   knownIds = [];
+  reviewSchedule = {};
   savePersist();
   loadBatch();
 };
@@ -994,6 +1060,15 @@ async function cloudDownload(options) {
     }
     const data = rows[0].payload || {};
     if (Array.isArray(data.knownIds)) knownIds = data.knownIds.map(Number);
+    if (data.reviewSchedule && typeof data.reviewSchedule === "object") {
+      reviewSchedule = {};
+      for (const [k, v] of Object.entries(data.reviewSchedule)) {
+        const id = Number(k);
+        if (id && typeof v === "string") reviewSchedule[id] = v;
+      }
+    } else {
+      reviewSchedule = {};
+    }
     if (Array.isArray(data.revealedIds)) savedRevealedIds = data.revealedIds.map(Number);
     if (data.from) $("fromId").value = data.from;
     if (data.to) $("toId").value = data.to;
