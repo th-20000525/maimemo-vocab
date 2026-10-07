@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>背单词 · 批量核对</title>
+<title>背单词 · 墨墨卡片</title>
 <style>
   :root {
     --bg: #f4f7f6;
@@ -135,17 +135,93 @@
     .check { grid-area: check; }
     .meaning { grid-area: mean; margin-top: 2px; }
   }
+
+  .mode-tabs {
+    display: flex; gap: 6px; margin-bottom: 8px;
+  }
+  .mode-tabs button {
+    flex: 1; max-width: 200px; padding: 8px 12px; border-radius: 999px;
+    background: #fff; border: 1px solid var(--line); color: var(--muted);
+  }
+  .mode-tabs button.mode-active {
+    background: linear-gradient(135deg, #3ecfb4, #2a9a85);
+    border-color: transparent; color: #fff; box-shadow: 0 4px 14px rgba(42,154,133,0.35);
+  }
+
+  .card-mode { margin-bottom: 12px; }
+  .card-top {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px; font-size: 0.85rem; color: var(--muted);
+  }
+  .card-top b { color: var(--teal-dark); font-size: 1rem; }
+  .card-progress-track {
+    height: 6px; background: #e3efeb; border-radius: 999px; overflow: hidden; margin-bottom: 12px;
+  }
+  .card-progress-fill {
+    height: 100%; width: 0%; background: linear-gradient(90deg, #36b59d, #2a9a85);
+    border-radius: 999px; transition: width 0.25s ease;
+  }
+  .flash-card {
+    background: var(--card);
+    border-radius: 18px;
+    border: 1px solid var(--line);
+    box-shadow: 0 12px 40px rgba(42, 154, 133, 0.12);
+    min-height: 280px;
+    padding: 28px 20px 20px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; cursor: pointer; user-select: none;
+    position: relative;
+  }
+  .flash-card .card-num {
+    position: absolute; top: 12px; left: 14px; font-size: 0.75rem; color: var(--muted); font-weight: 700;
+  }
+  .flash-card .card-word {
+    font-size: clamp(1.8rem, 6vw, 2.4rem); font-weight: 800; color: var(--teal-dark); line-height: 1.15;
+  }
+  .flash-card .card-phonetic { margin-top: 8px; color: var(--muted); font-size: 0.95rem; }
+  .flash-card .card-pos {
+    margin-top: 10px; display: inline-block; padding: 2px 10px; border-radius: 999px;
+    background: #e8f6f2; color: var(--teal-dark); font-size: 0.8rem; font-weight: 600;
+  }
+  .flash-card .card-hint { margin-top: 18px; font-size: 0.82rem; color: var(--muted); }
+  .flash-card .card-meaning {
+    width: 100%; text-align: left; margin-top: 8px; padding: 12px 14px;
+    border-radius: 12px; background: #fff8ec; border: 1px solid #f0d2a0;
+    font-size: 0.92rem; line-height: 1.45;
+  }
+  .card-actions {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 14px;
+  }
+  .card-actions button {
+    padding: 12px 8px; border-radius: 12px; font-size: 0.85rem; border: 0;
+  }
+  .act-forgot { background: #fdecea; color: #c0392b; }
+  .act-vague { background: #fff6e5; color: #b8860b; }
+  .act-know { background: #e8f6f2; color: #1a7a66; }
+  .card-done {
+    text-align: center; padding: 32px 16px; background: var(--card);
+    border: 1px dashed var(--line); border-radius: 14px; color: var(--muted);
+  }
+  .card-done b { display: block; color: var(--teal-dark); font-size: 1.05rem; margin-bottom: 8px; }
+  .list-only { }
+  body.card-active .list-only { display: none !important; }
+  body.card-active .footer-bar { display: none !important; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <div>
-      <h1>背单词 · 批量核对</h1>
-      <div class="sub">按序号顺序一次约 100 个 · 点开中文核对 · 勾选已会 · 最后统一删除</div>
+      <h1>背单词 · 墨墨卡片</h1>
+      <div class="sub" id="subTitle">卡片模式：看英文想释义，点卡片翻转 · 认识/模糊/不认识</div>
     </div>
     <div class="stats" id="stats"></div>
   </header>
+
+  <div class="mode-tabs">
+    <button type="button" id="btnModeCard" class="mode-active">卡片背词</button>
+    <button type="button" id="btnModeList">列表核对</button>
+  </div>
 
   <div class="panel">
     <div class="row">
@@ -154,9 +230,9 @@
       <button class="btn-ghost" type="button" id="btnPrev">上一批</button>
       <button class="btn-ghost" type="button" id="btnNext">下一批</button>
       <button class="btn-primary" type="button" id="btnLoad">加载这批</button>
-      <button class="btn-ghost" type="button" id="btnRevealAll">全部显示中文</button>
-      <button class="btn-ghost" type="button" id="btnHideAll">全部隐藏中文</button>
-      <button class="btn-ghost" type="button" id="btnCheckAll">全选已会</button>
+      <button class="btn-ghost list-only" type="button" id="btnRevealAll">全部显示中文</button>
+      <button class="btn-ghost list-only" type="button" id="btnHideAll">全部隐藏中文</button>
+      <button class="btn-ghost list-only" type="button" id="btnCheckAll">全选已会</button>
       <button class="btn-ghost" type="button" id="btnViewKnown">查看已会</button>
       <button class="btn-ghost" type="button" id="btnResetKnown">清空已会记录</button>
     </div>
@@ -170,12 +246,44 @@
     <div class="hint">
       顺序固定。词性后勾选表示已会；点整行显示中文并朗读英文，再点隐藏（勾选框仅切换已会）；底部「删除已勾选」会记入已会、自动进入下一批并上传云端（需已设同步码）。<br/>
       已删除的词可点「查看已会」翻看，也可点「恢复」重新加入待背。<br/>
-      <b>跨设备同步：</b>设一个同步码；打开页面会自动拉取云端（也可手动点「拉取云端」）；删除已勾选会自动上传。
+      <b>跨设备同步：</b>设一个同步码；打开页面会自动拉取云端；卡片「认识」或列表「删除已勾选」会同步上传。<br/>
+      卡片快捷键：空格翻转 · 1 不认识 · 2 模糊 · 3 认识
     </div>
   </div>
 
-  <div class="list" id="list"></div>
-  <div class="empty" id="empty" style="display:none;">这批没有可背的词（可能都已删除）。换一批或点「查看已会」。</div>
+  <div id="cardModeBlock" class="card-mode">
+    <div class="card-top">
+      <span>本批进度 <b id="cardProgress">0 / 0</b></span>
+      <button type="button" class="btn-ghost" id="btnCardReplay" style="padding:4px 10px;">重读</button>
+    </div>
+    <div class="card-progress-track"><div class="card-progress-fill" id="cardProgressFill"></div></div>
+    <div class="flash-card" id="cardTap">
+      <span class="card-num" id="cardNum">#1</span>
+      <div id="cardFront">
+        <div class="card-word" id="cardWord">word</div>
+        <div class="card-phonetic" id="cardPhonetic"></div>
+        <div class="card-pos" id="cardPos"></div>
+        <div class="card-hint" id="cardHint">点击卡片 · 显示释义</div>
+      </div>
+      <div class="card-meaning" id="cardMeaning" hidden></div>
+    </div>
+    <div class="card-actions" id="cardActions" hidden>
+      <button type="button" class="act-forgot" data-card-act="forgot">不认识</button>
+      <button type="button" class="act-vague" data-card-act="vague">模糊</button>
+      <button type="button" class="act-know" data-card-act="know">认识</button>
+    </div>
+    <div class="card-done" id="cardDone" hidden>
+      <b>本批背完了</b>
+      可进入下一批继续，或切到「列表核对」批量勾选。
+      <div class="row" style="justify-content:center;margin-top:12px;">
+        <button type="button" class="btn-primary" id="btnCardNextBatch">下一批</button>
+        <button type="button" class="btn-ghost" id="btnCardReload">重新背本批</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="list list-only" id="list"></div>
+  <div class="empty list-only" id="empty" style="display:none;">这批没有可背的词（可能都已删除）。换一批或点「查看已会」。</div>
 </div>
 
 <div class="footer-bar">
@@ -202,6 +310,11 @@ let checked = new Set();
 let revealed = new Set();
 let savedRevealedIds = [];
 let viewMode = "study"; // study | known
+let uiMode = "card"; // card | list — 默认卡片背词（墨墨风格）
+let cardQueue = [];
+let cardIndex = 0;
+let cardSessionTotal = 0;
+let cardRevealed = false;
 
 function loadPersist() {
   try {
@@ -210,6 +323,7 @@ function loadPersist() {
     if (data.from) $("fromId").value = data.from;
     if (data.to) $("toId").value = data.to;
     if (data.syncCode) $("syncCode").value = data.syncCode;
+    if (data.uiMode === "list" || data.uiMode === "card") uiMode = data.uiMode;
     if (Array.isArray(data.revealedIds)) savedRevealedIds = data.revealedIds.map(Number);
     if (data.scrollY != null) {
       setTimeout(() => window.scrollTo(0, data.scrollY || 0), 80);
@@ -230,6 +344,7 @@ function buildPayload() {
     to: +$("toId").value,
     scrollY: Math.round(window.scrollY || 0),
     viewMode,
+    uiMode,
     totalWords: ALL_WORDS.length,
     knownCount: knownIds.length,
   };
@@ -302,6 +417,10 @@ function loadBatch() {
   renderList();
   savePersist();
   updateStats();
+  if (uiMode === "card") {
+    rebuildCardQueue();
+    renderCard();
+  }
 }
 
 function showKnownList() {
@@ -545,6 +664,163 @@ $("list").addEventListener("click", (e) => {
   toggleRowMeaning(item, id, w, true);
 });
 
+function idsInCurrentBatch() {
+  const [from, to] = currentRange();
+  return ALL_WORDS
+    .filter((w) => w.id >= from && w.id <= to && !knownIds.includes(w.id))
+    .map((w) => w.id)
+    .sort((a, b) => a - b);
+}
+
+function rebuildCardQueue() {
+  cardQueue = idsInCurrentBatch();
+  cardIndex = 0;
+  cardSessionTotal = cardQueue.length;
+  cardRevealed = false;
+}
+
+function syncUiChrome() {
+  const card = uiMode === "card";
+  document.body.classList.toggle("card-active", card);
+  $("cardModeBlock").hidden = !card;
+  $("btnModeCard").classList.toggle("mode-active", card);
+  $("btnModeList").classList.toggle("mode-active", !card);
+  $("subTitle").textContent = card
+    ? "卡片模式：看英文想释义，点卡片翻转 · 认识/模糊/不认识"
+    : "列表模式：一次约 100 个 · 点行显示中文 · 勾选已会 · 删除进入下一批";
+}
+
+function setUiMode(mode) {
+  uiMode = mode === "list" ? "list" : "card";
+  syncUiChrome();
+  if (uiMode === "card") {
+    if (viewMode === "known") {
+      viewMode = "study";
+      $("btnViewKnown").textContent = "查看已会";
+    }
+    rebuildCardQueue();
+    renderCard();
+  } else {
+    $("cardDone").hidden = true;
+    loadBatch();
+  }
+  scheduleSave();
+}
+
+function showCardDone() {
+  $("cardTap").hidden = true;
+  $("cardActions").hidden = true;
+  $("cardDone").hidden = false;
+  $("cardProgress").textContent = "本批完成";
+  $("cardProgressFill").style.width = "100%";
+}
+
+function renderCard() {
+  $("cardDone").hidden = true;
+  $("cardTap").hidden = false;
+  $("cardActions").hidden = true;
+  $("cardMeaning").hidden = true;
+  $("cardHint").hidden = false;
+  cardRevealed = false;
+
+  if (!cardQueue.length) {
+    showCardDone();
+    return;
+  }
+
+  if (cardIndex >= cardQueue.length) cardIndex = 0;
+  const id = cardQueue[cardIndex];
+  const w = wordById(id);
+  if (!w) {
+    cardQueue.splice(cardIndex, 1);
+    renderCard();
+    return;
+  }
+
+  const done = cardSessionTotal - cardQueue.length;
+  const pct = cardSessionTotal ? Math.round((done / cardSessionTotal) * 100) : 0;
+  $("cardProgress").textContent = `${done + 1} / ${cardSessionTotal}`;
+  $("cardProgressFill").style.width = pct + "%";
+  $("cardNum").textContent = "#" + w.id;
+  $("cardWord").textContent = w.word;
+  $("cardPhonetic").textContent = w.phonetic || "";
+  $("cardPos").textContent = w.pos || "—";
+  $("cardMeaning").innerHTML = formatMeaningHtml(w.meaning);
+  speakWord(w.word);
+}
+
+function onCardTap() {
+  if (!cardQueue.length || cardRevealed) return;
+  cardRevealed = true;
+  $("cardHint").hidden = true;
+  $("cardMeaning").hidden = false;
+  $("cardActions").hidden = false;
+  const w = wordById(cardQueue[cardIndex]);
+  if (w) speakWord(w.word);
+}
+
+function cardAnswer(act) {
+  if (!cardQueue.length) return;
+  if (!cardRevealed) {
+    onCardTap();
+    return;
+  }
+  const id = cardQueue[cardIndex];
+  if (act === "know") {
+    if (id && !knownIds.includes(id)) knownIds.push(id);
+    cardQueue.splice(cardIndex, 1);
+    savePersist();
+    updateStats();
+  } else {
+    const picked = cardQueue.splice(cardIndex, 1)[0];
+    if (picked != null) cardQueue.push(picked);
+  }
+  cardRevealed = false;
+  if (!cardQueue.length) {
+    showCardDone();
+    cloudUpload({ silent: true });
+    return;
+  }
+  if (cardIndex >= cardQueue.length) cardIndex = 0;
+  renderCard();
+}
+
+$("btnModeCard").onclick = () => setUiMode("card");
+$("btnModeList").onclick = () => setUiMode("list");
+$("cardTap").onclick = () => onCardTap();
+$("btnCardReplay").onclick = () => {
+  const w = wordById(cardQueue[cardIndex]);
+  if (w) speakWord(w.word);
+};
+$("cardActions").addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-card-act]");
+  if (!btn) return;
+  cardAnswer(btn.getAttribute("data-card-act"));
+});
+$("btnCardNextBatch").onclick = () => {
+  if (goToNextBatch()) {
+    rebuildCardQueue();
+    renderCard();
+    cloudUpload({ silent: true });
+  } else {
+    alert("已经到词库末尾了");
+  }
+};
+$("btnCardReload").onclick = () => {
+  rebuildCardQueue();
+  renderCard();
+};
+
+document.addEventListener("keydown", (e) => {
+  if (uiMode !== "card" || e.target.matches("input, textarea")) return;
+  if (e.code === "Space") {
+    e.preventDefault();
+    onCardTap();
+  } else if (e.key === "1") cardAnswer("forgot");
+  else if (e.key === "2") cardAnswer("vague");
+  else if (e.key === "3") cardAnswer("know");
+});
+
 function goToNextBatch() {
   const [from, to] = currentRange();
   const size = Math.max(1, to - from + 1);
@@ -773,6 +1049,11 @@ if (!$("toId").value) $("toId").value = Math.min(BATCH, ALL_WORDS.length);
     loadBatch();
   }
   bootDone = true;
+  syncUiChrome();
+  if (uiMode === "card") {
+    rebuildCardQueue();
+    renderCard();
+  }
 })();
 </script>
 </body>
