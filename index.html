@@ -533,7 +533,7 @@ function loadBatch() {
     .filter((w) => w.id >= from && w.id <= to && isWordAvailableToday(w.id))
     .map((w) => w.id);
   batchIds.sort((a, b) => a - b);
-  familiarDeferred = new Set();
+  familiarDeferred = new Set([...familiarDeferred].filter((id) => id >= from && id <= to));
   familiarPassActive = false;
   checked = new Set();
   revealed = new Set();
@@ -889,6 +889,7 @@ function renderCard() {
   $("cardHint").hidden = false;
   cardRevealed = false;
 
+  if (!cardQueue.length) tryStartFamiliarPass();
   if (!cardQueue.length) {
     showCardDone();
     updateDailyGoalUI();
