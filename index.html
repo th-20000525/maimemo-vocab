@@ -190,12 +190,11 @@
     font-size: 0.92rem; line-height: 1.45;
   }
   .card-actions {
-    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 14px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px;
   }
   .card-actions button {
     padding: 12px 8px; border-radius: 12px; font-size: 0.85rem; border: 0;
   }
-  .act-forgot { background: #fdecea; color: #c0392b; }
   .act-vague { background: #fff6e5; color: #b8860b; }
   .act-know { background: #e8f6f2; color: #1a7a66; }
   .card-done {
@@ -213,7 +212,7 @@
   <header>
     <div>
       <h1>背单词 · 墨墨卡片</h1>
-      <div class="sub" id="subTitle">卡片模式：认识=已会 · 不熟悉=明天复习 · 熟悉=稍后再背</div>
+      <div class="sub" id="subTitle">卡片模式：认识=已会不再复习 · 熟悉=本批过完再按顺序复习</div>
     </div>
     <div class="stats" id="stats"></div>
   </header>
@@ -248,7 +247,7 @@
       顺序固定。词性后勾选表示已会；点整行显示中文并朗读英文，再点隐藏（勾选框仅切换已会）；底部「删除已勾选」会记入已会、自动进入下一批并上传云端（需已设同步码）。<br/>
       已删除的词可点「查看已会」翻看，也可点「恢复」重新加入待背。<br/>
       <b>自动保存：</b>已会、复习日程、批次范围会<strong>自动写入本机</strong>；设同步码后约 1.5 秒<strong>自动上传云端</strong>（打开页面会自动拉取）。<br/>
-      卡片：认识→已会；不熟悉→明天复习；熟悉→等本批<strong>其它词都过完</strong>再轮到。每天共刷 <strong>1000</strong> 词（三种按钮都算）。快捷键：空格 · 1/2/3
+      卡片：认识→已会，不再复习；熟悉→等本批<strong>其它词都过完</strong>，再按顺序复习。每天共刷 <strong>1000</strong> 词（两个按钮都算）。快捷键：空格显示释义 · 1 熟悉 · 2 认识
     </div>
   </div>
 
@@ -271,7 +270,6 @@
       <div class="card-meaning" id="cardMeaning" hidden></div>
     </div>
     <div class="card-actions" id="cardActions" hidden>
-      <button type="button" class="act-forgot" data-card-act="forgot">不认识</button>
       <button type="button" class="act-vague" data-card-act="vague">熟悉</button>
       <button type="button" class="act-know" data-card-act="know">认识</button>
     </div>
@@ -303,7 +301,7 @@ const ALL_WORDS = [{"id": 1, "word": "abandon", "phonetic": "[aˈbændan]", "pos
 const STORAGE_KEY = "vocab_batch_v1";
 const BACKUP_KEY = "vocab_batch_backups_v1";
 const BATCH = 1000; // 每批序号宽度
-const DAILY_GOAL = 1000; // 每天刷词上限（认识/不熟悉/熟悉都算）
+const DAILY_GOAL = 1000; // 每天刷词上限（认识/熟悉都算）
 const SB_URL = "https://drtkvfcjbwvqpgolkwur.supabase.co";
 const SB_KEY = "sb_publishable_GFoECb3NXu0jHUUP3krFjQ_JgLLeUxH";
 const $ = (id) => document.getElementById(id);
@@ -823,9 +821,9 @@ function rebuildCardQueue() {
 function tryStartFamiliarPass() {
   if (cardQueue.length) return false;
   if (getDailyLearnedCount() >= DAILY_GOAL) return false;
-  const deferred = [...familiarDeferred].filter(
-    (id) => !knownIds.includes(id) && isWordAvailableToday(id)
-  );
+  const deferred = [...familiarDeferred]
+    .filter((id) => !knownIds.includes(id) && isWordAvailableToday(id))
+    .sort((a, b) => a - b);
   if (!deferred.length) return false;
   familiarDeferred.clear();
   cardQueue = deferred;
@@ -843,7 +841,7 @@ function syncUiChrome() {
   $("btnModeCard").classList.toggle("mode-active", card);
   $("btnModeList").classList.toggle("mode-active", !card);
   $("subTitle").textContent = card
-    ? "卡片模式：认识=已会 · 不熟悉=明天复习 · 熟悉=本批过完再背"
+    ? "卡片模式：认识=已会不再复习 · 熟悉=本批过完再按顺序复习"
     : "列表模式：每批约 1000 词 · 点行显示中文 · 勾选已会 · 删除进入下一批";
 }
 
@@ -948,14 +946,6 @@ function cardAnswer(act) {
     cardQueue.splice(cardIndex, 1);
     savePersist();
     updateStats();
-  } else if (act === "forgot") {
-    if (id) {
-      familiarDeferred.delete(id);
-      reviewSchedule[id] = addDaysToKey(todayKey(), 1);
-    }
-    cardQueue.splice(cardIndex, 1);
-    savePersist();
-    updateStats();
   } else {
     if (id) clearWordSchedule(id);
     if (familiarPassActive) {
@@ -1013,9 +1003,8 @@ document.addEventListener("keydown", (e) => {
   if (e.code === "Space") {
     e.preventDefault();
     onCardTap();
-  } else if (e.key === "1") cardAnswer("forgot");
-  else if (e.key === "2") cardAnswer("vague");
-  else if (e.key === "3") cardAnswer("know");
+  } else if (e.key === "1") cardAnswer("vague");
+  else if (e.key === "2") cardAnswer("know");
 });
 
 function goToNextBatch() {
