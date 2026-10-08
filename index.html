@@ -97,12 +97,12 @@
     border-style: solid; border-color: #f0d2a0; background: #fff8ec; color: var(--text);
     flex-direction: column; align-items: flex-start; gap: 2px;
   }
-  .meaning .pos-line { display: block; line-height: 1.35; }
-  .meaning .pos-v { color: #d64545; font-weight: 650; }      /* 动 红 */
-  .meaning .pos-n { color: #1f9d55; font-weight: 650; }      /* 名 绿 */
-  .meaning .pos-adj { color: #c99700; font-weight: 650; }    /* 形 黄 */
-  .meaning .pos-adv { color: #6b5ce7; font-weight: 650; }    /* 副 */
-  .meaning .pos-other { color: var(--text); }
+  .meaning .pos-line, .card-meaning .pos-line { display: block; line-height: 1.35; }
+  .meaning .pos-v, .card-meaning .pos-v { color: #d64545; font-weight: 650; }      /* 动 红 */
+  .meaning .pos-n, .card-meaning .pos-n { color: #1f9d55; font-weight: 650; }      /* 名 绿 */
+  .meaning .pos-adj, .card-meaning .pos-adj { color: #c99700; font-weight: 650; }  /* 形 黄 */
+  .meaning .pos-adv, .card-meaning .pos-adv { color: #6b5ce7; font-weight: 650; }  /* 副 */
+  .meaning .pos-other, .card-meaning .pos-other { color: var(--text); }
   .check {
     display: flex; align-items: center; justify-content: center;
   }
@@ -685,11 +685,15 @@ function meaningPosOrder(tag) {
 
 /** 按 [形] → [动] → [名] 排序换行，并上色 */
 function formatMeaningHtml(meaning) {
-  const raw = String(meaning || "").replace(/\s*[；;]\s*(?=\[)/g, "\n").trim();
+  const raw = String(meaning || "").trim();
   if (!raw) return "";
-  let parts = raw.split(/\n+/).map((s) => s.trim()).filter(Boolean);
-  if (parts.length === 1 && /\[[^\]]+\].*\[[^\]]+\]/.test(parts[0])) {
-    parts = parts[0].split(/(?=\[)/).map((s) => s.trim()).filter(Boolean);
+  const parts = [];
+  for (const piece of raw.split(/\n+|(?=\[[^\]]{1,6}\])/)) {
+    const s = piece.trim().replace(/^[；;，,]+|[；;，,]+$/g, "").trim();
+    if (!s) continue;
+    const prev = parts[parts.length - 1];
+    if (prev && /^\[[^\]]+\]$/.test(prev)) parts[parts.length - 1] = prev + " " + s;
+    else parts.push(s);
   }
   const parsed = parts.map((line, idx) => {
     const m = line.match(/^\[([^\]]+)\]\s*(.*)$/);
