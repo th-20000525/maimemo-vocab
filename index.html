@@ -255,7 +255,11 @@
     <div class="card-top">
       <span id="dailyGoalStatus">今日已刷 <b>0</b> / 1000</span>
       <span>第 <b id="cardRound">1</b> 轮 · <b id="cardProgress">—</b></span>
-      <button type="button" class="btn-ghost" id="btnCardReplay" style="padding:4px 10px;">重读</button>
+      <span class="row">
+        <label>从 # <input id="cycleJump" type="number" min="1" placeholder="编号" /></label>
+        <button type="button" class="btn-ghost" id="btnCycleJump" style="padding:4px 10px;">开始</button>
+        <button type="button" class="btn-ghost" id="btnCardReplay" style="padding:4px 10px;">重读</button>
+      </span>
     </div>
     <div class="card-progress-track" title="今日 1000 词目标"><div class="card-progress-fill" id="dailyGoalFill" style="opacity:0.85"></div></div>
     <div class="card-progress-track" title="本轮整本进度"><div class="card-progress-fill" id="cardProgressFill"></div></div>
@@ -922,6 +926,17 @@ $("cardTap").onclick = () => onCardTap();
 $("btnCardReplay").onclick = () => {
   const w = wordById(cardCurrentId);
   if (w) speakWord(w.word);
+};
+$("btnCycleJump").onclick = () => {
+  const n = parseInt($("cycleJump").value, 10);
+  if (!(n >= 1 && n <= ALL_WORDS.length)) {
+    alert(`请输入 1–${ALL_WORDS.length} 之间的编号`);
+    return;
+  }
+  cyclePos = n - 1;
+  $("cycleJump").value = "";
+  renderCard();
+  savePersist();
 };
 $("cardActions").addEventListener("click", (e) => {
   const btn = e.target.closest("[data-card-act]");
