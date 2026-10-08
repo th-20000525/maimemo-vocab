@@ -248,13 +248,13 @@
       顺序固定。词性后勾选表示已会；点整行显示中文并朗读英文，再点隐藏（勾选框仅切换已会）；底部「删除已勾选」会记入已会、自动进入下一批并上传云端（需已设同步码）。<br/>
       已删除的词可点「查看已会」翻看，也可点「恢复」重新加入待背。<br/>
       <b>自动保存：</b>已会、复习日程、批次范围会<strong>自动写入本机</strong>；设同步码后约 1.5 秒<strong>自动上传云端</strong>（打开页面会自动拉取）。<br/>
-      卡片：认识→已会；不熟悉→明天复习；熟悉→本批队尾、下次再背。快捷键：空格 · 1/2/3
+      卡片：认识→已会；不熟悉→明天复习；熟悉→等本批<strong>其它词都过完</strong>再轮到。每天共刷 <strong>1000</strong> 词（三种按钮都算）。快捷键：空格 · 1/2/3
     </div>
   </div>
 
   <div id="cardModeBlock" class="card-mode">
     <div class="card-top">
-      <span id="dailyGoalStatus">今日已学 <b>0</b> / 1000</span>
+      <span id="dailyGoalStatus">今日已刷 <b>0</b> / 1000</span>
       <span>本批卡片 <b id="cardProgress">0 / 0</b></span>
       <button type="button" class="btn-ghost" id="btnCardReplay" style="padding:4px 10px;">重读</button>
     </div>
@@ -303,7 +303,7 @@ const ALL_WORDS = [{"id": 1, "word": "abandon", "phonetic": "[aˈbændan]", "pos
 const STORAGE_KEY = "vocab_batch_v1";
 const BACKUP_KEY = "vocab_batch_backups_v1";
 const BATCH = 1000; // 每批序号宽度
-const DAILY_GOAL = 1000; // 每天新「认识」目标（计入已会）
+const DAILY_GOAL = 1000; // 每天刷词上限（认识/不熟悉/熟悉都算）
 const SB_URL = "https://drtkvfcjbwvqpgolkwur.supabase.co";
 const SB_KEY = "sb_publishable_GFoECb3NXu0jHUUP3krFjQ_JgLLeUxH";
 const $ = (id) => document.getElementById(id);
@@ -319,6 +319,9 @@ let cardQueue = [];
 let cardIndex = 0;
 let cardSessionTotal = 0;
 let cardRevealed = false;
+/** 本轮主队列过完后再背的「熟悉」词（仅当前批次会话） */
+let familiarDeferred = new Set();
+let familiarPassActive = false;
 /** 单词 id → 最早出现日期 YYYY-MM-DD（「不熟悉」设为明天） */
 let reviewSchedule = {};
 let dailyLearnedDate = "";
@@ -363,11 +366,11 @@ function getDailyLearnedCount() {
   return dailyLearnedCount;
 }
 
-function dailyNewBudget() {
+function dailyStudyBudget() {
   return Math.max(0, DAILY_GOAL - getDailyLearnedCount());
 }
 
-function recordDailyLearned(n) {
+function recordDailyStudied(n) {
   rollDailyCounter();
   dailyLearnedCount = Math.min(DAILY_GOAL, dailyLearnedCount + (n || 1));
   dailyLearnedDate = todayKey();
@@ -378,7 +381,7 @@ function updateDailyGoalUI() {
   const n = getDailyLearnedCount();
   const el = $("dailyGoalStatus");
   if (el) {
-    el.innerHTML = `今日已学 <b>${n}</b> / ${DAILY_GOAL}` + (n >= DAILY_GOAL ? " · 目标达成" : "");
+    el.innerHTML = `今日已刷 <b>${n}</b> / ${DAILY_GOAL}` + (n >= DAILY_GOAL ? " · 今日已满" : "");
   }
   const bar = $("dailyGoalFill");
   if (bar) bar.style.width = Math.min(100, Math.round((n / DAILY_GOAL) * 100)) + "%";
@@ -415,6 +418,9 @@ function loadPersist() {
       }
     }
     if (Array.isArray(data.revealedIds)) savedRevealedIds = data.revealedIds.map(Number);
+    if (Array.isArray(data.familiarDeferredIds)) {
+      familiarDeferred = new Set(data.familiarDeferredIds.map(Number).filter(Boolean));
+    }
     if (data.scrollY != null) {
       setTimeout(() => window.scrollTo(0, data.scrollY || 0), 80);
     }
@@ -438,6 +444,7 @@ function buildPayload() {
     reviewSchedule: Object.assign({}, reviewSchedule),
     dailyLearnedDate,
     dailyLearnedCount,
+    familiarDeferredIds: [...familiarDeferred].sort((a, b) => a - b),
     totalWords: ALL_WORDS.length,
     knownCount: knownIds.length,
   };
@@ -499,7 +506,7 @@ function updateStats() {
   const modeTip = viewMode === "known" ? "（正在查看已会）" : "";
   const dueN = idsDueForReview().length;
   const dueTip = dueN && viewMode !== "known" ? ` · 到期复习 <b>${dueN}</b>` : "";
-  const dayTip = viewMode !== "known" ? ` · 今日已学 <b>${getDailyLearnedCount()}</b>/${DAILY_GOAL}` : "";
+  const dayTip = viewMode !== "known" ? ` · 今日已刷 <b>${getDailyLearnedCount()}</b>/${DAILY_GOAL}` : "";
   $("stats").innerHTML = `已会 <b>${knownIds.length}</b> / ${ALL_WORDS.length}${dayTip}${dueTip}${modeTip}`;
   updateDailyGoalUI();
   if (viewMode === "known") {
@@ -526,6 +533,8 @@ function loadBatch() {
     .filter((w) => w.id >= from && w.id <= to && isWordAvailableToday(w.id))
     .map((w) => w.id);
   batchIds.sort((a, b) => a - b);
+  familiarDeferred = new Set();
+  familiarPassActive = false;
   checked = new Set();
   revealed = new Set();
   renderList();
@@ -788,16 +797,43 @@ function idsInCurrentBatch() {
 }
 
 function rebuildCardQueue() {
+  familiarPassActive = false;
   const due = idsDueForReview();
   const dueSet = new Set(due);
-  const budget = dailyNewBudget();
-  const batch = idsInCurrentBatch().filter((id) => !dueSet.has(id));
-  const newToday = batch.slice(0, budget);
-  const merged = due.slice().concat(newToday);
+  const budget = dailyStudyBudget();
+  const batch = idsInCurrentBatch().filter(
+    (id) => !dueSet.has(id) && !familiarDeferred.has(id)
+  );
+  const merged = [];
+  for (const id of due) {
+    if (merged.length >= budget) break;
+    merged.push(id);
+  }
+  for (const id of batch) {
+    if (merged.length >= budget) break;
+    merged.push(id);
+  }
   cardQueue = merged;
   cardIndex = 0;
   cardSessionTotal = cardQueue.length;
   cardRevealed = false;
+}
+
+/** 主队列清空后，再刷本轮标记为「熟悉」的词 */
+function tryStartFamiliarPass() {
+  if (cardQueue.length) return false;
+  if (getDailyLearnedCount() >= DAILY_GOAL) return false;
+  const deferred = [...familiarDeferred].filter(
+    (id) => !knownIds.includes(id) && isWordAvailableToday(id)
+  );
+  if (!deferred.length) return false;
+  familiarDeferred.clear();
+  cardQueue = deferred;
+  familiarPassActive = true;
+  cardIndex = 0;
+  cardSessionTotal = cardQueue.length;
+  cardRevealed = false;
+  return true;
 }
 
 function syncUiChrome() {
@@ -807,7 +843,7 @@ function syncUiChrome() {
   $("btnModeCard").classList.toggle("mode-active", card);
   $("btnModeList").classList.toggle("mode-active", !card);
   $("subTitle").textContent = card
-    ? "卡片模式：认识=已会 · 不熟悉=明天复习 · 熟悉=稍后再背"
+    ? "卡片模式：认识=已会 · 不熟悉=明天复习 · 熟悉=本批过完再背"
     : "列表模式：每批约 1000 词 · 点行显示中文 · 勾选已会 · 删除进入下一批";
 }
 
@@ -834,11 +870,13 @@ function showCardDone() {
   $("cardDone").hidden = false;
   const n = getDailyLearnedCount();
   if (n >= DAILY_GOAL) {
-    $("cardProgress").textContent = "今日目标完成";
-    $("cardDone").querySelector("b").textContent = `今日 ${DAILY_GOAL} 词已学完`;
+    $("cardProgress").textContent = "今日已满";
+    $("cardDone").querySelector("b").textContent = `今日已刷满 ${DAILY_GOAL} 个词`;
   } else {
-    $("cardProgress").textContent = "本批完成";
-    $("cardDone").querySelector("b").textContent = "本批卡片背完了";
+    $("cardProgress").textContent = familiarPassActive ? "熟悉词过完" : "本批完成";
+    $("cardDone").querySelector("b").textContent = familiarPassActive
+      ? "本轮「熟悉」的词也过完了"
+      : "本批主队列背完了";
   }
   $("cardProgressFill").style.width = "100%";
 }
@@ -895,33 +933,45 @@ function cardAnswer(act) {
     onCardTap();
     return;
   }
+  if (getDailyLearnedCount() >= DAILY_GOAL) {
+    alert(`今日已刷满 ${DAILY_GOAL} 个词，明天再继续。`);
+    return;
+  }
   const id = cardQueue[cardIndex];
+  recordDailyStudied(1);
   if (act === "know") {
     const wasKnown = id && knownIds.includes(id);
-    if (id && !wasKnown) {
-      if (getDailyLearnedCount() >= DAILY_GOAL) {
-        alert(`今日已学 ${DAILY_GOAL} 个（目标完成）。到期复习词仍可继续；新词请明天再背。`);
-        return;
-      }
-      knownIds.push(id);
-      recordDailyLearned(1);
-    }
+    if (id && !wasKnown) knownIds.push(id);
+    if (id) familiarDeferred.delete(id);
     clearWordSchedule(id);
     cardQueue.splice(cardIndex, 1);
     savePersist();
     updateStats();
   } else if (act === "forgot") {
-    if (id) reviewSchedule[id] = addDaysToKey(todayKey(), 1);
+    if (id) {
+      familiarDeferred.delete(id);
+      reviewSchedule[id] = addDaysToKey(todayKey(), 1);
+    }
     cardQueue.splice(cardIndex, 1);
     savePersist();
     updateStats();
   } else {
     if (id) clearWordSchedule(id);
-    const picked = cardQueue.splice(cardIndex, 1)[0];
-    if (picked != null) cardQueue.push(picked);
+    if (familiarPassActive) {
+      const picked = cardQueue.splice(cardIndex, 1)[0];
+      if (picked != null) cardQueue.push(picked);
+    } else if (id) {
+      familiarDeferred.add(id);
+      cardQueue.splice(cardIndex, 1);
+    }
     savePersist();
   }
   cardRevealed = false;
+  if (!cardQueue.length && tryStartFamiliarPass()) {
+    savePersist();
+    renderCard();
+    return;
+  }
   if (!cardQueue.length) {
     showCardDone();
     savePersist();
@@ -975,6 +1025,8 @@ function goToNextBatch() {
   if (newFrom > ALL_WORDS.length) return false;
   $("fromId").value = newFrom;
   $("toId").value = newTo;
+  familiarDeferred = new Set();
+  familiarPassActive = false;
   return true;
 }
 
@@ -987,18 +1039,16 @@ async function deleteChecked() {
     alert("还没有勾选「已会」的词");
     return;
   }
-  const toAdd = [...checked].filter((id) => !knownIds.includes(id));
-  const room = dailyNewBudget();
-  if (toAdd.length > room) {
-    alert(`今日还可新学 ${room} 个（目标 ${DAILY_GOAL}/天）。请少勾选一些，或明天继续。`);
+  const room = dailyStudyBudget();
+  if (checked.size > room) {
+    alert(`今日还可刷 ${room} 个（每天 ${DAILY_GOAL} 个）。请少勾选一些，或明天继续。`);
     return;
   }
   const n = checked.size;
   for (const id of checked) {
-    if (!knownIds.includes(id)) {
-      knownIds.push(id);
-      recordDailyLearned(1);
-    }
+    recordDailyStudied(1);
+    if (!knownIds.includes(id)) knownIds.push(id);
+    familiarDeferred.delete(id);
     clearWordSchedule(id);
   }
   savePersist();
@@ -1053,6 +1103,8 @@ $("btnResetKnown").onclick = () => {
   if (!confirm("确定清空全部已会记录？")) return;
   knownIds = [];
   reviewSchedule = {};
+  familiarDeferred = new Set();
+  familiarPassActive = false;
   savePersist();
   loadBatch();
 };
@@ -1165,6 +1217,12 @@ async function cloudDownload(options) {
     if (data.dailyLearnedDate) dailyLearnedDate = data.dailyLearnedDate;
     if (typeof data.dailyLearnedCount === "number") dailyLearnedCount = data.dailyLearnedCount;
     rollDailyCounter();
+    if (Array.isArray(data.familiarDeferredIds)) {
+      familiarDeferred = new Set(data.familiarDeferredIds.map(Number).filter(Boolean));
+    } else {
+      familiarDeferred = new Set();
+    }
+    familiarPassActive = false;
     if (data.from) $("fromId").value = data.from;
     if (data.to) $("toId").value = data.to;
     $("syncCode").value = code;
