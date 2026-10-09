@@ -154,13 +154,16 @@
     margin-bottom: 10px; font-size: 0.85rem; color: var(--muted);
   }
   .card-top b { color: var(--teal-dark); font-size: 1rem; }
-  .card-progress-track {
-    height: 6px; background: #e3efeb; border-radius: 999px; overflow: hidden; margin-bottom: 12px;
+  .card-stage {
+    display: grid; grid-template-columns: 44px 1fr 44px; gap: 8px; align-items: center;
   }
-  .card-progress-fill {
-    height: 100%; width: 0%; background: linear-gradient(90deg, #36b59d, #2a9a85);
-    border-radius: 999px; transition: width 0.25s ease;
+  .card-stage[hidden] { display: none; }
+  .card-nav {
+    height: 100%; min-height: 120px; border-radius: 14px; font-size: 1.6rem; line-height: 1;
+    background: #fff; border: 1px solid var(--line); color: var(--teal-dark);
   }
+  .card-nav:hover:not(:disabled) { border-color: var(--teal); background: var(--ok-bg); }
+  .card-nav:disabled { opacity: 0.35; cursor: default; }
   .flash-card {
     background: var(--card);
     border-radius: 18px;
@@ -247,7 +250,7 @@
       顺序固定。词性后勾选表示已会；点整行显示中文并朗读英文，再点隐藏（勾选框仅切换已会）；底部「删除已勾选」会记入已会、自动进入下一批并上传云端（需已设同步码）。<br/>
       已删除的词可点「查看已会」翻看，也可点「恢复」重新加入待背。<br/>
       <b>自动保存：</b>已会、复习日程、批次范围会<strong>自动写入本机</strong>；设同步码后约 1.5 秒<strong>自动上传云端</strong>（打开页面会自动拉取）。<br/>
-      卡片：整本 7069 词按编号<strong>循环</strong>。认识→已会，以后不再出现；熟悉→本轮整本过完后，下一轮从头按顺序再看。每天共刷 <strong>1000</strong> 词（两个按钮都算），第二天接着上次的位置。快捷键：空格显示释义 · 1 熟悉 · 2 认识
+      卡片：整本 7069 词按编号<strong>循环</strong>。认识→已会，以后不再出现；熟悉→本轮整本过完后，下一轮从头按顺序再看。每天共刷 <strong>1000</strong> 词（两个按钮都算），第二天接着上次的位置。卡片两侧 ‹ › 可左右切换单词（不计数）。快捷键：空格显示释义 · 1 熟悉 · 2 认识 · ←/→ 切换
     </div>
   </div>
 
@@ -261,8 +264,8 @@
         <button type="button" class="btn-ghost" id="btnCardReplay" style="padding:4px 10px;">重读</button>
       </span>
     </div>
-    <div class="card-progress-track" title="今日 1000 词目标"><div class="card-progress-fill" id="dailyGoalFill" style="opacity:0.85"></div></div>
-    <div class="card-progress-track" title="本轮整本进度"><div class="card-progress-fill" id="cardProgressFill"></div></div>
+    <div class="card-stage" id="cardStage">
+    <button type="button" class="card-nav" id="btnCardPrev" title="上一个词（←）">‹</button>
     <div class="flash-card" id="cardTap">
       <span class="card-num" id="cardNum">#1</span>
       <div id="cardFront">
@@ -272,6 +275,8 @@
         <div class="card-hint" id="cardHint">点击卡片 · 显示释义</div>
       </div>
       <div class="card-meaning" id="cardMeaning" hidden></div>
+    </div>
+    <button type="button" class="card-nav" id="btnCardNext" title="下一个词（→）">›</button>
     </div>
     <div class="card-actions" id="cardActions" hidden>
       <button type="button" class="act-vague" data-card-act="vague">熟悉</button>
@@ -379,8 +384,6 @@ function updateDailyGoalUI() {
   if (el) {
     el.innerHTML = `今日已刷 <b>${n}</b> / ${DAILY_GOAL}` + (n >= DAILY_GOAL ? " · 今日已满" : "");
   }
-  const bar = $("dailyGoalFill");
-  if (bar) bar.style.width = Math.min(100, Math.round((n / DAILY_GOAL) * 100)) + "%";
 }
 
 function idsDueForReview() {
@@ -821,8 +824,36 @@ function updateCycleUI() {
   $("cardProgress").textContent = cardCurrentId == null
     ? "—"
     : `#${cardCurrentId} / ${ALL_WORDS.length} · 本轮还剩 ${remainingInRound()}`;
-  $("cardProgressFill").style.width =
-    Math.round((cyclePos / ALL_WORDS.length) * 100) + "%";
+  $("btnCardPrev").disabled = prevUnknownId() == null;
+  $("btnCardNext").disabled = nextUnknownId() == null;
+}
+
+function prevUnknownId() {
+  if (cardCurrentId == null) return null;
+  const known = new Set(knownIds);
+  for (let i = ALL_WORDS.length - 1; i >= 0; i--) {
+    const id = ALL_WORDS[i].id;
+    if (id < cardCurrentId && !known.has(id)) return id;
+  }
+  return null;
+}
+
+function nextUnknownId() {
+  if (cardCurrentId == null) return null;
+  const known = new Set(knownIds);
+  for (const w of ALL_WORDS) {
+    if (w.id > cardCurrentId && !known.has(w.id)) return w.id;
+  }
+  return null;
+}
+
+/** 左右切换只移动位置，不算熟悉/认识，也不计入每日额度 */
+function cardStep(dir) {
+  const target = dir < 0 ? prevUnknownId() : nextUnknownId();
+  if (target == null) return;
+  cyclePos = target - 1;
+  renderCard();
+  savePersist();
 }
 
 function syncUiChrome() {
@@ -853,7 +884,7 @@ function setUiMode(mode) {
 }
 
 function showCardDone() {
-  $("cardTap").hidden = true;
+  $("cardStage").hidden = true;
   $("cardActions").hidden = true;
   $("cardDone").hidden = false;
   if (cardCurrentId == null) {
@@ -867,7 +898,7 @@ function showCardDone() {
 
 function renderCard() {
   $("cardDone").hidden = true;
-  $("cardTap").hidden = false;
+  $("cardStage").hidden = false;
   $("cardActions").hidden = true;
   $("cardMeaning").hidden = true;
   $("cardHint").hidden = false;
@@ -950,7 +981,11 @@ document.addEventListener("keydown", (e) => {
     onCardTap();
   } else if (e.key === "1") cardAnswer("vague");
   else if (e.key === "2") cardAnswer("know");
+  else if (e.key === "ArrowLeft" && !$("cardStage").hidden) cardStep(-1);
+  else if (e.key === "ArrowRight" && !$("cardStage").hidden) cardStep(1);
 });
+$("btnCardPrev").onclick = () => cardStep(-1);
+$("btnCardNext").onclick = () => cardStep(1);
 
 function goToNextBatch() {
   const [from, to] = currentRange();
