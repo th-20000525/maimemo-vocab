@@ -1,7 +1,5 @@
 /** 考研作文短语 · 列表查阅（嵌入 index.html） */
 (function () {
-  const STORAGE_KEY = "phrase_memo_v3";
-  const PHRASE_LIST_VERSION = 3;
   const SENTENCE_SECTION = 5;
   const PHRASES = [
     { id: 1, section: 1, en: 'adopt different ways to keep fit', zh: '采取不同方式养生/保持健康' },
