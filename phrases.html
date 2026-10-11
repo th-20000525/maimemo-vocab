@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>作文短语 · 三段背诵</title>
+<style>
+  :root {
+    --bg: #f4f7f6; --card: #fff; --teal: #36b59d; --teal-dark: #2a9a85;
+    --text: #1f2a2a; --muted: #6b7a7a; --line: #d7e6e1;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; color: var(--text);
+    background: radial-gradient(900px 400px at 0% -10%, #d9f3ec 0%, transparent 50%), var(--bg);
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 12px 12px 32px; }
+  header { margin-bottom: 10px; }
+  h1 { margin: 0; font-size: 1.15rem; }
+  .sub { color: var(--muted); font-size: 0.8rem; margin-top: 4px; line-height: 1.4; }
+  .nav { margin-top: 8px; font-size: 0.82rem; }
+  .nav a { color: var(--teal-dark); font-weight: 650; }
+  .stats { font-size: 0.82rem; color: var(--muted); margin-top: 6px; }
+  .stats b { color: var(--teal-dark); }
+  .section-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+  .section-tabs button {
+    padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line);
+    background: #fff; color: var(--muted); font-weight: 700; font-size: 0.82rem; cursor: pointer;
+  }
+  .section-tabs button.active {
+    background: linear-gradient(135deg, #3ecfb4, #2a9a85); color: #fff; border-color: transparent;
+  }
+  .card-top { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: var(--muted); margin-bottom: 8px; }
+  .card-top b { color: var(--teal-dark); }
+  .track { height: 6px; background: #e3efeb; border-radius: 999px; overflow: hidden; margin-bottom: 12px; }
+  .fill { height: 100%; width: 0%; background: linear-gradient(90deg, #36b59d, #2a9a85); transition: width 0.25s; }
+  .flash {
+    background: var(--card); border: 1px solid var(--line); border-radius: 18px;
+    box-shadow: 0 12px 36px rgba(42,154,133,0.1); min-height: 260px; padding: 24px 18px;
+    text-align: center; cursor: pointer; position: relative;
+  }
+  .flash .tag {
+    position: absolute; top: 12px; left: 14px; font-size: 0.72rem; font-weight: 700;
+    color: #fff; background: var(--teal); padding: 2px 8px; border-radius: 999px;
+  }
+  .flash .en {
+    font-size: clamp(1.05rem, 4.5vw, 1.35rem); font-weight: 750; color: var(--teal-dark);
+    line-height: 1.45; margin-top: 8px;
+  }
+  .flash .hint { margin-top: 16px; font-size: 0.82rem; color: var(--muted); }
+  .flash .zh {
+    display: none; margin-top: 14px; padding: 12px 14px; text-align: left;
+    background: #fff8ec; border: 1px solid #f0d2a0; border-radius: 12px;
+    font-size: 0.95rem; line-height: 1.5;
+  }
+  .flash.open .zh { display: block; }
+  .flash.open .hint { display: none; }
+  .actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 14px; display: none; }
+  .actions.show { display: grid; }
+  .actions button { padding: 12px 6px; border: 0; border-radius: 12px; font-weight: 700; font-size: 0.85rem; cursor: pointer; }
+  .act-forgot { background: #fdecea; color: #c0392b; }
+  .act-vague { background: #fff6e5; color: #b8860b; }
+  .act-know { background: #e8f6f2; color: #1a7a66; }
+  .done {
+    display: none; text-align: center; padding: 28px 16px; background: var(--card);
+    border: 1px dashed var(--line); border-radius: 14px; color: var(--muted);
+  }
+  .done b { display: block; color: var(--teal-dark); margin-bottom: 8px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 12px; }
+  button.tool {
+    appearance: none; border: 1px solid var(--line); background: #fff; border-radius: 8px;
+    padding: 6px 12px; font-weight: 700; font-size: 0.8rem; cursor: pointer; color: var(--muted);
+  }
+  button.tool-primary { background: var(--teal); color: #fff; border-color: transparent; }
+  .list-panel { margin-top: 16px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
+  .list-panel h2 { margin: 0 0 8px; font-size: 0.9rem; color: var(--teal-dark); }
+  .phrase-row {
+    display: grid; grid-template-columns: 28px 1fr; gap: 8px; padding: 6px 4px;
+    border-bottom: 1px solid #eef4f2; font-size: 0.82rem; cursor: pointer;
+  }
+  .phrase-row:last-child { border-bottom: 0; }
+  .phrase-row.known { opacity: 0.55; }
+  .phrase-row .idx { color: var(--teal-dark); font-weight: 700; }
+  .phrase-row .en { font-weight: 650; color: var(--text); }
+  .phrase-row .zh { color: var(--muted); margin-top: 2px; font-size: 0.78rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>作文短语 · 三段背诵</h1>
+    <div class="sub">点卡片看中文 · 不认识明天复习 · 熟悉本段队尾 · 认识记入已会</div>
+    <div class="nav"><a href="index.html">← 返回单词背词</a></div>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <div class="section-tabs" id="sectionTabs">
+    <button type="button" data-section="1" class="active">第一段（9）</button>
+    <button type="button" data-section="2">第二段（25）</button>
+    <button type="button" data-section="3">第三段（7）</button>
+  </div>
+
+  <div class="card-top">
+    <span>进度 <b id="cardProgress">0 / 0</b></span>
+    <button type="button" class="tool" id="btnResetSection">清空本段已会</button>
+  </div>
+  <div class="track"><div class="fill" id="progressFill"></div></div>
+
+  <div class="flash" id="flash">
+    <span class="tag" id="sectionTag">第一段</span>
+    <div class="en" id="cardEn"></div>
+    <div class="hint" id="cardHint">点击卡片 · 显示中文</div>
+    <div class="zh" id="cardZh"></div>
+  </div>
+
+  <div class="actions" id="actions">
+    <button type="button" class="act-forgot" data-act="forgot">不认识</button>
+    <button type="button" class="act-vague" data-act="vague">熟悉</button>
+    <button type="button" class="act-know" data-act="know">认识</button>
+  </div>
+
+  <div class="done" id="done">
+    <b id="doneTitle">本段背完了</b>
+    <span id="doneHint">可切换其他段继续，或点「重新背本段」。</span>
+    <div class="row">
+      <button type="button" class="tool tool-primary" id="btnReload">重新背本段</button>
+    </div>
+  </div>
+
+  <div class="list-panel">
+    <h2 id="listTitle">第一段短语列表</h2>
+    <div id="phraseList"></div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = "phrase_memo_v1";
+const $ = (id) => document.getElementById(id);
+
+const PHRASES = [
+  { id: 1, section: 1, en: "adopt different ways to keep fit", zh: "采取不同方式养生/保持健康" },
+  { id: 2, section: 1, en: "pursue healthy lifestyles", zh: "追求健康的生活方式" },
+  { id: 3, section: 1, en: "the figure is growing", zh: "该数字持续上升" },
+  { id: 4, section: 1, en: "self-driving taxi", zh: "无人驾驶出租车" },
+  { id: 5, section: 1, en: "illustrate the changes in …", zh: "描述……方面的变化" },
+  { id: 6, section: 1, en: "annual order volume", zh: "年订单量" },
+  { id: 7, section: 1, en: "autonomous taxis", zh: "自动驾驶出租车" },
+  { id: 8, section: 1, en: "stood at + 数字", zh: "（数据）达到（静态数值）" },
+  { id: 9, section: 1, en: "kept soaring", zh: "持续激增（图表高分词，描述数据暴涨）" },
+
+  { id: 10, section: 2, en: "light health preservation", zh: "轻养生（本篇主题词）" },
+  { id: 11, section: 2, en: "Several factors can account for the trend.", zh: "几个因素可以解释这一趋势" },
+  { id: 12, section: 2, en: "heavy workloads", zh: "繁重的工作负担" },
+  { id: 13, section: 2, en: "irregular daily routines", zh: "不规律的日常作息" },
+  { id: 14, section: 2, en: "render sb aware of …", zh: "使某人意识到……（高分动词搭配）" },
+  { id: 15, section: 2, en: "potential health hazards", zh: "潜在的健康隐患" },
+  { id: 16, section: 2, en: "a wide array of", zh: "各式各样的、大量的" },
+  { id: 17, section: 2, en: "enable sb to do sth", zh: "使某人能够做某事" },
+  { id: 18, section: 2, en: "busy office workers", zh: "忙碌的上班族" },
+  { id: 19, section: 2, en: "take simple health measures", zh: "采取简易的养生方式" },
+  { id: 20, section: 2, en: "fall into a paradox", zh: "陷入一种矛盾（思辨加分短语）" },
+  { id: 21, section: 2, en: "stay up late", zh: "熬夜" },
+  { id: 22, section: 2, en: "overwork", zh: "过度工作，超负荷工作" },
+  { id: 23, section: 2, en: "count on sth to do sth", zh: "指望某物去做……" },
+  { id: 24, section: 2, en: "health supplements", zh: "养生保健品" },
+  { id: 25, section: 2, en: "offset physical losses", zh: "弥补身体损耗" },
+  { id: 26, section: 2, en: "transform our lifestyle", zh: "改变我们的生活方式" },
+  { id: 27, section: 2, en: "technological advances", zh: "技术进步" },
+  { id: 28, section: 2, en: "alter this pattern", zh: "改变这种模式" },
+  { id: 29, section: 2, en: "cut down avoidable traffic risks", zh: "减少可避免的交通风险" },
+  { id: 30, section: 2, en: "attach great importance to …", zh: "高度重视……" },
+  { id: 31, section: 2, en: "improve life quality", zh: "提升生活质量" },
+  { id: 32, section: 2, en: "be burdened with heavy workloads", zh: "背负繁重的工作压力" },
+  { id: 33, section: 2, en: "relieve their stress", zh: "缓解压力" },
+  { id: 34, section: 2, en: "save physical energy", zh: "节省体力" },
+
+  { id: 35, section: 3, en: "cultivate wholesome lifestyles", zh: "培养健康的生活方式" },
+  { id: 36, section: 3, en: "rather than", zh: "而不是" },
+  { id: 37, section: 3, en: "superficial remedies", zh: "表面的补救手段（高分思辨短语）" },
+  { id: 38, section: 3, en: "fully appreciate the benefits", zh: "充分认识 / 享受益处" },
+  { id: 39, section: 3, en: "technological progress", zh: "科技进步" },
+  { id: 40, section: 3, en: "take initiatives to do sth", zh: "主动采取行动做某事" },
+  { id: 41, section: 3, en: "regulate this emerging industry", zh: "规范这一新兴行业" },
+];
+
+const SECTION_NAMES = { 1: "第一段", 2: "第二段", 3: "第三段" };
+
+let currentSection = 1;
+let knownIds = [];
+let reviewSchedule = {};
+let queue = [];
+let queueIndex = 0;
+let sessionTotal = 0;
+let revealed = false;
+
+function todayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function addDays(dateKey, days) {
+  const [y, mo, da] = dateKey.split("-").map(Number);
+  const t = new Date(y, mo - 1, da + days);
+  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+}
+
+function isAvailable(id) {
+  if (knownIds.includes(id)) return false;
+  const due = reviewSchedule[id];
+  if (!due) return true;
+  return due <= todayKey();
+}
+
+function phraseById(id) {
+  return PHRASES.find((p) => p.id === id);
+}
+
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ knownIds, reviewSchedule, currentSection }));
+}
+
+function load() {
+  try {
+    const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    if (Array.isArray(data.knownIds)) knownIds = data.knownIds.map(Number);
+    if (data.reviewSchedule) reviewSchedule = data.reviewSchedule;
+    if (data.currentSection) currentSection = data.currentSection;
+  } catch (e) {}
+}
+
+function sectionPhraseIds(section) {
+  return PHRASES.filter((p) => p.section === section && isAvailable(p.id)).map((p) => p.id);
+}
+
+function rebuildQueue() {
+  const due = Object.keys(reviewSchedule)
+    .map(Number)
+    .filter((id) => PHRASES.some((p) => p.section === currentSection && p.id === id) && isAvailable(id) && reviewSchedule[id] <= todayKey())
+    .sort((a, b) => a - b);
+  const rest = sectionPhraseIds(currentSection).filter((id) => !due.includes(id));
+  queue = due.concat(rest);
+  queueIndex = 0;
+  sessionTotal = queue.length;
+  revealed = false;
+}
+
+function updateStats() {
+  const total = PHRASES.filter((p) => p.section === currentSection).length;
+  const known = PHRASES.filter((p) => p.section === currentSection && knownIds.includes(p.id)).length;
+  $("stats").innerHTML = `${SECTION_NAMES[currentSection]} · 已会 <b>${known}</b> / ${total} · 待背 <b>${queue.length}</b>`;
+}
+
+function renderList() {
+  $("listTitle").textContent = SECTION_NAMES[currentSection] + "短语列表";
+  const html = PHRASES.filter((p) => p.section === currentSection).map((p, i) => {
+    const cls = knownIds.includes(p.id) ? "phrase-row known" : "phrase-row";
+    return `<div class="${cls}" data-id="${p.id}"><div class="idx">${i + 1}</div><div><div class="en">${escapeHtml(p.en)}</div><div class="zh">${escapeHtml(p.zh)}</div></div></div>`;
+  }).join("");
+  $("phraseList").innerHTML = html;
+}
+
+function escapeHtml(s) {
+  return String(s).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+
+function showDone() {
+  $("flash").style.display = "none";
+  $("actions").classList.remove("show");
+  $("done").style.display = "block";
+  $("cardProgress").textContent = "完成";
+  $("progressFill").style.width = "100%";
+}
+
+function renderCard() {
+  $("done").style.display = "none";
+  $("flash").style.display = "block";
+  $("actions").classList.remove("show");
+  $("cardHint").style.display = "block";
+  $("cardZh").style.display = "none";
+  $("flash").classList.remove("open");
+  revealed = false;
+
+  if (!queue.length) {
+    showDone();
+    updateStats();
+    renderList();
+    return;
+  }
+
+  if (queueIndex >= queue.length) queueIndex = 0;
+  const p = phraseById(queue[queueIndex]);
+  if (!p) {
+    queue.splice(queueIndex, 1);
+    renderCard();
+    return;
+  }
+
+  const done = sessionTotal - queue.length;
+  $("cardProgress").textContent = `${done + 1} / ${sessionTotal}`;
+  $("progressFill").style.width = (sessionTotal ? Math.round((done / sessionTotal) * 100) : 0) + "%";
+  $("sectionTag").textContent = SECTION_NAMES[currentSection];
+  $("cardEn").textContent = p.en;
+  $("cardZh").textContent = p.zh;
+  updateStats();
+  renderList();
+}
+
+function onReveal() {
+  if (!queue.length || revealed) return;
+  revealed = true;
+  $("flash").classList.add("open");
+  $("actions").classList.add("show");
+}
+
+function onAnswer(act) {
+  if (!queue.length) return;
+  if (!revealed) {
+    onReveal();
+    return;
+  }
+  const id = queue[queueIndex];
+  if (act === "know") {
+    if (!knownIds.includes(id)) knownIds.push(id);
+    delete reviewSchedule[id];
+    queue.splice(queueIndex, 1);
+  } else if (act === "forgot") {
+    reviewSchedule[id] = addDays(todayKey(), 1);
+    queue.splice(queueIndex, 1);
+  } else {
+    delete reviewSchedule[id];
+    const picked = queue.splice(queueIndex, 1)[0];
+    if (picked != null) queue.push(picked);
+  }
+  save();
+  revealed = false;
+  if (!queue.length) {
+    showDone();
+    save();
+    updateStats();
+    renderList();
+    return;
+  }
+  if (queueIndex >= queue.length) queueIndex = 0;
+  renderCard();
+}
+
+function setSection(section) {
+  currentSection = section;
+  document.querySelectorAll("#sectionTabs button").forEach((btn) => {
+    btn.classList.toggle("active", +btn.dataset.section === section);
+  });
+  rebuildQueue();
+  renderCard();
+  save();
+}
+
+$("flash").onclick = () => onReveal();
+$("actions").addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-act]");
+  if (btn) onAnswer(btn.getAttribute("data-act"));
+});
+$("sectionTabs").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-section]");
+  if (btn) setSection(+btn.dataset.section);
+});
+$("btnReload").onclick = () => {
+  rebuildQueue();
+  renderCard();
+};
+$("btnResetSection").onclick = () => {
+  if (!confirm(`清空${SECTION_NAMES[currentSection]}的已会记录？`)) return;
+  const ids = new Set(PHRASES.filter((p) => p.section === currentSection).map((p) => p.id));
+  knownIds = knownIds.filter((id) => !ids.has(id));
+  for (const id of ids) delete reviewSchedule[id];
+  save();
+  rebuildQueue();
+  renderCard();
+};
+$("phraseList").addEventListener("click", (e) => {
+  const row = e.target.closest(".phrase-row");
+  if (!row) return;
+  const id = +row.dataset.id;
+  const idx = queue.indexOf(id);
+  if (idx >= 0) queueIndex = idx;
+  else {
+    if (!isAvailable(id)) return;
+    queue.unshift(id);
+    queueIndex = 0;
+    sessionTotal = queue.length;
+  }
+  renderCard();
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.target.matches("input, textarea")) return;
+  if (e.code === "Space") { e.preventDefault(); onReveal(); }
+  else if (e.key === "1") onAnswer("forgot");
+  else if (e.key === "2") onAnswer("vague");
+  else if (e.key === "3") onAnswer("know");
+});
+
+load();
+document.querySelectorAll("#sectionTabs button").forEach((btn) => {
+  btn.classList.toggle("active", +btn.dataset.section === currentSection);
+});
+rebuildQueue();
+renderCard();
+</script>
+</body>
+</html>
