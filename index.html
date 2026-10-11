@@ -286,7 +286,7 @@
       卡片：整本 7069 词按编号<strong>循环</strong>。认识→已会，以后不再出现；熟悉→本轮整本过完后，下一轮从头按顺序再看。每天共刷 <strong>1000</strong> 词（两个按钮都算），第二天接着上次的位置。卡片两侧 ‹ › 可左右切换单词（不计数）。快捷键：空格显示释义 · 1 熟悉 · 2 认识 · ←/→ 切换
     </div>
     <div class="hint phrase-hint">
-      <b>作文短语</b>：第一段 9 条 · 第二段 25 条 · 第三段 7 条。点卡片看中文；<strong>不认识</strong>明天复习 · <strong>熟悉</strong>本段队尾 · <strong>认识</strong>已会。进度保存在本机。快捷键：空格 · 1/2/3
+      <b>作文短语</b>：第一段 15 条 · 第二段 40 条 · 第三段 11 条。点卡片看中文；<strong>不认识</strong>明天复习 · <strong>熟悉</strong>本段队尾 · <strong>认识</strong>已会。进度保存在本机。快捷键：空格 · 1/2/3
     </div>
   </div>
 
@@ -327,9 +327,9 @@
   <div id="phraseModeBlock">
     <div id="phraseStats"></div>
     <div class="phrase-section-tabs" id="phSectionTabs">
-      <button type="button" data-section="1" class="active">第一段（9）</button>
-      <button type="button" data-section="2">第二段（25）</button>
-      <button type="button" data-section="3">第三段（7）</button>
+      <button type="button" data-section="1" class="active">第一段（15）</button>
+      <button type="button" data-section="2">第二段（40）</button>
+      <button type="button" data-section="3">第三段（11）</button>
       <button type="button" class="btn-ghost" id="btnPhResetSection" style="margin-left:auto;">清空本段已会</button>
     </div>
     <div class="card-top">
@@ -941,7 +941,7 @@ function syncUiChrome() {
   $("btnModeList").classList.toggle("mode-active", list);
   $("btnModePhrase").classList.toggle("mode-active", phrase);
   if (phrase) {
-    $("subTitle").textContent = "作文短语：三段共 41 条 · 不认识明天复习 · 熟悉本段队尾 · 认识已会";
+    $("subTitle").textContent = "作文短语：三段共 66 条 · 不认识明天复习 · 熟悉本段队尾 · 认识已会";
   } else if (card) {
     $("subTitle").textContent = "卡片模式：整本按顺序循环 · 认识=已会不再出现 · 熟悉=下一轮再看";
   } else {
