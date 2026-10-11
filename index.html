@@ -286,7 +286,7 @@
       卡片：整本 7069 词按编号<strong>循环</strong>。认识→已会，以后不再出现；熟悉→本轮整本过完后，下一轮从头按顺序再看。每天共刷 <strong>1000</strong> 词（两个按钮都算），第二天接着上次的位置。卡片两侧 ‹ › 可左右切换单词（不计数）。快捷键：空格显示释义 · 1 熟悉 · 2 认识 · ←/→ 切换
     </div>
     <div class="hint phrase-hint">
-      <b>作文短语</b>：第一段 15 条 · 第二段 40 条 · 第三段 11 条。点卡片看中文；<strong>不认识</strong>明天复习 · <strong>熟悉</strong>本段队尾 · <strong>认识</strong>已会。进度保存在本机。快捷键：空格 · 1/2/3
+      <b>作文短语</b>：① 图表 9 · ② 图画 6 · ③ 轻养生 34 · ④ 人生哲理 24；<strong>万能句型</strong> 页汇总可默写的完整句（当前 4 句，可继续加）。不认识明天复习 · 熟悉本类队尾 · 认识已会。快捷键：空格 · 1/2/3
     </div>
   </div>
 
@@ -327,17 +327,19 @@
   <div id="phraseModeBlock">
     <div id="phraseStats"></div>
     <div class="phrase-section-tabs" id="phSectionTabs">
-      <button type="button" data-section="1" class="active">第一段（15）</button>
-      <button type="button" data-section="2">第二段（40）</button>
-      <button type="button" data-section="3">第三段（11）</button>
-      <button type="button" class="btn-ghost" id="btnPhResetSection" style="margin-left:auto;">清空本段已会</button>
+      <button type="button" data-section="1" class="active">① 图表描述</button>
+      <button type="button" data-section="2">② 图画描写</button>
+      <button type="button" data-section="3">③ 轻养生</button>
+      <button type="button" data-section="4">④ 人生哲理</button>
+      <button type="button" data-section="5">万能句型</button>
+      <button type="button" class="btn-ghost" id="btnPhResetSection" style="margin-left:auto;">清空本类已会</button>
     </div>
     <div class="card-top">
-      <span>本段进度 <b id="phCardProgress">0 / 0</b></span>
+      <span>本类进度 <b id="phCardProgress">0 / 0</b></span>
     </div>
     <div class="card-progress-track"><div class="card-progress-fill" id="phProgressFill"></div></div>
     <div class="flash-card phrase-flash" id="phFlash">
-      <span class="card-num" id="phSectionTag">第一段</span>
+      <span class="card-num" id="phSectionTag">① 图表描述</span>
       <div class="card-word" id="phCardEn"></div>
       <div class="card-hint" id="phCardHint">点击卡片 · 显示中文</div>
       <div class="card-meaning" id="phCardZh" hidden></div>
@@ -348,14 +350,14 @@
       <button type="button" class="act-know" data-act="know">认识</button>
     </div>
     <div class="card-done" id="phDone" hidden>
-      <b>本段背完了</b>
-      可切换其他段，或点「重新背本段」。
+      <b>本类背完了</b>
+      可切换其他类，或点「重新背本类」。
       <div class="row" style="justify-content:center;margin-top:10px;">
-        <button type="button" class="btn-primary" id="btnPhReload">重新背本段</button>
+        <button type="button" class="btn-primary" id="btnPhReload">重新背本类</button>
       </div>
     </div>
     <div class="phrase-list-panel">
-      <h2 id="phListTitle">第一段短语列表</h2>
+      <h2 id="phListTitle">① 图表描述 · 短语列表</h2>
       <div id="phPhraseList"></div>
     </div>
   </div>
@@ -941,7 +943,7 @@ function syncUiChrome() {
   $("btnModeList").classList.toggle("mode-active", list);
   $("btnModePhrase").classList.toggle("mode-active", phrase);
   if (phrase) {
-    $("subTitle").textContent = "作文短语：三段共 66 条 · 不认识明天复习 · 熟悉本段队尾 · 认识已会";
+    $("subTitle").textContent = "考研作文短语 · 四大类共 73 条 + 万能句型（完整句默写） · 不认识明天复习 · 熟悉本类队尾 · 认识已会";
   } else if (card) {
     $("subTitle").textContent = "卡片模式：整本按顺序循环 · 认识=已会不再出现 · 熟悉=下一轮再看";
   } else {
