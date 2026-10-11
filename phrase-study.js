@@ -1,7 +1,5 @@
-/** 考研作文短语 · 四大类 + 万能句型 — 嵌入 index.html 使用 */
+/** 考研作文短语 · 列表查阅（嵌入 index.html） */
 (function () {
-  const STORAGE_KEY = "phrase_memo_v3";
-  const PHRASE_LIST_VERSION = 3;
   const SENTENCE_SECTION = 5;
   const PHRASES = [
     { id: 1, section: 1, en: 'adopt different ways to keep fit', zh: '采取不同方式养生/保持健康' },
@@ -85,70 +83,12 @@
     4: "④ 人生哲理",
     5: "万能句型",
   };
+  const SECTION_KEY = "phrase_section_v1";
 
-  let knownIds = [];
-  let reviewSchedule = {};
   let currentSection = 1;
-  let queue = [];
-  let queueIndex = 0;
-  let sessionTotal = 0;
-  let revealed = false;
   let bound = false;
 
   const $ = (id) => document.getElementById(id);
-
-  function todayKey() {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  }
-
-  function addDays(dateKey, days) {
-    const [y, mo, da] = dateKey.split("-").map(Number);
-    const t = new Date(y, mo - 1, da + days);
-    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
-  }
-
-  function escapeHtml(s) {
-    return String(s).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
-  }
-
-  function phraseById(id) {
-    return PHRASES.find((p) => p.id === id);
-  }
-
-  function isAvailable(id) {
-    if (knownIds.includes(id)) return false;
-    const due = reviewSchedule[id];
-    if (!due) return true;
-    return due <= todayKey();
-  }
-
-  function loadStore() {
-    try {
-      const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-      if (data.phraseListVersion !== PHRASE_LIST_VERSION) {
-        knownIds = [];
-        reviewSchedule = {};
-        currentSection = 1;
-        return;
-      }
-      if (Array.isArray(data.knownIds)) knownIds = data.knownIds.map(Number);
-      if (data.reviewSchedule) reviewSchedule = data.reviewSchedule;
-      if (data.currentSection) currentSection = data.currentSection;
-    } catch (e) {}
-  }
-
-  function saveStore() {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        phraseListVersion: PHRASE_LIST_VERSION,
-        knownIds,
-        reviewSchedule,
-        currentSection,
-      })
-    );
-  }
 
   function phraseInSection(p, section) {
     if (section === SENTENCE_SECTION) return p.kind === "sentence";
@@ -159,10 +99,19 @@
     return PHRASES.filter((p) => phraseInSection(p, section));
   }
 
-  function sectionPhraseIds(section) {
-    return phrasesForSection(section)
-      .filter((p) => isAvailable(p.id))
-      .map((p) => p.id);
+  function escapeHtml(s) {
+    return String(s).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+  }
+
+  function loadSection() {
+    try {
+      const n = parseInt(localStorage.getItem(SECTION_KEY), 10);
+      if (n >= 1 && n <= 5) currentSection = n;
+    } catch (e) {}
+  }
+
+  function saveSection() {
+    localStorage.setItem(SECTION_KEY, String(currentSection));
   }
 
   function syncSectionTabLabels() {
@@ -173,215 +122,57 @@
     });
   }
 
-  function rebuildQueue() {
-    const due = Object.keys(reviewSchedule)
-      .map(Number)
-      .filter(
-        (id) =>
-          PHRASES.some((p) => p.id === id && phraseInSection(p, currentSection)) &&
-          isAvailable(id) &&
-          reviewSchedule[id] <= todayKey()
-      )
-      .sort((a, b) => a - b);
-    const rest = sectionPhraseIds(currentSection).filter((id) => !due.includes(id));
-    queue = due.concat(rest);
-    queueIndex = 0;
-    sessionTotal = queue.length;
-    revealed = false;
-  }
-
-  function updatePhraseStats() {
-    const inSection = phrasesForSection(currentSection);
-    const total = inSection.length;
-    const known = inSection.filter((p) => knownIds.includes(p.id)).length;
-    const el = $("phraseStats");
-    if (el) {
-      el.innerHTML = `${SECTION_NAMES[currentSection]} · 已会 <b>${known}</b>/${total} · 待背 <b>${queue.length}</b>`;
-    }
-  }
-
   function renderList() {
     const title = $("phListTitle");
     if (title) {
       title.textContent =
-        SECTION_NAMES[currentSection] + (currentSection === SENTENCE_SECTION ? " · 完整句列表" : " · 短语列表");
+        SECTION_NAMES[currentSection] + (currentSection === SENTENCE_SECTION ? " · 完整句" : " · 短语");
     }
     const list = $("phPhraseList");
     if (!list) return;
     list.innerHTML = phrasesForSection(currentSection)
-      .map((p, i) => {
-        const cls = knownIds.includes(p.id) ? "phrase-row known" : "phrase-row";
-        return `<div class="${cls}" data-id="${p.id}"><div class="idx">${i + 1}</div><div><div class="en">${escapeHtml(p.en)}</div><div class="zh">${escapeHtml(p.zh)}</div></div></div>`;
-      })
+      .map(
+        (p, i) =>
+          `<div class="phrase-row"><div class="idx">${i + 1}</div><div><div class="en">${escapeHtml(p.en)}</div><div class="zh">${escapeHtml(p.zh)}</div></div></div>`
+      )
       .join("");
-  }
-
-  function showDone() {
-    $("phFlash").style.display = "none";
-    $("phActions").classList.remove("show");
-    $("phDone").style.display = "block";
-    $("phCardProgress").textContent = "完成";
-    $("phProgressFill").style.width = "100%";
-  }
-
-  function renderCard() {
-    $("phDone").style.display = "none";
-    $("phFlash").style.display = "block";
-    $("phActions").classList.remove("show");
-    $("phFlash").classList.remove("open");
-    revealed = false;
-
-    if (!queue.length) {
-      showDone();
-      updatePhraseStats();
-      renderList();
-      return;
-    }
-
-    if (queueIndex >= queue.length) queueIndex = 0;
-    const p = phraseById(queue[queueIndex]);
-    if (!p) {
-      queue.splice(queueIndex, 1);
-      renderCard();
-      return;
-    }
-
-    const done = sessionTotal - queue.length;
-    $("phCardProgress").textContent = `${done + 1} / ${sessionTotal}`;
-    $("phProgressFill").style.width =
-      (sessionTotal ? Math.round((done / sessionTotal) * 100) : 0) + "%";
-    $("phSectionTag").textContent = SECTION_NAMES[currentSection];
-    $("phCardEn").textContent = p.en;
-    $("phCardZh").textContent = p.zh;
-    updatePhraseStats();
-    renderList();
-  }
-
-  function onReveal() {
-    if (!queue.length || revealed) return;
-    revealed = true;
-    $("phFlash").classList.add("open");
-    $("phActions").classList.add("show");
-  }
-
-  function onAnswer(act) {
-    if (!queue.length) return;
-    if (!revealed) {
-      onReveal();
-      return;
-    }
-    const id = queue[queueIndex];
-    if (act === "know") {
-      if (!knownIds.includes(id)) knownIds.push(id);
-      delete reviewSchedule[id];
-      queue.splice(queueIndex, 1);
-    } else if (act === "forgot") {
-      reviewSchedule[id] = addDays(todayKey(), 1);
-      queue.splice(queueIndex, 1);
-    } else {
-      delete reviewSchedule[id];
-      const picked = queue.splice(queueIndex, 1)[0];
-      if (picked != null) queue.push(picked);
-    }
-    saveStore();
-    revealed = false;
-    if (!queue.length) {
-      showDone();
-      updatePhraseStats();
-      renderList();
-      return;
-    }
-    if (queueIndex >= queue.length) queueIndex = 0;
-    renderCard();
   }
 
   function setSection(section) {
     currentSection = section;
-    document.querySelectorAll("#phSectionTabs button").forEach((btn) => {
+    document.querySelectorAll("#phSectionTabs button[data-section]").forEach((btn) => {
       btn.classList.toggle("active", +btn.dataset.section === section);
     });
-    rebuildQueue();
-    renderCard();
-    saveStore();
+    saveSection();
+    renderList();
   }
 
   function bindEvents() {
     if (bound) return;
     bound = true;
-    $("phFlash").addEventListener("click", () => onReveal());
-    $("phActions").addEventListener("click", (e) => {
-      const btn = e.target.closest("[data-act]");
-      if (btn) onAnswer(btn.getAttribute("data-act"));
-    });
     $("phSectionTabs").addEventListener("click", (e) => {
       const btn = e.target.closest("button[data-section]");
       if (btn) setSection(+btn.dataset.section);
     });
-    $("btnPhReload").addEventListener("click", () => {
-      rebuildQueue();
-      renderCard();
-    });
-    $("btnPhResetSection").addEventListener("click", () => {
-      if (!confirm(`清空${SECTION_NAMES[currentSection]}的已会记录？`)) return;
-      const ids = new Set(phrasesForSection(currentSection).map((p) => p.id));
-      knownIds = knownIds.filter((id) => !ids.has(id));
-      for (const id of ids) delete reviewSchedule[id];
-      saveStore();
-      rebuildQueue();
-      renderCard();
-    });
-    $("phPhraseList").addEventListener("click", (e) => {
-      const row = e.target.closest(".phrase-row");
-      if (!row) return;
-      const id = +row.dataset.id;
-      const idx = queue.indexOf(id);
-      if (idx >= 0) queueIndex = idx;
-      else {
-        if (!isAvailable(id)) return;
-        queue.unshift(id);
-        queueIndex = 0;
-        sessionTotal = queue.length;
-      }
-      renderCard();
-    });
   }
 
   function onShow() {
-    loadStore();
+    loadSection();
     syncSectionTabLabels();
     document.querySelectorAll("#phSectionTabs button[data-section]").forEach((btn) => {
       btn.classList.toggle("active", +btn.dataset.section === currentSection);
     });
-    rebuildQueue();
-    renderCard();
-  }
-
-  function handleKeydown(e) {
-    if (e.target.matches("input, textarea")) return false;
-    if (e.code === "Space") {
-      e.preventDefault();
-      onReveal();
-      return true;
-    }
-    if (e.key === "1") {
-      onAnswer("forgot");
-      return true;
-    }
-    if (e.key === "2") {
-      onAnswer("vague");
-      return true;
-    }
-    if (e.key === "3") {
-      onAnswer("know");
-      return true;
-    }
-    return false;
+    renderList();
   }
 
   function init() {
-    loadStore();
+    loadSection();
     bindEvents();
     syncSectionTabLabels();
+  }
+
+  function handleKeydown() {
+    return false;
   }
 
   window.PhraseStudy = { init, onShow, handleKeydown };
