@@ -136,18 +136,6 @@
     .meaning { grid-area: mean; margin-top: 2px; }
   }
 
-  .mode-tabs {
-    display: flex; gap: 6px; margin-bottom: 8px;
-  }
-  .mode-tabs button {
-    flex: 1; max-width: none; padding: 8px 12px; border-radius: 999px;
-    background: #fff; border: 1px solid var(--line); color: var(--muted);
-  }
-  .mode-tabs button.mode-active {
-    background: linear-gradient(135deg, #3ecfb4, #2a9a85);
-    border-color: transparent; color: #fff; box-shadow: 0 4px 14px rgba(42,154,133,0.35);
-  }
-
   .card-mode { margin-bottom: 12px; }
   .card-top {
     display: flex; align-items: center; justify-content: space-between;
@@ -213,7 +201,6 @@
   body.phrase-active #cardModeBlock { display: none !important; }
   body.phrase-active .list-only { display: none !important; }
   body.phrase-active .footer-bar { display: none !important; }
-  body.phrase-active .panel .word-hint { display: none; }
   body.phrase-active .panel .phrase-hint { display: block; }
   body.phrase-active .panel > .row { display: none !important; }
   .phrase-hint { display: none; }
@@ -245,16 +232,8 @@
   <header>
     <div>
       <h1>背单词 · 墨墨卡片</h1>
-      <div class="sub" id="subTitle">卡片模式：认识=已会不再复习 · 熟悉=本批过完再按顺序复习</div>
     </div>
-    <div class="stats" id="stats"></div>
   </header>
-
-  <div class="mode-tabs">
-    <button type="button" id="btnModeCard" class="mode-active">卡片背词</button>
-    <button type="button" id="btnModeList">列表核对</button>
-    <button type="button" id="btnModePhrase">作文短语</button>
-  </div>
 
   <div class="panel">
     <div class="row">
@@ -455,7 +434,6 @@ function loadPersist() {
     if (data.from) $("fromId").value = data.from;
     if (data.to) $("toId").value = data.to;
     if (data.syncCode) $("syncCode").value = data.syncCode;
-    if (data.uiMode === "list" || data.uiMode === "card" || data.uiMode === "phrase") uiMode = data.uiMode;
     if (data.dailyLearnedDate) dailyLearnedDate = data.dailyLearnedDate;
     if (typeof data.dailyLearnedCount === "number") dailyLearnedCount = data.dailyLearnedCount;
     rollDailyCounter();
@@ -551,11 +529,6 @@ setInterval(() => savePersist(), 15000); // 每 15 秒兜底保存一次
 
 
 function updateStats() {
-  const modeTip = viewMode === "known" ? "（正在查看已会）" : "";
-  const dueN = idsDueForReview().length;
-  const dueTip = dueN && viewMode !== "known" ? ` · 到期复习 <b>${dueN}</b>` : "";
-  const dayTip = viewMode !== "known" ? ` · 今日已刷 <b>${getDailyLearnedCount()}</b>/${DAILY_GOAL}` : "";
-  $("stats").innerHTML = `已会 <b>${knownIds.length}</b> / ${ALL_WORDS.length}${dayTip}${dueTip}${modeTip}`;
   updateDailyGoalUI();
   if (viewMode === "known") {
     $("footerInfo").innerHTML = `已会词 <b>${knownIds.length}</b> · 可点「恢复」重新背`;
@@ -903,21 +876,10 @@ function cardStep(dir) {
 function syncUiChrome() {
   const card = uiMode === "card";
   const phrase = uiMode === "phrase";
-  const list = uiMode === "list";
   document.body.classList.toggle("card-active", card);
   document.body.classList.toggle("phrase-active", phrase);
   $("cardModeBlock").hidden = !card;
   if ($("phraseModeBlock")) $("phraseModeBlock").hidden = !phrase;
-  $("btnModeCard").classList.toggle("mode-active", card);
-  $("btnModeList").classList.toggle("mode-active", list);
-  $("btnModePhrase").classList.toggle("mode-active", phrase);
-  if (phrase) {
-    $("subTitle").textContent = "作文短语：分类列表查阅（英文 + 中文对照）";
-  } else if (card) {
-    $("subTitle").textContent = "卡片模式：整本按顺序循环 · 认识=已会不再出现 · 熟悉=下一轮再看";
-  } else {
-    $("subTitle").textContent = "列表模式：每批约 1000 词 · 点行显示中文 · 勾选已会 · 删除进入下一批";
-  }
 }
 
 function setUiMode(mode) {
@@ -1008,9 +970,6 @@ function cardAnswer(act) {
   updateStats();
 }
 
-$("btnModeCard").onclick = () => setUiMode("card");
-$("btnModeList").onclick = () => setUiMode("list");
-$("btnModePhrase").onclick = () => setUiMode("phrase");
 $("cardTap").onclick = () => onCardTap();
 $("btnCardReplay").onclick = () => {
   const w = wordById(cardCurrentId);
