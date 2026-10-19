@@ -97,30 +97,33 @@
       return;
     }
     const q = questions[currentIndex];
-    const selected = state.choices[q.id] || "";
+    const selected = String(state.choices[q.id] || "");
+    const answerLetters = String(q.answer || "").split("").sort();
+    const normalizedAnswer = answerLetters.join("");
     const submitted = state.submitted.has(q.id);
     const correct = state.correct.has(q.id);
     const percent = ((currentIndex + 1) / questions.length) * 100;
     const label = currentCategory === "全部题目" ? q.category : currentCategory;
     const optionsHtml = letters.map(letter => {
       let classes = "option";
-      if (selected === letter) classes += " selected";
-      if (submitted && letter === q.answer) classes += " correct";
-      if (submitted && selected === letter && selected !== q.answer) classes += " incorrect";
+      const isSelected = selected.includes(letter);
+      if (isSelected) classes += " selected";
+      if (submitted && answerLetters.includes(letter)) classes += " correct";
+      if (submitted && isSelected && !answerLetters.includes(letter)) classes += " incorrect";
       return `<button class="${classes}" type="button" data-choice="${letter}" ${submitted ? "disabled" : ""}>
         <span class="option-key">${letter}</span><span class="option-text">${escapeHtml(q.options[letter] || "")}</span></button>`;
     }).join("");
     const answerBox = submitted ? `<div class="answer-box">
-      <p class="answer-result ${correct ? "good" : "bad"}">${correct ? "回答正确" : `正确答案：${q.answer}`} · ${correct ? "记得很好，继续保持。" : "看看解析，下一次就能答对。"}</p>
+      <p class="answer-result ${correct ? "good" : "bad"}">${correct ? "回答正确" : `正确答案：${answerLetters.join("、")}`} · ${correct ? "记得很好，继续保持。" : "看看解析，下一次就能答对。"}</p>
       <p class="answer-text">${escapeHtml(q.analysis || "这道题暂无解析。")}</p>
     </div>` : "";
     host.innerHTML = `<div class="question-topline">
-        <div class="badges"><span class="category-badge">${escapeHtml(label)}</span><span class="paper-badge">单选题</span></div>
+        <div class="badges"><span class="category-badge">${escapeHtml(label)}</span><span class="paper-badge">${q.type === "multiple" ? "多选题" : "单选题"}</span></div>
         <div class="question-count"><strong>${currentIndex + 1}</strong> / ${questions.length}</div>
       </div>
       <div class="progress-track"><div class="progress-fill" style="width:${percent}%"></div></div>
       <div class="question-content">
-        <p class="question-meta">第 ${q.number} 题 <span>·</span> 请选择一个最合适的答案</p>
+        <p class="question-meta">第 ${q.number} 题 <span>·</span> ${q.type === "multiple" ? "请选择所有正确选项" : "请选择一个最合适的答案"}</p>
         <h2 class="question-stem">${escapeHtml(q.stem)}</h2>
         <div class="options">${optionsHtml}</div>${answerBox}
       </div>
@@ -135,7 +138,14 @@
         </div>
       </div>`;
     host.querySelectorAll("[data-choice]").forEach(button => button.addEventListener("click", () => {
-      state.choices[q.id] = button.dataset.choice;
+      if (q.type === "multiple") {
+        const chosen = new Set(String(state.choices[q.id] || "").split("").filter(Boolean));
+        if (chosen.has(button.dataset.choice)) chosen.delete(button.dataset.choice);
+        else chosen.add(button.dataset.choice);
+        state.choices[q.id] = [...chosen].sort().join("");
+      } else {
+        state.choices[q.id] = button.dataset.choice;
+      }
       saveState();
       render();
     }));
@@ -149,7 +159,7 @@
   function submitAnswer() {
     const q = questions[currentIndex];
     if (!q || !state.choices[q.id]) return;
-    const isCorrect = state.choices[q.id] === q.answer;
+    const isCorrect = String(state.choices[q.id]).split("").sort().join("") === String(q.answer).split("").sort().join("");
     state.attempted.add(q.id);
     state.submitted.add(q.id);
     if (isCorrect) {
