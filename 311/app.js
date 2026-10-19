@@ -7,7 +7,9 @@
   const SB_URL = "https://drtkvfcjbwvqpgolkwur.supabase.co";
   const SB_KEY = "sb_publishable_GFoECb3NXu0jHUUP3krFjQ_JgLLeUxH";
   const letters = ["A", "B", "C", "D"];
-  const categories = [...new Set(bank.map(q => q.category))];
+  const categoryLabels = { "中教错题": "中国教育史", "外教刷题": "外国教育史" };
+  const categoryOf = question => categoryLabels[question.category] || question.category;
+  const categories = [...new Set(bank.map(categoryOf))];
   const defaultSyncCode = "1234";
   const state = loadState();
   let currentCategory = categories.includes(state.lastCategory) ? state.lastCategory : "全部题目";
@@ -34,7 +36,7 @@
         wrong: new Set(saved.wrong || []),
         choices: saved.choices || {},
         submitted: new Set(saved.submitted || []),
-        lastCategory: saved.lastCategory || "全部题目",
+        lastCategory: categoryLabels[saved.lastCategory] || saved.lastCategory || "全部题目",
         lastQuestionId: saved.lastQuestionId || "",
         mode: saved.mode === "random" ? "random" : "order",
         syncCode: defaultSyncCode
@@ -66,7 +68,7 @@
   }
 
   function populateCategories() {
-    const counts = Object.fromEntries(categories.map(c => [c, bank.filter(q => q.category === c).length]));
+    const counts = Object.fromEntries(categories.map(c => [c, bank.filter(q => categoryOf(q) === c).length]));
     categorySelect.innerHTML = `<option value="全部题目">全部题目 · ${bank.length}</option>` +
       categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)} · ${counts[c]}</option>`).join("");
   }
@@ -74,7 +76,7 @@
   function buildList(reset = true) {
     const needle = query.trim().toLowerCase();
     questions = bank.filter(q => {
-      if (currentCategory !== "全部题目" && q.category !== currentCategory) return false;
+      if (currentCategory !== "全部题目" && categoryOf(q) !== currentCategory) return false;
       if (wrongOnly && !state.wrong.has(q.id)) return false;
       if (needle && !`${q.stem} ${Object.values(q.options).join(" ")}`.toLowerCase().includes(needle)) return false;
       return true;
