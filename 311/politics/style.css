@@ -101,6 +101,7 @@ h1 { margin:0; color:var(--navy); font-family:Georgia,"Microsoft YaHei UI",serif
 .btn-primary { min-width:112px; border-color:var(--navy); background:var(--navy); color:#fffefa; }
 .btn-primary:hover:not(:disabled) { border-color:#162e40; background:#162e40; color:#fff; }
 .btn-primary:disabled { opacity:.4; }
+#submit-btn,#next-btn { min-width:112px; }
 .btn-ghost { border-color:transparent; background:transparent; }
 .btn-save { color:#8d7859; }
 .btn-save.saved { border-color:#e8d9bb; background:#f8f1e4; color:#876638; }

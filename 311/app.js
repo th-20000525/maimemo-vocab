@@ -199,7 +199,7 @@
           <button id="save-btn" class="btn btn-save ${state.wrong.has(q.id) ? "saved" : ""}" type="button">${state.wrong.has(q.id) ? "◇ 已在错题本" : "◇ 加入错题本"}</button>
         </div>
         <div class="control-right">
-          ${submitted ? "" : `<button id="submit-btn" class="btn btn-primary" type="button" ${selected ? "" : "disabled"}>确认答案</button>`}
+          <button id="submit-btn" class="btn btn-primary" type="button" ${submitted || !selected ? "disabled" : ""}>确认答案</button>
           <button id="next-btn" class="btn ${submitted ? "btn-primary" : ""}" type="button" ${currentIndex === questions.length - 1 ? "disabled" : ""}>下一题 →</button>
         </div>
       </div>${answerBox}`;
