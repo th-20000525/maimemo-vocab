@@ -14,6 +14,7 @@
     if (aIndex >= 0 || bIndex >= 0) return (aIndex < 0 ? Infinity : aIndex) - (bIndex < 0 ? Infinity : bIndex);
     return a.localeCompare(b, "zh-CN");
   });
+  const defaultSyncCode = "1234";
   const state = loadState();
   let currentCategory = categories.includes(state.lastCategory) ? state.lastCategory : "全部题目";
   let wrongOnly = false;
@@ -23,6 +24,7 @@
   let currentIndex = 0;
   let restorePosition = true;
   let toastTimer;
+  let autoUploadTimer;
 
   const $ = id => document.getElementById(id);
   const categorySelect = $("category-select");
@@ -41,10 +43,10 @@
         lastCategory: saved.lastCategory || "全部题目",
         lastQuestionId: saved.lastQuestionId || "",
         mode: saved.mode === "random" ? "random" : "order",
-        syncCode: saved.syncCode || ""
+        syncCode: defaultSyncCode
       };
     } catch {
-      return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastQuestionId: "", mode: "order", syncCode: "" };
+      return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastQuestionId: "", mode: "order", syncCode: defaultSyncCode };
     }
   }
 
@@ -153,6 +155,7 @@
         state.choices[q.id] = button.dataset.choice;
       }
       saveState();
+      queueAutoUpload();
       render();
     }));
     $("prev-btn").addEventListener("click", () => go(-1));
@@ -176,6 +179,7 @@
       state.wrong.add(q.id);
     }
     saveState();
+    queueAutoUpload();
     render();
   }
 
@@ -190,6 +194,7 @@
       showToast("已加入错题本");
     }
     saveState();
+    queueAutoUpload();
     buildList(false);
   }
 
@@ -227,7 +232,7 @@
   $("reset-progress").addEventListener("click", () => {
     if (!confirm("要清空这台设备上的全部答题记录和错题本吗？")) return;
     state.attempted.clear(); state.correct.clear(); state.wrong.clear(); state.submitted.clear(); state.choices = {};
-    saveState(); buildList(); showToast("学习记录已清空");
+    saveState(); buildList(); queueAutoUpload(); showToast("学习记录已清空");
   });
   function syncCode() {
     const code = $("sync-code").value.trim();
@@ -246,7 +251,12 @@
 
   function setSyncStatus(message) { $("sync-status").textContent = message || ""; }
 
-  async function uploadProgress() {
+  function queueAutoUpload() {
+    clearTimeout(autoUploadTimer);
+    autoUploadTimer = setTimeout(() => uploadProgress({ automatic: true }), 700);
+  }
+
+  async function uploadProgress({ automatic = false } = {}) {
     const code = syncCode();
     if (!code) return;
     setSyncStatus("正在上传…");
@@ -261,16 +271,16 @@
         body: JSON.stringify({ sync_code: code, payload, updated_at: new Date().toISOString() })
       });
       if (!response.ok) throw new Error(await response.text() || `HTTP ${response.status}`);
-      setSyncStatus(`已上传 · ${new Date().toLocaleTimeString()}`);
+      setSyncStatus(`${automatic ? "已自动上传" : "已上传"} · ${new Date().toLocaleTimeString()}`);
     } catch (error) {
       setSyncStatus("上传失败");
-      alert(`上传失败：${error.message || error}
+      if (!automatic) alert(`上传失败：${error.message || error}
 请确认背单词网站的云端进度表仍可用。`);
     }
   }
 
-  async function downloadProgress() {
-    const code = syncCode();
+  async function downloadProgress({ automatic = false } = {}) {
+    const code = automatic ? (state.syncCode.length >= 4 ? syncNamespace + state.syncCode : "") : syncCode();
     if (!code) return;
     setSyncStatus("正在拉取…");
     try {
@@ -281,7 +291,7 @@
       const data = rows[0]?.payload;
       if (!data || data.app !== appId) {
         setSyncStatus("云端暂无记录");
-        alert("云端还没有这个同步码的刷题进度，请先在已有记录的设备上上传。");
+        if (!automatic) alert("云端还没有这个同步码的刷题进度，请先在已有记录的设备上上传。");
         return;
       }
       data.attempted?.forEach(id => state.attempted.add(id));
@@ -300,16 +310,19 @@
       restorePosition = true;
       buildList(true);
       setSyncStatus(`已拉取 · ${new Date().toLocaleTimeString()}`);
-      alert(`云端进度已合并，本机已答 ${state.attempted.size} 题。`);
+      if (!automatic) alert(`云端进度已合并，本机已答 ${state.attempted.size} 题。`);
     } catch (error) {
       setSyncStatus("拉取失败");
-      alert(`拉取失败：${error.message || error}
+      if (!automatic) alert(`拉取失败：${error.message || error}
 请稍后再试。`);
     }
   }
 
   $("sync-code").value = state.syncCode;
-  $("sync-code").addEventListener("change", saveState);
+  $("sync-code").addEventListener("change", () => {
+    saveState();
+    if ($("sync-code").value.trim().length >= 4) downloadProgress({ automatic: true });
+  });
   $("sync-upload").addEventListener("click", uploadProgress);
   $("sync-download").addEventListener("click", downloadProgress);
 
@@ -333,6 +346,7 @@
   modeSelect.value = mode;
   updateStats();
   buildList(false);
+  if (state.syncCode.length >= 4) downloadProgress({ automatic: true });
 })();
 
 
