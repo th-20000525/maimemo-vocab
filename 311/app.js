@@ -191,7 +191,7 @@
       <div class="question-content">
         <p class="question-meta">第 ${q.number} 题 <span>·</span> ${q.type === "multiple" ? "请选择所有正确选项" : "请选择一个最合适的答案"}</p>
         <h2 class="question-stem">${escapeHtml(q.stem)}</h2>
-        <div class="options">${optionsHtml}</div>${answerBox}
+        <div class="options">${optionsHtml}</div>
       </div>
       <div class="controls">
         <div class="control-left">
@@ -202,7 +202,7 @@
           ${submitted ? "" : `<button id="submit-btn" class="btn btn-primary" type="button" ${selected ? "" : "disabled"}>确认答案</button>`}
           <button id="next-btn" class="btn ${submitted ? "btn-primary" : ""}" type="button" ${currentIndex === questions.length - 1 ? "disabled" : ""}>下一题 →</button>
         </div>
-      </div>`;
+      </div>${answerBox}`;
     host.querySelectorAll("[data-choice]").forEach(button => button.addEventListener("click", () => {
       if (q.type === "multiple") {
         const chosen = new Set(String(state.choices[q.id] || "").split("").filter(Boolean));
