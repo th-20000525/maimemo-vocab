@@ -173,3 +173,37 @@ h1 { margin:0; color:var(--navy); font-family:Georgia,"Microsoft YaHei UI",serif
 .subject-nav>span{margin-right:4px;color:var(--muted,#777);font-size:.82rem}
 .subject-nav a{padding:7px 13px;border-radius:999px;color:var(--ink,#342f29);font-size:.88rem;text-decoration:none;background:rgba(255,255,255,.8)}
 .subject-nav a:hover,.subject-nav a.active{color:#fff;background:var(--accent,#806a4f)}
+
+
+/* Keep question actions visible while answer explanations expand. */
+html { scrollbar-gutter: stable; }
+.page-shell { padding-bottom: 112px; }
+.question-panel { padding-bottom: 100px; }
+.answer-box { max-height: min(30vh, 240px); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.controls {
+  position: fixed;
+  z-index: 20;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: min(1180px, calc(100vw - 60px));
+  margin: 0;
+  padding: 12px 42px 12px 280px;
+  border-top: 1px solid rgba(230,225,216,.95);
+  background: rgba(255,254,250,.96);
+  box-shadow: 0 -8px 24px rgba(47,52,53,.07);
+  backdrop-filter: blur(12px);
+}
+@media (max-width:760px) {
+  .page-shell { padding-bottom: 130px; }
+  .question-panel { padding-bottom: 120px; }
+  .controls {
+    width: calc(100vw - 28px);
+    padding: 9px 12px calc(9px + env(safe-area-inset-bottom));
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+  .control-left { width:100%; justify-content:space-between; }
+  .control-right { width:100%; justify-content:flex-end; }
+  .answer-box { max-height: 28vh; }
+}
