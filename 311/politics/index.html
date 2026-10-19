@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f3ed">
+  <title>考研政治 · 马原练习站</title>
+  <link rel="stylesheet" href="style.css">
+  <script>window.STUDY_APP_CONFIG = { storageKey: "politics-study-progress-v1", appId: "politics-study", syncNamespace: "politics:" };</script>
+  <script defer src="questions.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="311练习站首页">
+      <span class="brand-mark">政</span>
+      <span class="brand-copy"><strong>政治练习</strong><small>考研政治 · 每日精进</small></span>
+    </a>
+    <div class="topbar-right"><span class="offline-dot"></span><span>离线可用 · 进度保存在此设备</span></div>
+  </header>
+
+  <main class="page-shell">
+    <section class="intro-row">
+      <div>
+        <p class="eyebrow">STUDY DESK <span>·</span> 考研政治 · 马原</p>
+        <h1>把马原知识点练熟。</h1>
+        <p class="intro-copy">按题作答，核对答案与解析。</p>
+      </div>
+      <div class="stats" aria-label="学习统计">
+        <div class="stat"><span id="stat-done">0</span><small>已作答</small></div>
+        <div class="stat"><span id="stat-accuracy">—</span><small>正确率</small></div>
+        <div class="stat"><span id="stat-wrong">0</span><small>错题收藏</small></div>
+      </div>
+    </section>
+
+    <section class="workspace">
+      <aside class="sidebar">
+        <div class="sidebar-heading"><span class="section-kicker">练习范围</span><span class="tiny-rule"></span></div>
+        <label class="field-label" for="category-select">选择题库</label>
+        <select id="category-select" class="select-control"></select>
+        <label class="field-label" for="mode-select">出题顺序</label>
+        <select id="mode-select" class="select-control">
+          <option value="order">按题目顺序</option>
+          <option value="random">随机练习</option>
+        </select>
+        <label class="search-label" for="search-input">快速查找</label>
+        <div class="search-wrap"><span aria-hidden="true">⌕</span><input id="search-input" type="search" placeholder="输入关键词" autocomplete="off"></div>
+        <button id="wrong-filter" class="wrong-filter" type="button"><span class="bookmark-icon">◇</span><span>只练错题</span><span id="wrong-count" class="count-pill">0</span></button>
+        <section class="sync-card" aria-label="跨设备进度同步">
+          <div class="sync-heading"><span>跨设备记忆</span><span class="sync-cloud">↗</span></div>
+          <input id="sync-code" class="sync-code" type="password" autocomplete="off" placeholder="设置你的同步码">
+          <div class="sync-actions"><button id="sync-upload" type="button">上传</button><button id="sync-download" type="button">拉取</button></div>
+          <p class="sync-help">电脑和手机使用同一同步码。首次使用请先上传。</p>
+          <p id="sync-status" class="sync-status" role="status"></p>
+        </section>
+        <div class="sidebar-note"><span class="note-mark">✳</span><p>完成答题后，答案与解析会自动收进你的学习记录。</p></div>
+        <button id="reset-progress" class="text-button" type="button">清空本机学习记录</button>
+      </aside>
+
+      <section class="question-panel" aria-live="polite">
+        <div id="question-view"></div>
+      </section>
+    </section>
+    <footer class="footer"><span>专注当下这一题。</span><span>311 练习站 <i>·</i> 本地学习工具</span></footer>
+  </main>
+  <div id="toast" class="toast" role="status"></div>
+</body>
+</html>

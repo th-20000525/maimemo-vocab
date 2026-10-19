@@ -1,6 +1,9 @@
 (() => {
   const bank = window.QUESTION_BANK || [];
-  const storageKey = "311-study-progress-v1";
+  const appConfig = window.STUDY_APP_CONFIG || {};
+  const storageKey = appConfig.storageKey || "311-study-progress-v1";
+  const appId = appConfig.appId || "311-study";
+  const syncNamespace = appConfig.syncNamespace || "311:";
   const SB_URL = "https://drtkvfcjbwvqpgolkwur.supabase.co";
   const SB_KEY = "sb_publishable_GFoECb3NXu0jHUUP3krFjQ_JgLLeUxH";
   const letters = ["A", "B", "C", "D"];
@@ -218,7 +221,7 @@
     }
     state.syncCode = code;
     saveState();
-    return "311:" + code;
+    return syncNamespace + code;
   }
 
   function syncHeaders(extra) {
@@ -232,7 +235,7 @@
     if (!code) return;
     setSyncStatus("正在上传…");
     const payload = {
-      app: "311-study", version: 1, attempted: [...state.attempted], correct: [...state.correct],
+      app: appId, version: 1, attempted: [...state.attempted], correct: [...state.correct],
       wrong: [...state.wrong], choices: state.choices, submitted: [...state.submitted],
       lastCategory: state.lastCategory, lastQuestionId: state.lastQuestionId, mode: state.mode
     };
@@ -260,7 +263,7 @@
       if (!response.ok) throw new Error(await response.text() || `HTTP ${response.status}`);
       const rows = await response.json();
       const data = rows[0]?.payload;
-      if (!data || data.app !== "311-study") {
+      if (!data || data.app !== appId) {
         setSyncStatus("云端暂无记录");
         alert("云端还没有这个同步码的刷题进度，请先在已有记录的设备上上传。");
         return;
