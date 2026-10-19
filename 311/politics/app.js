@@ -7,7 +7,13 @@
   const SB_URL = "https://drtkvfcjbwvqpgolkwur.supabase.co";
   const SB_KEY = "sb_publishable_GFoECb3NXu0jHUUP3krFjQ_JgLLeUxH";
   const letters = ["A", "B", "C", "D"];
-  const categoryOrder = appConfig.categoryOrder || [];`r`n  const categories = [...new Set(bank.map(q => q.category))].sort((a, b) => {`r`n    const aIndex = categoryOrder.indexOf(a);`r`n    const bIndex = categoryOrder.indexOf(b);`r`n    if (aIndex >= 0 || bIndex >= 0) return (aIndex < 0 ? Infinity : aIndex) - (bIndex < 0 ? Infinity : bIndex);`r`n    return a.localeCompare(b, "zh-CN");`r`n  });
+  const categoryOrder = appConfig.categoryOrder || [];
+  const categories = [...new Set(bank.map(q => q.category))].sort((a, b) => {
+    const aIndex = categoryOrder.indexOf(a);
+    const bIndex = categoryOrder.indexOf(b);
+    if (aIndex >= 0 || bIndex >= 0) return (aIndex < 0 ? Infinity : aIndex) - (bIndex < 0 ? Infinity : bIndex);
+    return a.localeCompare(b, "zh-CN");
+  });
   const state = loadState();
   let currentCategory = categories.includes(state.lastCategory) ? state.lastCategory : "全部题目";
   let wrongOnly = false;
@@ -328,4 +334,5 @@
   updateStats();
   buildList(false);
 })();
+
 
