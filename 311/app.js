@@ -178,7 +178,6 @@
     currentIndex = Math.max(0, Math.min(questions.length - 1, currentIndex + delta));
     render();
     saveState();
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function shuffle(items) {
