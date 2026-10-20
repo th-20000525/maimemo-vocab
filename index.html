@@ -264,7 +264,7 @@
   <div id="cardModeBlock" class="card-mode">
     <div class="card-top">
       <span id="dailyGoalStatus">今日已刷 <b>0</b> / 1000</span>
-      <span>第 <b id="cardRound">1</b> 轮 · <b id="cardProgress">—</b></span>
+      <span>已会 <b id="cardKnownCount">0</b> / <b id="cardTotalCount">7069</b></span>
       <span class="row">
         <label>从 # <input id="cycleJump" type="number" min="1" placeholder="编号" /></label>
         <button type="button" class="btn-ghost" id="btnCycleJump" style="padding:4px 10px;">开始</button>
@@ -827,20 +827,9 @@ function pickCurrentCard() {
   cardCurrentId = id;
 }
 
-function remainingInRound() {
-  const known = new Set(knownIds);
-  let n = 0;
-  for (const w of ALL_WORDS) {
-    if (w.id >= (cardCurrentId || cyclePos + 1) && !known.has(w.id)) n++;
-  }
-  return n;
-}
-
 function updateCycleUI() {
-  $("cardRound").textContent = cycleRound;
-  $("cardProgress").textContent = cardCurrentId == null
-    ? "—"
-    : `#${cardCurrentId} / ${ALL_WORDS.length} · 本轮还剩 ${remainingInRound()}`;
+  $("cardKnownCount").textContent = knownIds.length;
+  $("cardTotalCount").textContent = ALL_WORDS.length;
   $("btnCardPrev").disabled = prevUnknownId() == null;
   $("btnCardNext").disabled = nextUnknownId() == null;
 }
