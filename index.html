@@ -863,32 +863,28 @@ function ensurePhraseDeck() {
   PHRASE_DECK = [];
   let idx = 0;
   for (const w of ALL_WORDS) {
-    const pairs = wordCollocationPairs(w.word);
-    if (pairs.length) {
-      for (const [phrase, meaning] of pairs) {
-        PHRASE_DECK.push({
-          id: idx++,
-          key: `${w.id}\u0001${phrase}`,
-          wordId: w.id,
-          word: w.word,
-          pos: w.pos || "",
-          phonetic: w.phonetic || "",
-          phrase,
-          meaning,
-          wordOnly: false,
-        });
-      }
-    } else {
+    PHRASE_DECK.push({
+      id: idx++,
+      key: `${w.id}\u0001@word`,
+      wordId: w.id,
+      word: w.word,
+      pos: w.pos || "",
+      phonetic: w.phonetic || "",
+      phrase: w.word,
+      meaning: w.meaning || "",
+      wordOnly: true,
+    });
+    for (const [phrase, meaning] of wordCollocationPairs(w.word)) {
       PHRASE_DECK.push({
         id: idx++,
-        key: `${w.id}\u0001@word`,
+        key: `${w.id}\u0001${phrase}`,
         wordId: w.id,
         word: w.word,
         pos: w.pos || "",
         phonetic: w.phonetic || "",
-        phrase: w.word,
-        meaning: w.meaning || "",
-        wordOnly: true,
+        phrase,
+        meaning,
+        wordOnly: false,
       });
     }
   }
@@ -1043,7 +1039,8 @@ function renderCard() {
     p.pos ? `<span class="pos-tag">${escapeHtml(p.pos)}</span>` : "",
   ].filter(Boolean).join(" · ");
   if (p.wordOnly) {
-    $("cardPhrasePos").innerHTML = `${posLine || "—"}<span class="pos-hint"> · 暂无常用搭配</span>`;
+    const hint = wordCollocationPairs(p.word).length ? "" : '<span class="pos-hint"> · 暂无常用搭配</span>';
+    $("cardPhrasePos").innerHTML = `${posLine || "—"}${hint}`;
     $("cardPhraseZh").innerHTML = formatMeaningHtml(p.meaning);
   } else {
     $("cardPhrasePos").innerHTML = `<span class="pos-word">${escapeHtml(p.word)}</span>${posLine ? " " + posLine : ""}`;
