@@ -158,10 +158,38 @@
     border: 1px solid var(--line);
     box-shadow: 0 12px 40px rgba(42, 154, 133, 0.12);
     min-height: 280px;
-    padding: 28px 20px 20px;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    text-align: center; cursor: pointer; user-select: none;
+    padding: 28px 16px 16px;
+    display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start;
+    cursor: pointer; user-select: none;
     position: relative;
+  }
+  .card-split {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0; width: 100%; flex: 1; align-items: start;
+  }
+  .card-col-en { padding-right: 12px; text-align: center; }
+  .card-col-en .card-phrase-section { text-align: left; }
+  .card-col-zh {
+    border-left: 1px solid var(--line); padding-left: 14px; min-height: 200px;
+  }
+  .card-zh-placeholder {
+    min-height: 180px; display: flex; align-items: center; justify-content: center;
+    color: var(--muted); font-size: 0.82rem; border-radius: 12px;
+    border: 1px dashed #d7e6e1; background: #f8fcfa;
+  }
+  .flash-card.revealed .card-zh-placeholder { display: none; }
+  .card-zh-word-def {
+    padding: 10px 12px; border-radius: 12px; background: #fff8ec; border: 1px solid #f0d2a0;
+    font-size: 0.9rem; line-height: 1.45; text-align: left;
+  }
+  .card-zh-phrase-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+  .card-zh-phrase-item {
+    padding: 12px 14px; border-radius: 12px; background: #fff8ec; border: 1px solid #f0d2a0;
+    font-size: 0.9rem; line-height: 1.4; color: var(--text); text-align: left;
+  }
+  @media (max-width: 560px) {
+    .card-split { grid-template-columns: 1fr; }
+    .card-col-zh { border-left: 0; border-top: 1px solid var(--line); padding: 14px 0 0; margin-top: 8px; }
   }
   .flash-card .card-num {
     position: absolute; top: 12px; left: 14px; font-size: 0.75rem; color: var(--muted); font-weight: 700;
@@ -192,27 +220,10 @@
   .flash-card .card-phrase-empty {
     padding: 14px; color: var(--muted); font-size: 0.9rem; line-height: 1.5;
   }
-  .flash-card .card-hint { margin-top: 16px; font-size: 0.82rem; color: var(--muted); }
-  .flash-card .card-meaning {
-    width: 100%; text-align: left; margin-top: 0; padding: 0;
-    font-size: 0.92rem; line-height: 1.45;
-  }
-  .card-reveal-phrases { margin-bottom: 14px; }
-  .card-reveal-phrases ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
-  .card-reveal-phrases { margin-top: 14px; }
-  .card-reveal-phrases li {
-    padding: 10px 12px; border-radius: 10px; background: #fff8ec; border: 1px solid #f0d2a0;
-  }
-  .card-reveal-phrases b { display: block; color: var(--teal-dark); font-size: 0.95rem; margin-bottom: 4px; }
-  .card-reveal-phrases span { color: var(--muted); font-size: 0.88rem; }
-  .card-reveal-word {
-    padding: 12px 14px; border-radius: 12px; background: #e8f6f2; border: 1px solid #b9e2d6;
-  }
-  .card-reveal-word .card-word-inline {
-    font-size: 1.35rem; font-weight: 800; color: var(--teal-dark);
-  }
-  .card-reveal-word .card-meta-inline { margin-top: 6px; color: var(--muted); font-size: 0.85rem; }
-  .card-reveal-word .card-def-inline { margin-top: 8px; font-size: 0.92rem; line-height: 1.45; }
+  .flash-card .card-hint { margin-top: 12px; font-size: 0.82rem; color: var(--muted); text-align: center; }
+  .flash-card .card-meaning { width: 100%; text-align: left; }
+  .card-zh-block { margin-bottom: 14px; }
+  .card-zh-block:last-child { margin-bottom: 0; }
   .card-actions {
     display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px;
   }
@@ -308,19 +319,24 @@
     <button type="button" class="card-nav" id="btnCardPrev" title="上一个词（←）">‹</button>
     <div class="flash-card" id="cardTap">
       <span class="card-num" id="cardNum">#1</span>
-      <div id="cardFront">
-        <div class="card-word-head">
-          <div class="card-word" id="cardWord">word</div>
-          <div class="card-phonetic" id="cardPhonetic"></div>
-          <div class="card-pos" id="cardPos"></div>
+      <div class="card-split">
+        <div class="card-col card-col-en">
+          <div class="card-word-head">
+            <div class="card-word" id="cardWord">word</div>
+            <div class="card-phonetic" id="cardPhonetic"></div>
+            <div class="card-pos" id="cardPos"></div>
+          </div>
+          <div class="card-phrase-section" id="cardPhraseSection">
+            <div class="card-phrase-label">常用搭配</div>
+            <ul class="card-phrase-list" id="cardPhraseList"></ul>
+          </div>
         </div>
-        <div class="card-phrase-section" id="cardPhraseSection">
-          <div class="card-phrase-label">常用搭配</div>
-          <ul class="card-phrase-list" id="cardPhraseList"></ul>
+        <div class="card-col card-col-zh">
+          <div class="card-zh-placeholder" id="cardZhPlaceholder">点击显示中文</div>
+          <div class="card-meaning" id="cardMeaning" hidden></div>
         </div>
-        <div class="card-hint" id="cardHint">点击卡片 · 显示释义</div>
       </div>
-      <div class="card-meaning" id="cardMeaning" hidden></div>
+      <div class="card-hint" id="cardHint">点击卡片 · 显示释义</div>
     </div>
     <button type="button" class="card-nav" id="btnCardNext" title="下一个词（→）">›</button>
     </div>
@@ -964,16 +980,10 @@ function renderCardPhraseFront(w) {
 
 function buildCardRevealHtml(w) {
   const items = wordCollocationPairs(w.word);
-  let html = `<div class="card-reveal-word">
-    <div class="card-word-inline">${escapeHtml(w.word)}</div>
-    <div class="card-meta-inline">${escapeHtml(w.phonetic || "")} · ${escapeHtml(w.pos || "—")}</div>
-    <div class="card-def-inline">${formatMeaningHtml(w.meaning)}</div>
-  </div>`;
+  let html = `<div class="card-zh-block"><div class="card-phrase-label">释义</div><div class="card-zh-word-def">${formatMeaningHtml(w.meaning)}</div></div>`;
   if (items.length) {
-    html += `<div class="card-reveal-phrases"><div class="card-phrase-label">常用搭配</div><ul>${
-      items.map(([phrase, meaning]) =>
-        `<li><b>${escapeHtml(phrase)}</b><span>${escapeHtml(meaning)}</span></li>`
-      ).join("")
+    html += `<div class="card-zh-block"><div class="card-phrase-label">搭配释义</div><ul class="card-zh-phrase-list">${
+      items.map(([, meaning]) => `<li class="card-zh-phrase-item">${escapeHtml(meaning)}</li>`).join("")
     }</ul></div>`;
   }
   return html;
@@ -983,8 +993,9 @@ function renderCard() {
   $("cardDone").hidden = true;
   $("cardStage").hidden = false;
   $("cardActions").hidden = true;
-  $("cardFront").hidden = false;
+  $("cardTap").classList.remove("revealed");
   $("cardMeaning").hidden = true;
+  $("cardZhPlaceholder").hidden = false;
   $("cardHint").hidden = false;
   cardRevealed = false;
 
@@ -1009,7 +1020,8 @@ function onCardTap() {
   if (cardCurrentId == null || cardRevealed) return;
   cardRevealed = true;
   $("cardHint").hidden = true;
-  $("cardFront").hidden = true;
+  $("cardTap").classList.add("revealed");
+  $("cardZhPlaceholder").hidden = true;
   $("cardMeaning").hidden = false;
   $("cardActions").hidden = false;
   const w = wordById(cardCurrentId);
