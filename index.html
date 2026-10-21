@@ -858,8 +858,10 @@ $("list").addEventListener("click", (e) => {
   toggleRowMeaning(item, id, w, true);
 });
 
+const PHRASE_DECK_BUILD = 3;
+
 function ensurePhraseDeck() {
-  if (PHRASE_DECK) return PHRASE_DECK;
+  if (PHRASE_DECK && window.__phraseDeckBuild === PHRASE_DECK_BUILD) return PHRASE_DECK;
   PHRASE_DECK = [];
   let idx = 0;
   for (const w of ALL_WORDS) {
@@ -888,6 +890,7 @@ function ensurePhraseDeck() {
       });
     }
   }
+  window.__phraseDeckBuild = PHRASE_DECK_BUILD;
   return PHRASE_DECK;
 }
 
