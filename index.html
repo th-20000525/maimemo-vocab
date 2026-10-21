@@ -220,8 +220,10 @@
     border: 1px dashed var(--line); border-radius: 14px; color: var(--muted);
   }
   .card-done b { display: block; color: var(--teal-dark); font-size: 1.05rem; margin-bottom: 8px; }
-  .list-only { }
-  body.card-active .list-only { display: none !important; }
+  .list-only { display: none !important; }
+  body.list-active .list-only { display: revert; }
+  body.card-active .list-only,
+  body.phrase-active .list-only { display: none !important; }
   body.card-active .footer-bar { display: none !important; }
   #phraseModeBlock { display: none; margin-bottom: 12px; }
   body.phrase-active #phraseModeBlock { display: block; }
@@ -254,7 +256,22 @@
   .phrase-row .zh { color: var(--muted); font-size: 0.76rem; margin-top: 1px; }
 </style>
 </head>
-<body>
+<body class="card-active">
+<script>
+(function () {
+  try {
+    var d = JSON.parse(localStorage.getItem("vocab_batch_v1") || "{}");
+    var mode = d.uiMode;
+    if (location.hash === "#phrase" || /(?:^|[?&])mode=phrase(?:&|$)/.test(location.search || "")) mode = "phrase";
+    else if (mode === "phrase") mode = "phrase";
+    else mode = "card";
+    var b = document.body;
+    b.classList.remove("card-active", "phrase-active", "list-active");
+    if (mode === "phrase") b.classList.add("phrase-active");
+    else b.classList.add("card-active");
+  } catch (e) {}
+})();
+</script>
 <div class="wrap">
   <header>
     <div>
@@ -370,6 +387,11 @@ let revealed = new Set();
 let savedRevealedIds = [];
 let viewMode = "study"; // study | known
 let uiMode = "card"; // card | list | phrase
+
+/** 列表模式已下线：刷新/拉云端时不再闪「上一批/加载这批」等旧 UI */
+function normalizeUiMode(mode) {
+  return mode === "phrase" ? "phrase" : "card";
+}
 let cardRevealed = false;
 let PHRASE_DECK = null;
 let knownPhraseKeys = [];
@@ -478,6 +500,7 @@ function loadPersist() {
     if (data.from) $("fromId").value = data.from;
     if (data.to) $("toId").value = data.to;
     if (data.syncCode) $("syncCode").value = data.syncCode;
+    if (data.uiMode === "list" || data.uiMode === "card" || data.uiMode === "phrase") uiMode = normalizeUiMode(data.uiMode);
     if (data.dailyLearnedDate) dailyLearnedDate = data.dailyLearnedDate;
     if (typeof data.dailyLearnedCount === "number") dailyLearnedCount = data.dailyLearnedCount;
     rollDailyCounter();
@@ -858,35 +881,39 @@ $("list").addEventListener("click", (e) => {
   toggleRowMeaning(item, id, w, true);
 });
 
-const PHRASE_DECK_BUILD = 3;
+const PHRASE_DECK_BUILD = 4;
 
 function ensurePhraseDeck() {
   if (PHRASE_DECK && window.__phraseDeckBuild === PHRASE_DECK_BUILD) return PHRASE_DECK;
   PHRASE_DECK = [];
   let idx = 0;
   for (const w of ALL_WORDS) {
-    PHRASE_DECK.push({
-      id: idx++,
-      key: `${w.id}\u0001@word`,
-      wordId: w.id,
-      word: w.word,
-      pos: w.pos || "",
-      phonetic: w.phonetic || "",
-      phrase: w.word,
-      meaning: w.meaning || "",
-      wordOnly: true,
-    });
-    for (const [phrase, meaning] of wordCollocationPairs(w.word)) {
+    const pairs = wordCollocationPairs(w.word);
+    if (pairs.length) {
+      for (const [phrase, meaning] of pairs) {
+        PHRASE_DECK.push({
+          id: idx++,
+          key: `${w.id}\u0001${phrase}`,
+          wordId: w.id,
+          word: w.word,
+          pos: w.pos || "",
+          phonetic: w.phonetic || "",
+          phrase,
+          meaning,
+          wordOnly: false,
+        });
+      }
+    } else {
       PHRASE_DECK.push({
         id: idx++,
-        key: `${w.id}\u0001${phrase}`,
+        key: `${w.id}\u0001@word`,
         wordId: w.id,
         word: w.word,
         pos: w.pos || "",
         phonetic: w.phonetic || "",
-        phrase,
-        meaning,
-        wordOnly: false,
+        phrase: w.word,
+        meaning: w.meaning || "",
+        wordOnly: true,
       });
     }
   }
@@ -963,8 +990,10 @@ function cardStep(dir) {
 function syncUiChrome() {
   const card = uiMode === "card";
   const phrase = uiMode === "phrase";
+  const list = uiMode === "list";
   document.body.classList.toggle("card-active", card);
   document.body.classList.toggle("phrase-active", phrase);
+  document.body.classList.toggle("list-active", list);
   $("cardModeBlock").hidden = !card;
   if ($("phraseModeBlock")) $("phraseModeBlock").hidden = !phrase;
 }
@@ -1042,8 +1071,7 @@ function renderCard() {
     p.pos ? `<span class="pos-tag">${escapeHtml(p.pos)}</span>` : "",
   ].filter(Boolean).join(" · ");
   if (p.wordOnly) {
-    const hint = wordCollocationPairs(p.word).length ? "" : '<span class="pos-hint"> · 暂无常用搭配</span>';
-    $("cardPhrasePos").innerHTML = `${posLine || "—"}${hint}`;
+    $("cardPhrasePos").innerHTML = `${posLine || "—"}<span class="pos-hint"> · 暂无常用搭配</span>`;
     $("cardPhraseZh").innerHTML = formatMeaningHtml(p.meaning);
   } else {
     $("cardPhrasePos").innerHTML = `<span class="pos-word">${escapeHtml(p.word)}</span>${posLine ? " " + posLine : ""}`;
@@ -1306,7 +1334,7 @@ async function cloudDownload(options) {
       setSyncStatus("云端无此同步码");
       if (!silent) {
         alert("云端还没有这个同步码的数据，请先在一台设备上「上传云端」。");
-      } else {
+      } else if (uiMode === "list") {
         loadBatch();
       }
       return false;
@@ -1339,12 +1367,15 @@ async function cloudDownload(options) {
     if (typeof data.dailyLearnedCount === "number") dailyLearnedCount = data.dailyLearnedCount;
     rollDailyCounter();
     loadCycle(data);
+    if (data.uiMode === "list" || data.uiMode === "card" || data.uiMode === "phrase") uiMode = normalizeUiMode(data.uiMode);
     if (data.from) $("fromId").value = data.from;
     if (data.to) $("toId").value = data.to;
     $("syncCode").value = code;
     savePersist({ skipCloud: true });
-    loadBatch();
-    if (uiMode === "card") renderCard();
+    syncUiChrome();
+    if (uiMode === "list") loadBatch();
+    else if (uiMode === "card") renderCard();
+    else if (uiMode === "phrase" && window.PhraseStudy) PhraseStudy.onShow();
     setSyncStatus("已拉取 " + new Date().toLocaleTimeString());
     if (!silent) {
       const deckN = ensurePhraseDeck().length;
@@ -1394,14 +1425,24 @@ if (window.PhraseStudy) PhraseStudy.init();
 if (location.hash === "#phrase" || new URLSearchParams(location.search).get("mode") === "phrase") {
   uiMode = "phrase";
 }
+if (location.hash !== "#phrase" && new URLSearchParams(location.search).get("mode") !== "phrase") {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    if (saved.uiMode === "list" || saved.uiMode === "card" || saved.uiMode === "phrase") {
+      uiMode = normalizeUiMode(saved.uiMode);
+    }
+  } catch (e) {}
+}
+syncUiChrome();
+if (uiMode === "card") renderCard();
+else if (uiMode === "phrase" && window.PhraseStudy) PhraseStudy.onShow();
 
 (async function boot() {
   const code = getSyncCode(true);
   if (uiMode !== "phrase") {
     if (code) {
-      const ok = await cloudDownload({ silent: true });
-      if (!ok) loadBatch();
-    } else {
+      await cloudDownload({ silent: true });
+    } else if (uiMode === "list") {
       loadBatch();
     }
   }
@@ -1409,6 +1450,7 @@ if (location.hash === "#phrase" || new URLSearchParams(location.search).get("mod
   syncUiChrome();
   if (uiMode === "card") renderCard();
   else if (uiMode === "phrase" && window.PhraseStudy) PhraseStudy.onShow();
+  else if (uiMode === "list") loadBatch();
 })();
 </script>
 </body>
