@@ -176,6 +176,7 @@
   }
   .card-phrase-pos .pos-word { font-weight: 700; color: var(--teal-dark); margin-right: 6px; }
   .card-phrase-pos .pos-tag { font-weight: 600; color: #5a7a72; }
+  .card-phrase-pos .pos-hint { font-weight: 500; color: var(--muted); }
   .card-phrase-zh {
     margin-top: 14px; padding: 14px 16px; border-radius: 14px;
     background: #fff8ec; border: 1px solid #f0d2a0;
@@ -862,16 +863,32 @@ function ensurePhraseDeck() {
   PHRASE_DECK = [];
   let idx = 0;
   for (const w of ALL_WORDS) {
-    for (const [phrase, meaning] of wordCollocationPairs(w.word)) {
+    const pairs = wordCollocationPairs(w.word);
+    if (pairs.length) {
+      for (const [phrase, meaning] of pairs) {
+        PHRASE_DECK.push({
+          id: idx++,
+          key: `${w.id}\u0001${phrase}`,
+          wordId: w.id,
+          word: w.word,
+          pos: w.pos || "",
+          phonetic: w.phonetic || "",
+          phrase,
+          meaning,
+          wordOnly: false,
+        });
+      }
+    } else {
       PHRASE_DECK.push({
         id: idx++,
-        key: `${w.id}\u0001${phrase}`,
+        key: `${w.id}\u0001@word`,
         wordId: w.id,
         word: w.word,
         pos: w.pos || "",
         phonetic: w.phonetic || "",
-        phrase,
-        meaning,
+        phrase: w.word,
+        meaning: w.meaning || "",
+        wordOnly: true,
       });
     }
   }
@@ -1025,9 +1042,14 @@ function renderCard() {
     p.phonetic ? `<span class="pos-phonetic">${escapeHtml(p.phonetic)}</span>` : "",
     p.pos ? `<span class="pos-tag">${escapeHtml(p.pos)}</span>` : "",
   ].filter(Boolean).join(" · ");
-  $("cardPhrasePos").innerHTML = `<span class="pos-word">${escapeHtml(p.word)}</span>${posLine ? " " + posLine : ""}`;
-  $("cardPhraseZh").textContent = p.meaning;
-  $("cardPhraseSub").textContent = `#${p.wordId} · 第 ${phraseRound} 轮`;
+  if (p.wordOnly) {
+    $("cardPhrasePos").innerHTML = `${posLine || "—"}<span class="pos-hint"> · 暂无常用搭配</span>`;
+    $("cardPhraseZh").innerHTML = formatMeaningHtml(p.meaning);
+  } else {
+    $("cardPhrasePos").innerHTML = `<span class="pos-word">${escapeHtml(p.word)}</span>${posLine ? " " + posLine : ""}`;
+    $("cardPhraseZh").textContent = p.meaning;
+  }
+  $("cardPhraseSub").textContent = `#${p.wordId} · 第 ${phraseRound} 轮${p.wordOnly ? " · 单词" : ""}`;
 }
 
 function onCardTap() {
