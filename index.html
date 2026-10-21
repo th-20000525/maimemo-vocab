@@ -163,33 +163,18 @@
     cursor: pointer; user-select: none;
     position: relative;
   }
-  .card-align { width: 100%; display: flex; flex-direction: column; gap: 10px; }
-  .card-align-row {
-    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 12px; align-items: stretch;
+  .phrase-card-body { width: 100%; text-align: center; padding: 8px 4px 0; }
+  .card-phrase-en {
+    font-size: clamp(1.15rem, 4.5vw, 1.55rem); font-weight: 750; color: var(--teal-dark);
+    line-height: 1.45; padding: 16px 14px; border-radius: 14px;
+    background: #f8fcfa; border: 1px solid var(--line);
   }
-  .card-align-row-labels .card-phrase-label { margin-bottom: 0; }
-  .card-cell-en { min-width: 0; display: flex; flex-direction: column; justify-content: center; }
-  .card-align-row-head .card-word-head { margin-bottom: 0; text-align: center; width: 100%; }
-  .card-cell-zh {
-    min-width: 0; padding-left: 12px; border-left: 1px solid var(--line);
-    display: flex; align-items: stretch;
+  .card-phrase-zh {
+    margin-top: 14px; padding: 14px 16px; border-radius: 14px;
+    background: #fff8ec; border: 1px solid #f0d2a0;
+    font-size: 1.05rem; line-height: 1.5; color: var(--text);
   }
-  .card-zh-word-def, .card-zh-phrase-item {
-    width: 100%; box-sizing: border-box;
-    padding: 12px 14px; border-radius: 12px; background: #fff8ec; border: 1px solid #f0d2a0;
-    font-size: 0.9rem; line-height: 1.45; text-align: left; color: var(--text);
-    display: flex; align-items: center;
-  }
-  .card-zh-word-def { align-items: flex-start; }
-  .flash-card:not(.revealed) .card-zh-text { visibility: hidden; }
-  .flash-card:not(.revealed) .card-cell-zh {
-    border-radius: 12px; border: 1px dashed #d7e6e1; background: #f8fcfa;
-  }
-  @media (max-width: 560px) {
-    .card-align-row { grid-template-columns: 1fr; gap: 6px; }
-    .card-cell-zh { border-left: 0; padding-left: 0; padding-top: 6px; border-top: 1px dashed #e8eeec; }
-  }
+  .card-phrase-sub { margin-top: 12px; font-size: 0.78rem; color: var(--muted); }
   .flash-card .card-num {
     position: absolute; top: 12px; left: 14px; font-size: 0.75rem; color: var(--muted); font-weight: 700;
   }
@@ -265,7 +250,7 @@
 <div class="wrap">
   <header>
     <div>
-      <h1>背单词 · 墨墨卡片</h1>
+      <h1>背短语 · 墨墨卡片</h1>
     </div>
   </header>
 
@@ -300,7 +285,7 @@
       <span id="dailyGoalStatus">今日已刷 <b>0</b> / 1000</span>
       <span>已会 <b id="cardKnownCount">0</b> / <b id="cardTotalCount">7069</b></span>
       <span class="row">
-        <label>从 # <input id="cycleJump" type="number" min="1" placeholder="编号" /></label>
+        <label>短语 # <input id="cycleJump" type="number" min="1" placeholder="编号" /></label>
         <button type="button" class="btn-ghost" id="btnCycleJump" style="padding:4px 10px;">开始</button>
         <button type="button" class="btn-ghost" id="btnCardReplay" style="padding:4px 10px;">重读</button>
       </span>
@@ -309,7 +294,11 @@
     <button type="button" class="card-nav" id="btnCardPrev" title="上一个词（←）">‹</button>
     <div class="flash-card" id="cardTap">
       <span class="card-num" id="cardNum">#1</span>
-      <div id="cardBody" class="card-align"></div>
+      <div id="cardBody" class="phrase-card-body">
+        <div class="card-phrase-en" id="cardPhraseEn"></div>
+        <div class="card-phrase-zh" id="cardPhraseZh" hidden></div>
+        <div class="card-phrase-sub" id="cardPhraseSub"></div>
+      </div>
       <div class="card-hint" id="cardHint">点击卡片 · 显示释义</div>
     </div>
     <button type="button" class="card-nav" id="btnCardNext" title="下一个词（→）">›</button>
@@ -370,10 +359,15 @@ let revealed = new Set();
 let savedRevealedIds = [];
 let viewMode = "study"; // study | known
 let uiMode = "card"; // card | list | phrase
-let cardCurrentId = null;
 let cardRevealed = false;
+let PHRASE_DECK = null;
+let knownPhraseKeys = [];
+let phraseReviewSchedule = {};
+let phraseRound = 1;
+/** 本轮最后答过的短语序号（0-based），下一张从它之后找 */
+let phraseCyclePos = -1;
+let currentPhraseIdx = null;
 let cycleRound = 1;
-/** 本轮最后答过的单词 id，下一张卡从它之后找 */
 let cyclePos = 0;
 /** 单词 id → 最早出现日期 YYYY-MM-DD（「不熟悉」设为明天） */
 let reviewSchedule = {};
@@ -454,6 +448,16 @@ function loadCycle(data) {
   cycleRound = Number(data.cycleRound) >= 1 ? Math.floor(Number(data.cycleRound)) : 1;
   const pos = Number(data.cyclePos);
   cyclePos = pos >= 0 && pos <= ALL_WORDS.length ? Math.floor(pos) : 0;
+  phraseRound = Number(data.phraseRound) >= 1 ? Math.floor(Number(data.phraseRound)) : 1;
+  const ppos = Number(data.phraseCyclePos);
+  phraseCyclePos = Number.isFinite(ppos) ? Math.floor(ppos) : -1;
+  if (Array.isArray(data.knownPhraseKeys)) knownPhraseKeys = data.knownPhraseKeys.filter((k) => typeof k === "string");
+  if (data.phraseReviewSchedule && typeof data.phraseReviewSchedule === "object") {
+    phraseReviewSchedule = {};
+    for (const [k, v] of Object.entries(data.phraseReviewSchedule)) {
+      if (typeof k === "string" && typeof v === "string") phraseReviewSchedule[k] = v;
+    }
+  }
 }
 
 function loadPersist() {
@@ -500,8 +504,14 @@ function buildPayload() {
     dailyLearnedCount,
     cycleRound,
     cyclePos,
+    phraseRound,
+    phraseCyclePos,
+    knownPhraseKeys: knownPhraseKeys.slice(),
+    phraseReviewSchedule: Object.assign({}, phraseReviewSchedule),
+    phraseDeckSize: ensurePhraseDeck().length,
     totalWords: ALL_WORDS.length,
     knownCount: knownIds.length,
+    knownPhraseCount: knownPhraseKeys.length,
   };
 }
 
@@ -837,56 +847,87 @@ $("list").addEventListener("click", (e) => {
   toggleRowMeaning(item, id, w, true);
 });
 
-function nextCycleId() {
-  const known = new Set(knownIds);
+function ensurePhraseDeck() {
+  if (PHRASE_DECK) return PHRASE_DECK;
+  PHRASE_DECK = [];
+  let idx = 0;
   for (const w of ALL_WORDS) {
-    if (w.id > cyclePos && !known.has(w.id)) return w.id;
+    for (const [phrase, meaning] of wordCollocationPairs(w.word)) {
+      PHRASE_DECK.push({
+        id: idx++,
+        key: `${w.id}\u0001${phrase}`,
+        wordId: w.id,
+        word: w.word,
+        phrase,
+        meaning,
+      });
+    }
+  }
+  return PHRASE_DECK;
+}
+
+function phraseIsAvailable(p) {
+  if (knownPhraseKeys.includes(p.key)) return false;
+  const due = phraseReviewSchedule[p.key];
+  return !due || due <= todayKey();
+}
+
+function nextPhraseDeckId() {
+  const deck = ensurePhraseDeck();
+  for (const p of deck) {
+    if (p.id <= phraseCyclePos) continue;
+    if (!phraseIsAvailable(p)) continue;
+    return p.id;
   }
   return null;
 }
 
-/** 整本按编号循环：本轮剩下的都认识了，就从头开始下一轮 */
-function pickCurrentCard() {
-  let id = nextCycleId();
-  if (id == null && cyclePos > 0) {
-    cycleRound += 1;
-    cyclePos = 0;
-    id = nextCycleId();
+function pickCurrentPhrase() {
+  const deck = ensurePhraseDeck();
+  if (!deck.length) {
+    currentPhraseIdx = null;
+    return;
   }
-  cardCurrentId = id;
+  let id = nextPhraseDeckId();
+  if (id == null && phraseCyclePos >= 0) {
+    phraseRound += 1;
+    phraseCyclePos = -1;
+    id = nextPhraseDeckId();
+  }
+  currentPhraseIdx = id;
 }
 
 function updateCycleUI() {
-  $("cardKnownCount").textContent = knownIds.length;
-  $("cardTotalCount").textContent = ALL_WORDS.length;
-  $("btnCardPrev").disabled = prevUnknownId() == null;
-  $("btnCardNext").disabled = nextUnknownId() == null;
+  const deck = ensurePhraseDeck();
+  $("cardKnownCount").textContent = knownPhraseKeys.length;
+  $("cardTotalCount").textContent = deck.length;
+  $("btnCardPrev").disabled = prevPhraseNavIdx() == null;
+  $("btnCardNext").disabled = nextPhraseNavIdx() == null;
 }
 
-function prevUnknownId() {
-  if (cardCurrentId == null) return null;
-  const known = new Set(knownIds);
-  for (let i = ALL_WORDS.length - 1; i >= 0; i--) {
-    const id = ALL_WORDS[i].id;
-    if (id < cardCurrentId && !known.has(id)) return id;
+function prevPhraseNavIdx() {
+  if (currentPhraseIdx == null) return null;
+  const deck = ensurePhraseDeck();
+  for (let i = currentPhraseIdx - 1; i >= 0; i--) {
+    if (phraseIsAvailable(deck[i])) return i;
   }
   return null;
 }
 
-function nextUnknownId() {
-  if (cardCurrentId == null) return null;
-  const known = new Set(knownIds);
-  for (const w of ALL_WORDS) {
-    if (w.id > cardCurrentId && !known.has(w.id)) return w.id;
+function nextPhraseNavIdx() {
+  if (currentPhraseIdx == null) return null;
+  const deck = ensurePhraseDeck();
+  for (let i = currentPhraseIdx + 1; i < deck.length; i++) {
+    if (phraseIsAvailable(deck[i])) return i;
   }
   return null;
 }
 
 /** 左右切换只移动位置，不算熟悉/认识，也不计入每日额度 */
 function cardStep(dir) {
-  const target = dir < 0 ? prevUnknownId() : nextUnknownId();
+  const target = dir < 0 ? prevPhraseNavIdx() : nextPhraseNavIdx();
   if (target == null) return;
-  cyclePos = target - 1;
+  phraseCyclePos = target - 1;
   renderCard();
   savePersist();
 }
@@ -924,42 +965,18 @@ function showCardDone() {
   $("cardStage").hidden = true;
   $("cardActions").hidden = true;
   $("cardDone").hidden = false;
-  if (cardCurrentId == null) {
-    $("cardDone").querySelector("b").textContent = `整本 ${ALL_WORDS.length} 个词都认识了`;
-    $("cardDoneText").textContent = "可以点「查看已会」翻看，或「恢复」某个词重新加入循环。";
+  const deck = ensurePhraseDeck();
+  if (currentPhraseIdx == null) {
+    $("cardDone").querySelector("b").textContent = `全部 ${deck.length} 条短语都认识了`;
+    $("cardDoneText").textContent = "可以清空已会记录后重新背，或去「查看已会」看单词列表。";
   } else {
-    $("cardDone").querySelector("b").textContent = `今日已刷满 ${DAILY_GOAL} 个词`;
-    $("cardDoneText").textContent = `明天从第 ${cycleRound} 轮 #${cardCurrentId} 接着背。`;
+    $("cardDone").querySelector("b").textContent = `今日已刷满 ${DAILY_GOAL} 条`;
+    $("cardDoneText").textContent = `明天从第 ${phraseRound} 轮 · 短语 #${currentPhraseIdx + 1} 接着背。`;
   }
 }
 
 function wordCollocationPairs(word) {
   return window.getWordCollocations ? window.getWordCollocations(word) : [];
-}
-
-function buildCardAlignHtml(w) {
-  const items = wordCollocationPairs(w.word);
-  let html = `<div class="card-align-row card-align-row-head">
-    <div class="card-cell-en card-word-head">
-      <div class="card-word">${escapeHtml(w.word)}</div>
-      <div class="card-phonetic">${escapeHtml(w.phonetic || "")}</div>
-      <div class="card-pos">${escapeHtml(w.pos || "—")}</div>
-    </div>
-    <div class="card-cell-zh"><div class="card-zh-word-def card-zh-text">${formatMeaningHtml(w.meaning)}</div></div>
-  </div>`;
-  if (items.length) {
-    html += `<div class="card-align-row card-align-row-labels">
-      <div class="card-phrase-label">常用搭配</div>
-      <div class="card-phrase-label">搭配释义</div>
-    </div>`;
-    for (const [phrase, meaning] of items) {
-      html += `<div class="card-align-row">
-        <div class="card-cell-en"><div class="card-phrase-item">${escapeHtml(phrase)}</div></div>
-        <div class="card-cell-zh"><div class="card-zh-phrase-item card-zh-text">${escapeHtml(meaning)}</div></div>
-      </div>`;
-    }
-  }
-  return html;
 }
 
 function renderCard() {
@@ -968,46 +985,65 @@ function renderCard() {
   $("cardActions").hidden = true;
   $("cardTap").classList.remove("revealed");
   $("cardHint").hidden = false;
+  $("cardPhraseZh").hidden = true;
   cardRevealed = false;
 
-  pickCurrentCard();
+  pickCurrentPhrase();
   updateDailyGoalUI();
   updateCycleUI();
-  const w = cardCurrentId == null ? null : wordById(cardCurrentId);
-  if (!w || getDailyLearnedCount() >= DAILY_GOAL) {
+  const deck = ensurePhraseDeck();
+  if (!deck.length) {
+    $("cardPhraseEn").textContent = "暂无短语数据";
+    $("cardPhraseSub").textContent = "";
     showCardDone();
     return;
   }
-
-  $("cardNum").textContent = "#" + w.id;
-  $("cardBody").innerHTML = buildCardAlignHtml(w);
+  if (getDailyLearnedCount() >= DAILY_GOAL) {
+    showCardDone();
+    return;
+  }
+  if (currentPhraseIdx == null) {
+    showCardDone();
+    return;
+  }
+  const p = deck[currentPhraseIdx];
+  $("cardNum").textContent = `#${p.id + 1}`;
+  $("cardPhraseEn").textContent = p.phrase;
+  $("cardPhraseZh").textContent = p.meaning;
+  $("cardPhraseSub").textContent = `词条 · ${p.word}  (#${p.wordId}) · 第 ${phraseRound} 轮`;
 }
 
 function onCardTap() {
-  if (cardCurrentId == null || cardRevealed) return;
+  if (currentPhraseIdx == null || cardRevealed) return;
   cardRevealed = true;
   $("cardHint").hidden = true;
   $("cardTap").classList.add("revealed");
+  $("cardPhraseZh").hidden = false;
   $("cardActions").hidden = false;
-  const w = wordById(cardCurrentId);
-  if (w) speakWord(w.word);
+  const p = ensurePhraseDeck()[currentPhraseIdx];
+  if (p) speakWord(p.phrase);
 }
 
 function cardAnswer(act) {
-  if (cardCurrentId == null) return;
+  if (currentPhraseIdx == null) return;
   if (!cardRevealed) {
     onCardTap();
     return;
   }
   if (getDailyLearnedCount() >= DAILY_GOAL) {
-    alert(`今日已刷满 ${DAILY_GOAL} 个词，明天再继续。`);
+    alert(`今日已刷满 ${DAILY_GOAL} 条，明天再继续。`);
     return;
   }
-  const id = cardCurrentId;
+  const deck = ensurePhraseDeck();
+  const p = deck[currentPhraseIdx];
   recordDailyStudied(1);
-  if (act === "know" && !knownIds.includes(id)) knownIds.push(id);
-  clearWordSchedule(id);
-  cyclePos = id;
+  if (act === "know") {
+    if (!knownPhraseKeys.includes(p.key)) knownPhraseKeys.push(p.key);
+    delete phraseReviewSchedule[p.key];
+  } else {
+    phraseReviewSchedule[p.key] = addDaysToKey(todayKey(), 1);
+  }
+  phraseCyclePos = p.id;
   renderCard();
   savePersist();
   updateStats();
@@ -1015,16 +1051,17 @@ function cardAnswer(act) {
 
 $("cardTap").onclick = () => onCardTap();
 $("btnCardReplay").onclick = () => {
-  const w = wordById(cardCurrentId);
-  if (w) speakWord(w.word);
+  const deck = ensurePhraseDeck();
+  if (currentPhraseIdx != null && deck[currentPhraseIdx]) speakWord(deck[currentPhraseIdx].phrase);
 };
 $("btnCycleJump").onclick = () => {
   const n = parseInt($("cycleJump").value, 10);
-  if (!(n >= 1 && n <= ALL_WORDS.length)) {
-    alert(`请输入 1–${ALL_WORDS.length} 之间的编号`);
+  const total = ensurePhraseDeck().length;
+  if (!(n >= 1 && n <= total)) {
+    alert(`请输入 1–${total} 之间的短语编号`);
     return;
   }
-  cyclePos = n - 1;
+  phraseCyclePos = n - 2;
   $("cycleJump").value = "";
   renderCard();
   savePersist();
@@ -1128,13 +1165,18 @@ $("btnCheckAll").onclick = () => {
   scheduleSave();
 };
 $("btnResetKnown").onclick = () => {
-  if (!confirm("确定清空全部已会记录？")) return;
+  if (!confirm("确定清空全部已会记录？（单词列表与短语进度都会清空）")) return;
   knownIds = [];
+  knownPhraseKeys = [];
   reviewSchedule = {};
+  phraseReviewSchedule = {};
   cycleRound = 1;
   cyclePos = 0;
+  phraseRound = 1;
+  phraseCyclePos = -1;
   savePersist();
   loadBatch();
+  if (uiMode === "card") renderCard();
 };
 
 $("btnViewKnown").onclick = () => {
@@ -1232,6 +1274,18 @@ async function cloudDownload(options) {
     }
     const data = rows[0].payload || {};
     if (Array.isArray(data.knownIds)) knownIds = data.knownIds.map(Number);
+    if (Array.isArray(data.knownPhraseKeys)) knownPhraseKeys = data.knownPhraseKeys.filter((k) => typeof k === "string");
+    if (data.phraseReviewSchedule && typeof data.phraseReviewSchedule === "object") {
+      phraseReviewSchedule = {};
+      for (const [k, v] of Object.entries(data.phraseReviewSchedule)) {
+        if (typeof k === "string" && typeof v === "string") phraseReviewSchedule[k] = v;
+      }
+    } else {
+      phraseReviewSchedule = {};
+    }
+    phraseRound = Number(data.phraseRound) >= 1 ? Math.floor(Number(data.phraseRound)) : 1;
+    const ppos = Number(data.phraseCyclePos);
+    phraseCyclePos = Number.isFinite(ppos) ? Math.floor(ppos) : -1;
     if (data.reviewSchedule && typeof data.reviewSchedule === "object") {
       reviewSchedule = {};
       for (const [k, v] of Object.entries(data.reviewSchedule)) {
@@ -1251,9 +1305,11 @@ async function cloudDownload(options) {
     $("syncCode").value = code;
     savePersist({ skipCloud: true });
     loadBatch();
+    if (uiMode === "card") renderCard();
     setSyncStatus("已拉取 " + new Date().toLocaleTimeString());
     if (!silent) {
-      alert("已从云端恢复：已会 " + knownIds.length + " 个，批次 " + $("fromId").value + "-" + $("toId").value);
+      const deckN = ensurePhraseDeck().length;
+      alert(`已从云端恢复：短语已会 ${knownPhraseKeys.length} / ${deckN}，单词已会 ${knownIds.length}，批次 ${$("fromId").value}-${$("toId").value}`);
     }
     return true;
   } catch (e) {
