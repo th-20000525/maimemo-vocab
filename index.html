@@ -166,6 +166,16 @@
   .flash-card .card-num {
     position: absolute; top: 12px; left: 14px; font-size: 0.75rem; color: var(--muted); font-weight: 700;
   }
+  .flash-card .card-word-head { width: 100%; margin-bottom: 14px; }
+  .flash-card .card-word {
+    font-size: clamp(1.8rem, 6vw, 2.4rem); font-weight: 800; color: var(--teal-dark); line-height: 1.15;
+  }
+  .flash-card .card-phonetic { margin-top: 8px; color: var(--muted); font-size: 0.95rem; }
+  .flash-card .card-pos {
+    margin-top: 8px; display: inline-block; padding: 2px 10px; border-radius: 999px;
+    background: #e8f6f2; color: var(--teal-dark); font-size: 0.8rem; font-weight: 600;
+  }
+  .flash-card .card-phrase-section { width: 100%; }
   .flash-card .card-phrase-label {
     width: 100%; text-align: left; font-size: 0.78rem; font-weight: 700;
     letter-spacing: 0.04em; color: var(--muted); margin-bottom: 10px;
@@ -189,23 +199,15 @@
   }
   .card-reveal-phrases { margin-bottom: 14px; }
   .card-reveal-phrases ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+  .card-reveal-phrases { margin-top: 14px; }
   .card-reveal-phrases li {
     padding: 10px 12px; border-radius: 10px; background: #fff8ec; border: 1px solid #f0d2a0;
-    cursor: pointer;
   }
-  .card-reveal-phrases li:hover { border-color: #e0b878; }
   .card-reveal-phrases b { display: block; color: var(--teal-dark); font-size: 0.95rem; margin-bottom: 4px; }
-  .card-meaning-pending, .card-def-hint {
-    color: var(--muted); font-size: 0.82rem; margin-top: 4px;
-  }
-  .card-meaning-body { color: var(--muted); font-size: 0.88rem; margin-top: 4px; display: block; }
+  .card-reveal-phrases span { color: var(--muted); font-size: 0.88rem; }
   .card-reveal-word {
     padding: 12px 14px; border-radius: 12px; background: #e8f6f2; border: 1px solid #b9e2d6;
-    cursor: pointer;
   }
-  .card-reveal-word:hover { border-color: #8ecfb8; }
-  .card-reveal-word.meaning-shown { cursor: default; }
-  .card-reveal-phrases li.meaning-shown { cursor: default; }
   .card-reveal-word .card-word-inline {
     font-size: 1.35rem; font-weight: 800; color: var(--teal-dark);
   }
@@ -307,9 +309,16 @@
     <div class="flash-card" id="cardTap">
       <span class="card-num" id="cardNum">#1</span>
       <div id="cardFront">
-        <div class="card-phrase-label">常用搭配 · 想想什么意思</div>
-        <ul class="card-phrase-list" id="cardPhraseList"></ul>
-        <div class="card-hint" id="cardHint">点击卡片 · 翻面</div>
+        <div class="card-word-head">
+          <div class="card-word" id="cardWord">word</div>
+          <div class="card-phonetic" id="cardPhonetic"></div>
+          <div class="card-pos" id="cardPos"></div>
+        </div>
+        <div class="card-phrase-section" id="cardPhraseSection">
+          <div class="card-phrase-label">常用搭配</div>
+          <ul class="card-phrase-list" id="cardPhraseList"></ul>
+        </div>
+        <div class="card-hint" id="cardHint">点击卡片 · 显示释义</div>
       </div>
       <div class="card-meaning" id="cardMeaning" hidden></div>
     </div>
@@ -940,11 +949,14 @@ function wordCollocationPairs(word) {
 
 function renderCardPhraseFront(w) {
   const items = wordCollocationPairs(w.word);
+  const section = $("cardPhraseSection");
   const list = $("cardPhraseList");
   if (!items.length) {
-    list.innerHTML = "<li class=\"card-phrase-empty\">本词暂无常用搭配<br>点击卡片查看单词释义</li>";
+    section.hidden = true;
+    list.innerHTML = "";
     return;
   }
+  section.hidden = false;
   list.innerHTML = items.map(([phrase]) =>
     `<li class="card-phrase-item">${escapeHtml(phrase)}</li>`
   ).join("");
@@ -952,59 +964,19 @@ function renderCardPhraseFront(w) {
 
 function buildCardRevealHtml(w) {
   const items = wordCollocationPairs(w.word);
-  let html = "";
+  let html = `<div class="card-reveal-word">
+    <div class="card-word-inline">${escapeHtml(w.word)}</div>
+    <div class="card-meta-inline">${escapeHtml(w.phonetic || "")} · ${escapeHtml(w.pos || "—")}</div>
+    <div class="card-def-inline">${formatMeaningHtml(w.meaning)}</div>
+  </div>`;
   if (items.length) {
-    html += `<div class="card-reveal-phrases"><div class="card-phrase-label">搭配释义 · 点击显示中文</div><ul>${
+    html += `<div class="card-reveal-phrases"><div class="card-phrase-label">常用搭配</div><ul>${
       items.map(([phrase, meaning]) =>
-        `<li class="card-reveal-phrase-row" role="button" tabindex="0">
-          <b>${escapeHtml(phrase)}</b>
-          <span class="card-meaning-pending">点击显示释义</span>
-          <span class="card-meaning-body" hidden>${escapeHtml(meaning)}</span>
-        </li>`
+        `<li><b>${escapeHtml(phrase)}</b><span>${escapeHtml(meaning)}</span></li>`
       ).join("")
     }</ul></div>`;
   }
-  html += `<div class="card-reveal-word" role="button" tabindex="0">
-    <div class="card-word-inline">${escapeHtml(w.word)}</div>
-    <div class="card-meta-inline">${escapeHtml(w.phonetic || "")} · ${escapeHtml(w.pos || "—")}</div>
-    <div class="card-def-hint">点击显示词条释义</div>
-    <div class="card-def-inline" hidden>${formatMeaningHtml(w.meaning)}</div>
-  </div>`;
   return html;
-}
-
-function showCardPhraseMeaning(row) {
-  if (!row || row.classList.contains("meaning-shown")) return;
-  row.classList.add("meaning-shown");
-  row.querySelector(".card-meaning-pending")?.remove();
-  const body = row.querySelector(".card-meaning-body");
-  if (body) body.hidden = false;
-}
-
-function showCardWordMeaning(block) {
-  if (!block || block.classList.contains("meaning-shown")) return;
-  block.classList.add("meaning-shown");
-  block.querySelector(".card-def-hint")?.remove();
-  const def = block.querySelector(".card-def-inline");
-  if (def) def.hidden = false;
-}
-
-function bindCardRevealInteractions() {
-  const host = $("cardMeaning");
-  host.addEventListener("click", (e) => {
-    if (!cardRevealed) return;
-    const row = e.target.closest(".card-reveal-phrase-row");
-    if (row) {
-      e.stopPropagation();
-      showCardPhraseMeaning(row);
-      return;
-    }
-    const block = e.target.closest(".card-reveal-word");
-    if (block) {
-      e.stopPropagation();
-      showCardWordMeaning(block);
-    }
-  });
 }
 
 function renderCard() {
@@ -1026,6 +998,9 @@ function renderCard() {
   }
 
   $("cardNum").textContent = "#" + w.id;
+  $("cardWord").textContent = w.word;
+  $("cardPhonetic").textContent = w.phonetic || "";
+  $("cardPos").textContent = w.pos || "—";
   renderCardPhraseFront(w);
   $("cardMeaning").innerHTML = buildCardRevealHtml(w);
 }
