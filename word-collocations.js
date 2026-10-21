@@ -6475,6 +6475,7 @@
   const style = document.createElement("style");
   style.textContent = ".word-collocations{margin:16px 0 0;padding:12px 0 0;border-top:1px solid var(--line,#d7e6e1);text-align:left}.word-collocations-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}.word-collocations-title{font-size:.78rem;font-weight:700;letter-spacing:.04em;color:var(--muted,#6b7a7a)}.word-collocations a{color:var(--teal-dark,#2a9a85);font-size:.78rem;text-decoration:none}.word-collocations-list{display:grid;gap:6px;margin:0;padding:0;list-style:none}.word-collocations-item{display:flex;flex-wrap:wrap;gap:5px 10px;align-items:baseline;font-size:.88rem;line-height:1.5}.word-collocations-phrase{font-weight:650;color:var(--text,#1f2a2a)}.word-collocations-meaning{color:var(--muted,#6b7a7a)}.word-collocations-empty{font-size:.82rem;color:var(--muted,#6b7a7a)}";
   document.head.appendChild(style);
+  window.getWordCollocations = (word) => data[String(word || "").toLowerCase()] || [];
   window.renderWordCollocations = (word) => {
     const key = String(word || "").toLowerCase();
     const items = data[key] || [];
