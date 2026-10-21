@@ -163,38 +163,37 @@
     cursor: pointer; user-select: none;
     position: relative;
   }
-  .card-split {
+  .card-align { width: 100%; display: flex; flex-direction: column; gap: 10px; }
+  .card-align-row {
     display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 0; width: 100%; flex: 1; align-items: start;
+    gap: 12px; align-items: stretch;
   }
-  .card-col-en { padding-right: 12px; text-align: center; }
-  .card-col-en .card-phrase-section { text-align: left; }
-  .card-col-zh {
-    border-left: 1px solid var(--line); padding-left: 14px; min-height: 200px;
+  .card-align-row-labels .card-phrase-label { margin-bottom: 0; }
+  .card-cell-en { min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+  .card-align-row-head .card-word-head { margin-bottom: 0; text-align: center; width: 100%; }
+  .card-cell-zh {
+    min-width: 0; padding-left: 12px; border-left: 1px solid var(--line);
+    display: flex; align-items: stretch;
   }
-  .card-zh-placeholder {
-    min-height: 180px; display: flex; align-items: center; justify-content: center;
-    color: var(--muted); font-size: 0.82rem; border-radius: 12px;
-    border: 1px dashed #d7e6e1; background: #f8fcfa;
-  }
-  .flash-card.revealed .card-zh-placeholder { display: none; }
-  .card-zh-word-def {
-    padding: 10px 12px; border-radius: 12px; background: #fff8ec; border: 1px solid #f0d2a0;
-    font-size: 0.9rem; line-height: 1.45; text-align: left;
-  }
-  .card-zh-phrase-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
-  .card-zh-phrase-item {
+  .card-zh-word-def, .card-zh-phrase-item {
+    width: 100%; box-sizing: border-box;
     padding: 12px 14px; border-radius: 12px; background: #fff8ec; border: 1px solid #f0d2a0;
-    font-size: 0.9rem; line-height: 1.4; color: var(--text); text-align: left;
+    font-size: 0.9rem; line-height: 1.45; text-align: left; color: var(--text);
+    display: flex; align-items: center;
+  }
+  .card-zh-word-def { align-items: flex-start; }
+  .flash-card:not(.revealed) .card-zh-text { visibility: hidden; }
+  .flash-card:not(.revealed) .card-cell-zh {
+    border-radius: 12px; border: 1px dashed #d7e6e1; background: #f8fcfa;
   }
   @media (max-width: 560px) {
-    .card-split { grid-template-columns: 1fr; }
-    .card-col-zh { border-left: 0; border-top: 1px solid var(--line); padding: 14px 0 0; margin-top: 8px; }
+    .card-align-row { grid-template-columns: 1fr; gap: 6px; }
+    .card-cell-zh { border-left: 0; padding-left: 0; padding-top: 6px; border-top: 1px dashed #e8eeec; }
   }
   .flash-card .card-num {
     position: absolute; top: 12px; left: 14px; font-size: 0.75rem; color: var(--muted); font-weight: 700;
   }
-  .flash-card .card-word-head { width: 100%; margin-bottom: 14px; }
+  .flash-card .card-word-head { width: 100%; margin-bottom: 0; }
   .flash-card .card-word {
     font-size: clamp(1.8rem, 6vw, 2.4rem); font-weight: 800; color: var(--teal-dark); line-height: 1.15;
   }
@@ -203,27 +202,18 @@
     margin-top: 8px; display: inline-block; padding: 2px 10px; border-radius: 999px;
     background: #e8f6f2; color: var(--teal-dark); font-size: 0.8rem; font-weight: 600;
   }
-  .flash-card .card-phrase-section { width: 100%; }
   .flash-card .card-phrase-label {
     width: 100%; text-align: left; font-size: 0.78rem; font-weight: 700;
     letter-spacing: 0.04em; color: var(--muted); margin-bottom: 10px;
   }
-  .flash-card .card-phrase-list {
-    width: 100%; margin: 0; padding: 0; list-style: none; text-align: left;
-    display: grid; gap: 10px;
-  }
   .flash-card .card-phrase-item {
+    width: 100%; box-sizing: border-box;
     padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line);
-    background: #f8fcfa; font-size: clamp(1rem, 3.5vw, 1.15rem); font-weight: 650;
-    color: var(--text); line-height: 1.4;
-  }
-  .flash-card .card-phrase-empty {
-    padding: 14px; color: var(--muted); font-size: 0.9rem; line-height: 1.5;
+    background: #f8fcfa; font-size: clamp(0.95rem, 3.2vw, 1.1rem); font-weight: 650;
+    color: var(--text); line-height: 1.4; text-align: left;
+    display: flex; align-items: center; min-height: 100%;
   }
   .flash-card .card-hint { margin-top: 12px; font-size: 0.82rem; color: var(--muted); text-align: center; }
-  .flash-card .card-meaning { width: 100%; text-align: left; }
-  .card-zh-block { margin-bottom: 14px; }
-  .card-zh-block:last-child { margin-bottom: 0; }
   .card-actions {
     display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px;
   }
@@ -319,23 +309,7 @@
     <button type="button" class="card-nav" id="btnCardPrev" title="上一个词（←）">‹</button>
     <div class="flash-card" id="cardTap">
       <span class="card-num" id="cardNum">#1</span>
-      <div class="card-split">
-        <div class="card-col card-col-en">
-          <div class="card-word-head">
-            <div class="card-word" id="cardWord">word</div>
-            <div class="card-phonetic" id="cardPhonetic"></div>
-            <div class="card-pos" id="cardPos"></div>
-          </div>
-          <div class="card-phrase-section" id="cardPhraseSection">
-            <div class="card-phrase-label">常用搭配</div>
-            <ul class="card-phrase-list" id="cardPhraseList"></ul>
-          </div>
-        </div>
-        <div class="card-col card-col-zh">
-          <div class="card-zh-placeholder" id="cardZhPlaceholder">点击显示中文</div>
-          <div class="card-meaning" id="cardMeaning" hidden></div>
-        </div>
-      </div>
+      <div id="cardBody" class="card-align"></div>
       <div class="card-hint" id="cardHint">点击卡片 · 显示释义</div>
     </div>
     <button type="button" class="card-nav" id="btnCardNext" title="下一个词（→）">›</button>
@@ -963,28 +937,27 @@ function wordCollocationPairs(word) {
   return window.getWordCollocations ? window.getWordCollocations(word) : [];
 }
 
-function renderCardPhraseFront(w) {
+function buildCardAlignHtml(w) {
   const items = wordCollocationPairs(w.word);
-  const section = $("cardPhraseSection");
-  const list = $("cardPhraseList");
-  if (!items.length) {
-    section.hidden = true;
-    list.innerHTML = "";
-    return;
-  }
-  section.hidden = false;
-  list.innerHTML = items.map(([phrase]) =>
-    `<li class="card-phrase-item">${escapeHtml(phrase)}</li>`
-  ).join("");
-}
-
-function buildCardRevealHtml(w) {
-  const items = wordCollocationPairs(w.word);
-  let html = `<div class="card-zh-block"><div class="card-phrase-label">释义</div><div class="card-zh-word-def">${formatMeaningHtml(w.meaning)}</div></div>`;
+  let html = `<div class="card-align-row card-align-row-head">
+    <div class="card-cell-en card-word-head">
+      <div class="card-word">${escapeHtml(w.word)}</div>
+      <div class="card-phonetic">${escapeHtml(w.phonetic || "")}</div>
+      <div class="card-pos">${escapeHtml(w.pos || "—")}</div>
+    </div>
+    <div class="card-cell-zh"><div class="card-zh-word-def card-zh-text">${formatMeaningHtml(w.meaning)}</div></div>
+  </div>`;
   if (items.length) {
-    html += `<div class="card-zh-block"><div class="card-phrase-label">搭配释义</div><ul class="card-zh-phrase-list">${
-      items.map(([, meaning]) => `<li class="card-zh-phrase-item">${escapeHtml(meaning)}</li>`).join("")
-    }</ul></div>`;
+    html += `<div class="card-align-row card-align-row-labels">
+      <div class="card-phrase-label">常用搭配</div>
+      <div class="card-phrase-label">搭配释义</div>
+    </div>`;
+    for (const [phrase, meaning] of items) {
+      html += `<div class="card-align-row">
+        <div class="card-cell-en"><div class="card-phrase-item">${escapeHtml(phrase)}</div></div>
+        <div class="card-cell-zh"><div class="card-zh-phrase-item card-zh-text">${escapeHtml(meaning)}</div></div>
+      </div>`;
+    }
   }
   return html;
 }
@@ -994,8 +967,6 @@ function renderCard() {
   $("cardStage").hidden = false;
   $("cardActions").hidden = true;
   $("cardTap").classList.remove("revealed");
-  $("cardMeaning").hidden = true;
-  $("cardZhPlaceholder").hidden = false;
   $("cardHint").hidden = false;
   cardRevealed = false;
 
@@ -1009,11 +980,7 @@ function renderCard() {
   }
 
   $("cardNum").textContent = "#" + w.id;
-  $("cardWord").textContent = w.word;
-  $("cardPhonetic").textContent = w.phonetic || "";
-  $("cardPos").textContent = w.pos || "—";
-  renderCardPhraseFront(w);
-  $("cardMeaning").innerHTML = buildCardRevealHtml(w);
+  $("cardBody").innerHTML = buildCardAlignHtml(w);
 }
 
 function onCardTap() {
@@ -1021,8 +988,6 @@ function onCardTap() {
   cardRevealed = true;
   $("cardHint").hidden = true;
   $("cardTap").classList.add("revealed");
-  $("cardZhPlaceholder").hidden = true;
-  $("cardMeaning").hidden = false;
   $("cardActions").hidden = false;
   const w = wordById(cardCurrentId);
   if (w) speakWord(w.word);
