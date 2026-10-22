@@ -169,23 +169,21 @@
   }
   .card-phrase-en {
     font-size: clamp(1.15rem, 4.5vw, 1.55rem); font-weight: 750; color: var(--teal-dark);
-    line-height: 1.55;
+    line-height: 1.45;
+  }
+  .card-phrase-en .phrase-line {
+    margin: 0; letter-spacing: 0.01em;
+    word-spacing: 0.02em;
   }
   .card-phrase-en .phrase-head {
-    display: inline; padding: 1px 8px 3px; margin: 0 1px;
-    border-radius: 10px; background: #dff5ee; border: 1px solid #b9e2d6;
-    box-decoration-break: clone; -webkit-box-decoration-break: clone;
+    display: inline; padding: 2px 7px; margin: 0;
+    border-radius: 8px; background: #dff5ee; border: 1px solid #b9e2d6;
   }
   .card-phrase-en .phrase-head-word { font-weight: 800; color: var(--teal-dark); }
-  .card-phrase-en .phrase-head-pos {
-    font-size: 0.72em; font-weight: 700; color: #3d7a68; margin-left: 3px; vertical-align: baseline;
-  }
-  .card-phrase-en .phrase-head-phonetic {
-    font-size: 0.62em; font-weight: 500; color: var(--muted); margin-left: 5px; white-space: nowrap;
-  }
   .card-phrase-pos {
-    margin-top: 10px; font-size: 0.86rem; line-height: 1.4; color: var(--muted);
+    margin-top: 8px; font-size: 0.86rem; line-height: 1.35; color: var(--muted);
   }
+  .card-phrase-pos .pos-phonetic { color: var(--muted); font-weight: 500; }
   .card-phrase-pos:empty { display: none; margin: 0; }
   .card-phrase-pos .pos-word { font-weight: 700; color: var(--teal-dark); margin-right: 6px; }
   .card-phrase-pos .pos-tag { font-weight: 600; color: #5a7a72; }
@@ -1067,35 +1065,47 @@ function wordCollocationPairs(word) {
   return window.getWordCollocations ? window.getWordCollocations(word) : [];
 }
 
-/** 在英文短语中高亮 headword，词性/音标贴在词后（不再单独占一行） */
+/** 短语一行连贯显示，仅高亮 headword；词性/音标见 formatPhraseMetaHtml */
 function formatPhraseEnHtml(p) {
   const word = String(p.word || "").trim();
   const phrase = String(p.phrase || "");
-  const pos = String(p.pos || "").trim();
-  const phonetic = String(p.phonetic || "").trim();
-  const posHtml = pos ? `<span class="phrase-head-pos">${escapeHtml(pos)}</span>` : "";
-  const phoneticHtml = phonetic ? `<span class="phrase-head-phonetic">${escapeHtml(phonetic)}</span>` : "";
   const headInner = (surface) =>
-    `<span class="phrase-head"><span class="phrase-head-word">${escapeHtml(surface)}</span>${posHtml}${phoneticHtml}</span>`;
+    `<span class="phrase-head"><span class="phrase-head-word">${escapeHtml(surface)}</span></span>`;
 
   if (!phrase) return "";
-  if (p.wordOnly || !word) return headInner(phrase);
+  let line = "";
+  if (p.wordOnly || !word) line = headInner(phrase);
+  else {
+    const lower = phrase.toLowerCase();
+    const wLower = word.toLowerCase();
+    let idx = lower.indexOf(wLower);
+    if (idx < 0) {
+      const re = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+      const m = phrase.match(re);
+      if (m && m.index != null) idx = m.index;
+    }
+    if (idx < 0) line = `${escapeHtml(phrase)} ${headInner(word)}`;
+    else {
+      const before = phrase.slice(0, idx);
+      const surface = phrase.slice(idx, idx + word.length);
+      const after = phrase.slice(idx + word.length);
+      line = `${escapeHtml(before)}${headInner(surface)}${escapeHtml(after)}`;
+    }
+  }
+  return `<p class="phrase-line">${line}</p>`;
+}
 
-  const lower = phrase.toLowerCase();
-  const wLower = word.toLowerCase();
-  let idx = lower.indexOf(wLower);
-  if (idx < 0) {
-    const re = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
-    const m = phrase.match(re);
-    if (m && m.index != null) idx = m.index;
+function formatPhraseMetaHtml(p) {
+  const pos = String(p.pos || "").trim();
+  const phonetic = String(p.phonetic || "").trim();
+  const bits = [];
+  if (pos) bits.push(`<span class="pos-tag">${escapeHtml(pos)}</span>`);
+  if (phonetic) bits.push(`<span class="pos-phonetic">${escapeHtml(phonetic)}</span>`);
+  if (p.wordOnly) {
+    if (bits.length) bits.push(`<span class="pos-hint">· 暂无常用搭配</span>`);
+    else bits.push(`<span class="pos-hint">暂无常用搭配</span>`);
   }
-  if (idx < 0) {
-    return `${escapeHtml(phrase)} ${headInner(word)}`;
-  }
-  const before = phrase.slice(0, idx);
-  const surface = phrase.slice(idx, idx + word.length);
-  const after = phrase.slice(idx + word.length);
-  return `${escapeHtml(before)}${headInner(surface)}${escapeHtml(after)}`;
+  return bits.join(" · ");
 }
 
 function renderCard() {
@@ -1128,13 +1138,9 @@ function renderCard() {
   const p = deck[currentPhraseIdx];
   $("cardNum").textContent = `#${p.id + 1}`;
   $("cardPhraseEn").innerHTML = formatPhraseEnHtml(p);
-  if (p.wordOnly) {
-    $("cardPhrasePos").innerHTML = `<span class="pos-hint">暂无常用搭配</span>`;
-    $("cardPhraseZh").innerHTML = formatMeaningHtml(p.meaning);
-  } else {
-    $("cardPhrasePos").innerHTML = "";
-    $("cardPhraseZh").textContent = p.meaning;
-  }
+  $("cardPhrasePos").innerHTML = formatPhraseMetaHtml(p);
+  if (p.wordOnly) $("cardPhraseZh").innerHTML = formatMeaningHtml(p.meaning);
+  else $("cardPhraseZh").textContent = p.meaning;
   $("cardPhraseSub").textContent = `#${p.wordId} · 第 ${phraseRound} 轮${p.wordOnly ? " · 单词" : ""}`;
 }
 
