@@ -158,45 +158,10 @@
     moduleSelect.value = currentModule;
   }
 
+  const Q = window.StudyListQueue;
+
   function listScopeKey(needle) {
     return [currentCategory, currentModule, mode, wrongOnly, pendingOnly, needle].join("\u0001");
-  }
-
-  function applyShuffleOrder(filtered, orderedIds) {
-    const map = new Map(filtered.map(q => [q.id, q]));
-    const used = new Set();
-    const out = [];
-    for (const id of orderedIds || []) {
-      if (!map.has(id) || used.has(id)) continue;
-      out.push(map.get(id));
-      used.add(id);
-    }
-    for (const q of filtered) {
-      if (!used.has(q.id)) out.push(q);
-    }
-    return out;
-  }
-
-  function shuffleQuestions(list) {
-    if (mode === "random") return shuffle(list);
-    if (mode === "random-cover") {
-      const pending = list.filter(q => !state.attempted.has(q.id));
-      const done = list.filter(q => state.attempted.has(q.id));
-      return shuffle(pending).concat(shuffle(done));
-    }
-    return list;
-  }
-
-  function restoreListIndex() {
-    let idx = questions.findIndex(q => q.id === state.lastQuestionId);
-    if (idx < 0 && Number.isFinite(state.listIndex)) idx = state.listIndex;
-    if (idx < 0 || idx >= questions.length) idx = 0;
-    const current = questions[idx];
-    if ((mode === "random-cover" || mode === "random") && current && state.attempted.has(current.id)) {
-      const firstPending = questions.findIndex(q => !state.attempted.has(q.id));
-      if (firstPending >= 0) idx = firstPending;
-    }
-    currentIndex = idx;
   }
 
   function buildList(reset = true) {
@@ -209,25 +174,16 @@
       if (needle && !`${q.stem} ${Object.values(q.options).join(" ")}`.toLowerCase().includes(needle)) return false;
       return true;
     });
-    const listKey = listScopeKey(needle);
-    const canReuseOrder = (mode === "random" || mode === "random-cover") && !reset &&
-      state.shuffleKey === listKey && state.shuffleOrder.length;
-    if (canReuseOrder) {
-      questions = applyShuffleOrder(filtered, state.shuffleOrder);
-    } else {
-      questions = shuffleQuestions(filtered);
-      if (mode === "random" || mode === "random-cover") {
-        state.shuffleKey = listKey;
-        state.shuffleOrder = questions.map(q => q.id);
-      } else {
-        state.shuffleKey = "";
-        state.shuffleOrder = [];
-      }
-    }
+    const built = Q.buildFromFiltered({
+      filtered, mode, reset, listKey: listScopeKey(needle), state, shuffle,
+    });
+    questions = built.questions;
+    state.shuffleKey = built.shuffleKey;
+    state.shuffleOrder = built.shuffleOrder;
     if (reset) currentIndex = 0;
     else currentIndex = Math.min(currentIndex, Math.max(0, questions.length - 1));
     if (restorePosition) {
-      restoreListIndex();
+      currentIndex = Q.restoreListIndex(questions, state, mode);
       restorePosition = false;
     }
     render();
@@ -375,7 +331,7 @@
   $("reset-progress").addEventListener("click", () => {
     if (!confirm("要清空这台设备上的全部答题记录和错题本吗？")) return;
     state.attempted.clear(); state.correct.clear(); state.wrong.clear(); state.submitted.clear(); state.choices = {};
-    state.shuffleKey = ""; state.shuffleOrder = []; state.listIndex = 0;
+    Q.clearQueue(state);
     saveState(); buildList(); queueAutoUpload(); showToast("学习记录已清空");
   });
   function syncCode() {
@@ -405,9 +361,10 @@
     if (!code) return;
     setSyncStatus("正在上传…");
     const payload = {
-      app: appId, version: 1, attempted: [...state.attempted], correct: [...state.correct],
+      app: appId, version: 2, attempted: [...state.attempted], correct: [...state.correct],
       wrong: [...state.wrong], choices: state.choices, submitted: [...state.submitted],
-      lastCategory: state.lastCategory, lastQuestionId: state.lastQuestionId, lastModule: state.lastModule, mode: state.mode
+      lastCategory: state.lastCategory, lastQuestionId: state.lastQuestionId, lastModule: state.lastModule, mode: state.mode,
+      ...Q.queuePayloadSlice(state, currentIndex),
     };
     try {
       const response = await fetch(`${SB_URL}/rest/v1/vocab_progress?on_conflict=sync_code`, {
@@ -449,6 +406,7 @@
       if (data.lastModule) state.lastModule = data.lastModule;
       if (data.lastQuestionId) state.lastQuestionId = data.lastQuestionId;
       state.mode = ["random", "random-cover", "order"].includes(data.mode) ? data.mode : "order";
+      Q.applyQueuePayload(state, data);
       currentCategory = categories.includes(state.lastCategory) ? state.lastCategory : "全部题目";
       currentModule = state.lastModule || "全部模块";
       mode = state.mode;
@@ -456,7 +414,7 @@
       populateModules();
       modeSelect.value = mode;
       restorePosition = true;
-      buildList(true);
+      buildList(false);
       setSyncStatus(`已拉取 · ${new Date().toLocaleTimeString()}`);
       if (!automatic) alert(`云端进度已合并，本机已答 ${state.attempted.size} 题。`);
     } catch (error) {
