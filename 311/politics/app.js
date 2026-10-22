@@ -45,10 +45,13 @@
         lastCategory: saved.lastCategory || "全部题目",
         lastQuestionId: saved.lastQuestionId || "",
         mode: ["random", "random-cover", "order"].includes(saved.mode) ? saved.mode : (appConfig.defaultMode || "order"),
+        shuffleKey: saved.shuffleKey || "",
+        shuffleOrder: Array.isArray(saved.shuffleOrder) ? saved.shuffleOrder : [],
+        listIndex: Number.isFinite(saved.listIndex) ? saved.listIndex : 0,
         syncCode: defaultSyncCode
       };
     } catch {
-      return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastQuestionId: "", mode: appConfig.defaultMode || "order", syncCode: defaultSyncCode };
+      return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastQuestionId: "", mode: appConfig.defaultMode || "order", shuffleKey: "", shuffleOrder: [], listIndex: 0, syncCode: defaultSyncCode };
     }
   }
 
@@ -60,7 +63,9 @@
     localStorage.setItem(storageKey, JSON.stringify({
       attempted: [...state.attempted], correct: [...state.correct], wrong: [...state.wrong],
       choices: state.choices, submitted: [...state.submitted], lastCategory: state.lastCategory,
-      lastQuestionId: state.lastQuestionId, mode: state.mode, syncCode: $("sync-code")?.value.trim() || state.syncCode
+      lastQuestionId: state.lastQuestionId, mode: state.mode,
+      shuffleKey: state.shuffleKey || "", shuffleOrder: state.shuffleOrder || [], listIndex: currentIndex,
+      syncCode: $("sync-code")?.value.trim() || state.syncCode
     }));
     updateStats();
   }
@@ -95,26 +100,31 @@
     categorySelect.innerHTML = html;
   }
 
+  const Q = window.StudyListQueue;
+
+  function listScopeKey(needle) {
+    return [currentCategory, mode, wrongOnly, pendingOnly, needle].join("\u0001");
+  }
+
   function buildList(reset = true) {
     const needle = query.trim().toLowerCase();
-    questions = bank.filter(q => {
+    const filtered = bank.filter(q => {
       if (!matchesCategory(q)) return false;
       if (wrongOnly && !state.wrong.has(q.id)) return false;
       if (pendingOnly && state.attempted.has(q.id)) return false;
       if (needle && !`${q.stem} ${Object.values(q.options).join(" ")}`.toLowerCase().includes(needle)) return false;
       return true;
     });
-    if (mode === "random") questions = shuffle(questions);
-    else if (mode === "random-cover") {
-      const pending = questions.filter(q => !state.attempted.has(q.id));
-      const done = questions.filter(q => state.attempted.has(q.id));
-      questions = shuffle(pending).concat(shuffle(done));
-    }
+    const built = Q.buildFromFiltered({
+      filtered, mode, reset, listKey: listScopeKey(needle), state, shuffle,
+    });
+    questions = built.questions;
+    state.shuffleKey = built.shuffleKey;
+    state.shuffleOrder = built.shuffleOrder;
     if (reset) currentIndex = 0;
     else currentIndex = Math.min(currentIndex, Math.max(0, questions.length - 1));
     if (restorePosition) {
-      const savedIndex = questions.findIndex(q => q.id === state.lastQuestionId);
-      if (savedIndex >= 0) currentIndex = savedIndex;
+      currentIndex = Q.restoreListIndex(questions, state, mode);
       restorePosition = false;
     }
     render();
@@ -260,6 +270,7 @@
   $("reset-progress").addEventListener("click", () => {
     if (!confirm("要清空这台设备上的全部答题记录和错题本吗？")) return;
     state.attempted.clear(); state.correct.clear(); state.wrong.clear(); state.submitted.clear(); state.choices = {};
+    Q.clearQueue(state);
     saveState(); buildList(); queueAutoUpload(); showToast("学习记录已清空");
   });
   function syncCode() {
@@ -289,9 +300,10 @@
     if (!code) return;
     setSyncStatus("正在上传…");
     const payload = {
-      app: appId, version: 1, attempted: [...state.attempted], correct: [...state.correct],
+      app: appId, version: 2, attempted: [...state.attempted], correct: [...state.correct],
       wrong: [...state.wrong], choices: state.choices, submitted: [...state.submitted],
-      lastCategory: state.lastCategory, lastQuestionId: state.lastQuestionId, mode: state.mode
+      lastCategory: state.lastCategory, lastQuestionId: state.lastQuestionId, mode: state.mode,
+      ...Q.queuePayloadSlice(state, currentIndex),
     };
     try {
       const response = await fetch(`${SB_URL}/rest/v1/vocab_progress?on_conflict=sync_code`, {
@@ -331,12 +343,13 @@
       if (categories.includes(data.lastCategory)) state.lastCategory = data.lastCategory;
       if (data.lastQuestionId) state.lastQuestionId = data.lastQuestionId;
       state.mode = ["random", "random-cover", "order"].includes(data.mode) ? data.mode : "order";
+      Q.applyQueuePayload(state, data);
       currentCategory = categories.includes(state.lastCategory) ? state.lastCategory : "全部题目";
       mode = state.mode;
       categorySelect.value = currentCategory;
       modeSelect.value = mode;
       restorePosition = true;
-      buildList(true);
+      buildList(false);
       setSyncStatus(`已拉取 · ${new Date().toLocaleTimeString()}`);
       if (!automatic) alert(`云端进度已合并，本机已答 ${state.attempted.size} 题。`);
     } catch (error) {
