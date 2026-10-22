@@ -8,6 +8,7 @@
   const SB_KEY = "sb_publishable_GFoECb3NXu0jHUUP3krFjQ_JgLLeUxH";
   const letters = ["A", "B", "C", "D"];
   const categoryOrder = appConfig.categoryOrder || [];
+  const subjectOrder = appConfig.subjectOrder || [];
   const categories = [...new Set(bank.map(q => q.category))].sort((a, b) => {
     const aIndex = categoryOrder.indexOf(a);
     const bIndex = categoryOrder.indexOf(b);
@@ -43,11 +44,11 @@
         submitted: new Set(saved.submitted || []),
         lastCategory: saved.lastCategory || "全部题目",
         lastQuestionId: saved.lastQuestionId || "",
-        mode: saved.mode === "random" ? "random" : "order",
+        mode: ["random", "random-cover", "order"].includes(saved.mode) ? saved.mode : (appConfig.defaultMode || "order"),
         syncCode: defaultSyncCode
       };
     } catch {
-      return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastQuestionId: "", mode: "order", syncCode: defaultSyncCode };
+      return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastQuestionId: "", mode: appConfig.defaultMode || "order", syncCode: defaultSyncCode };
     }
   }
 
@@ -71,26 +72,44 @@
     $("wrong-count").textContent = state.wrong.size;
     $("wrong-filter").classList.toggle("active", wrongOnly);
     $("pending-filter").classList.toggle("active", pendingOnly);
-    const currentScope = bank.filter(q => currentCategory === "全部题目" || q.category === currentCategory);
+    const currentScope = bank.filter(matchesCategory);
     $("pending-count").textContent = currentScope.filter(q => !state.attempted.has(q.id)).length;
+  }
+
+  function matchesCategory(q) {
+    if (currentCategory === "全部题目") return true;
+    if (currentCategory.startsWith("subject:")) return q.subjectLabel === currentCategory.slice(8);
+    return q.category === currentCategory;
   }
 
   function populateCategories() {
     const counts = Object.fromEntries(categories.map(c => [c, bank.filter(q => q.category === c).length]));
-    categorySelect.innerHTML = `<option value="全部题目">全部题目 · ${bank.length}</option>` +
-      categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)} · ${counts[c]}</option>`).join("");
+    let html = `<option value="全部题目">${subjectOrder.length ? "五科全部" : "全部题目"} · ${bank.length}</option>`;
+    if (subjectOrder.length) {
+      html += subjectOrder.map(s => {
+        const n = bank.filter(q => q.subjectLabel === s).length;
+        return `<option value="subject:${escapeHtml(s)}">${escapeHtml(s)} · ${n}</option>`;
+      }).join("");
+    }
+    html += categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)} · ${counts[c]}</option>`).join("");
+    categorySelect.innerHTML = html;
   }
 
   function buildList(reset = true) {
     const needle = query.trim().toLowerCase();
     questions = bank.filter(q => {
-      if (currentCategory !== "全部题目" && q.category !== currentCategory) return false;
+      if (!matchesCategory(q)) return false;
       if (wrongOnly && !state.wrong.has(q.id)) return false;
       if (pendingOnly && state.attempted.has(q.id)) return false;
       if (needle && !`${q.stem} ${Object.values(q.options).join(" ")}`.toLowerCase().includes(needle)) return false;
       return true;
     });
     if (mode === "random") questions = shuffle(questions);
+    else if (mode === "random-cover") {
+      const pending = questions.filter(q => !state.attempted.has(q.id));
+      const done = questions.filter(q => state.attempted.has(q.id));
+      questions = shuffle(pending).concat(shuffle(done));
+    }
     if (reset) currentIndex = 0;
     else currentIndex = Math.min(currentIndex, Math.max(0, questions.length - 1));
     if (restorePosition) {
@@ -117,7 +136,9 @@
     const submitted = state.submitted.has(q.id);
     const correct = state.correct.has(q.id);
     const percent = ((currentIndex + 1) / questions.length) * 100;
-    const label = currentCategory === "全部题目" ? q.category : currentCategory;
+    const label = q.subjectLabel
+      ? (currentCategory === "全部题目" || currentCategory.startsWith("subject:") ? `${q.subjectLabel} · ${q.category}` : q.category)
+      : (currentCategory === "全部题目" ? q.category : currentCategory);
     const optionsHtml = letters.map(letter => {
       let classes = "option";
       const isSelected = selected.includes(letter);
@@ -132,7 +153,7 @@
       <p class="answer-text">${escapeHtml(q.analysis || "这道题暂无解析。")}</p>
     </div>` : "";
     host.innerHTML = `<div class="question-topline">
-        <div class="badges"><span class="category-badge">${escapeHtml(label)}</span><span class="paper-badge">${q.type === "multiple" ? "多选题" : "单选题"}</span></div>
+        <div class="badges"><span class="category-badge">${escapeHtml(label)}</span>${q.subjectLabel ? `<span class="paper-badge subject-badge">${escapeHtml(q.subjectLabel)}</span>` : ""}<span class="paper-badge">${q.type === "multiple" ? "多选题" : "单选题"}</span></div>
         <div class="question-count"><strong>${currentIndex + 1}</strong> / ${questions.length}</div>
       </div>
       <div class="progress-track"><div class="progress-fill" style="width:${percent}%"></div></div>
@@ -309,7 +330,7 @@
       for (const id of state.correct) state.wrong.delete(id);
       if (categories.includes(data.lastCategory)) state.lastCategory = data.lastCategory;
       if (data.lastQuestionId) state.lastQuestionId = data.lastQuestionId;
-      state.mode = data.mode === "random" ? "random" : "order";
+      state.mode = ["random", "random-cover", "order"].includes(data.mode) ? data.mode : "order";
       currentCategory = categories.includes(state.lastCategory) ? state.lastCategory : "全部题目";
       mode = state.mode;
       categorySelect.value = currentCategory;
