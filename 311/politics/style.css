@@ -174,3 +174,4 @@ h1 { margin:0; color:var(--navy); font-family:Georgia,"Microsoft YaHei UI",serif
 .subject-nav>span{margin-right:4px;color:var(--muted,#777);font-size:.82rem}
 .subject-nav a{padding:7px 13px;border-radius:999px;color:var(--ink,#342f29);font-size:.88rem;text-decoration:none;background:rgba(255,255,255,.8)}
 .subject-nav a:hover,.subject-nav a.active{color:#fff;background:var(--accent,#806a4f)}
+.paper-badge.subject-badge{background:rgba(128,106,79,.12);color:var(--accent,#806a4f)}
