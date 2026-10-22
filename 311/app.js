@@ -143,7 +143,7 @@
 
   function populateCategories() {
     const counts = Object.fromEntries(categories.map(c => [c, bank.filter(q => categoryOf(q) === c).length]));
-    const allLabel = subjectOrder.length ? "四科全部" : "全部题目";
+    const allLabel = subjectOrder.length ? "全科全部" : "全部题目";
     categorySelect.innerHTML = `<option value="全部题目">${allLabel} · ${bank.length}</option>` +
       categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)} · ${counts[c]}</option>`).join("");
     populateModules();
