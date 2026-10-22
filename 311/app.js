@@ -96,10 +96,13 @@
         lastModule: saved.lastModule || "全部模块",
         lastQuestionId: saved.lastQuestionId || "",
         mode: ["random", "random-cover", "order"].includes(saved.mode) ? saved.mode : (appConfig.defaultMode || "order"),
+        shuffleKey: saved.shuffleKey || "",
+        shuffleOrder: Array.isArray(saved.shuffleOrder) ? saved.shuffleOrder : [],
+        listIndex: Number.isFinite(saved.listIndex) ? saved.listIndex : 0,
         syncCode: defaultSyncCode
       };
     } catch {
-      return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastModule: "全部模块", lastQuestionId: "", mode: appConfig.defaultMode || "order", syncCode: defaultSyncCode };
+      return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastModule: "全部模块", lastQuestionId: "", mode: appConfig.defaultMode || "order", shuffleKey: "", shuffleOrder: [], listIndex: 0, syncCode: defaultSyncCode };
     }
   }
 
@@ -112,7 +115,9 @@
     localStorage.setItem(storageKey, JSON.stringify({
       attempted: [...state.attempted], correct: [...state.correct], wrong: [...state.wrong],
       choices: state.choices, submitted: [...state.submitted], lastCategory: state.lastCategory,
-      lastQuestionId: state.lastQuestionId, lastModule: state.lastModule, mode: state.mode, syncCode: $("sync-code")?.value.trim() || state.syncCode
+      lastQuestionId: state.lastQuestionId, lastModule: state.lastModule, mode: state.mode,
+      shuffleKey: state.shuffleKey || "", shuffleOrder: state.shuffleOrder || [], listIndex: currentIndex,
+      syncCode: $("sync-code")?.value.trim() || state.syncCode
     }));
     updateStats();
   }
@@ -153,9 +158,50 @@
     moduleSelect.value = currentModule;
   }
 
+  function listScopeKey(needle) {
+    return [currentCategory, currentModule, mode, wrongOnly, pendingOnly, needle].join("\u0001");
+  }
+
+  function applyShuffleOrder(filtered, orderedIds) {
+    const map = new Map(filtered.map(q => [q.id, q]));
+    const used = new Set();
+    const out = [];
+    for (const id of orderedIds || []) {
+      if (!map.has(id) || used.has(id)) continue;
+      out.push(map.get(id));
+      used.add(id);
+    }
+    for (const q of filtered) {
+      if (!used.has(q.id)) out.push(q);
+    }
+    return out;
+  }
+
+  function shuffleQuestions(list) {
+    if (mode === "random") return shuffle(list);
+    if (mode === "random-cover") {
+      const pending = list.filter(q => !state.attempted.has(q.id));
+      const done = list.filter(q => state.attempted.has(q.id));
+      return shuffle(pending).concat(shuffle(done));
+    }
+    return list;
+  }
+
+  function restoreListIndex() {
+    let idx = questions.findIndex(q => q.id === state.lastQuestionId);
+    if (idx < 0 && Number.isFinite(state.listIndex)) idx = state.listIndex;
+    if (idx < 0 || idx >= questions.length) idx = 0;
+    const current = questions[idx];
+    if ((mode === "random-cover" || mode === "random") && current && state.attempted.has(current.id)) {
+      const firstPending = questions.findIndex(q => !state.attempted.has(q.id));
+      if (firstPending >= 0) idx = firstPending;
+    }
+    currentIndex = idx;
+  }
+
   function buildList(reset = true) {
     const needle = query.trim().toLowerCase();
-    questions = bank.filter(q => {
+    const filtered = bank.filter(q => {
       if (currentCategory !== "全部题目" && categoryOf(q) !== currentCategory) return false;
       if (currentModule !== "全部模块" && moduleOf(q) !== currentModule) return false;
       if (wrongOnly && !state.wrong.has(q.id)) return false;
@@ -163,17 +209,25 @@
       if (needle && !`${q.stem} ${Object.values(q.options).join(" ")}`.toLowerCase().includes(needle)) return false;
       return true;
     });
-    if (mode === "random") questions = shuffle(questions);
-    else if (mode === "random-cover") {
-      const pending = questions.filter(q => !state.attempted.has(q.id));
-      const done = questions.filter(q => state.attempted.has(q.id));
-      questions = shuffle(pending).concat(shuffle(done));
+    const listKey = listScopeKey(needle);
+    const canReuseOrder = (mode === "random" || mode === "random-cover") && !reset &&
+      state.shuffleKey === listKey && state.shuffleOrder.length;
+    if (canReuseOrder) {
+      questions = applyShuffleOrder(filtered, state.shuffleOrder);
+    } else {
+      questions = shuffleQuestions(filtered);
+      if (mode === "random" || mode === "random-cover") {
+        state.shuffleKey = listKey;
+        state.shuffleOrder = questions.map(q => q.id);
+      } else {
+        state.shuffleKey = "";
+        state.shuffleOrder = [];
+      }
     }
     if (reset) currentIndex = 0;
     else currentIndex = Math.min(currentIndex, Math.max(0, questions.length - 1));
     if (restorePosition) {
-      const savedIndex = questions.findIndex(q => q.id === state.lastQuestionId);
-      if (savedIndex >= 0) currentIndex = savedIndex;
+      restoreListIndex();
       restorePosition = false;
     }
     render();
@@ -321,6 +375,7 @@
   $("reset-progress").addEventListener("click", () => {
     if (!confirm("要清空这台设备上的全部答题记录和错题本吗？")) return;
     state.attempted.clear(); state.correct.clear(); state.wrong.clear(); state.submitted.clear(); state.choices = {};
+    state.shuffleKey = ""; state.shuffleOrder = []; state.listIndex = 0;
     saveState(); buildList(); queueAutoUpload(); showToast("学习记录已清空");
   });
   function syncCode() {
