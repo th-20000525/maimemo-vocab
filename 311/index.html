@@ -6,8 +6,17 @@
   <meta name="theme-color" content="#f6f3ed">
   <title>311 练习站</title>
   <link rel="stylesheet" href="style.css?v=submit-fixed-20261019">
+  <script>
+    window.STUDY_APP_CONFIG = {
+      storageKey: "311-study-progress-v1",
+      appId: "311-study",
+      syncNamespace: "311:",
+      defaultMode: "random-cover",
+      subjectOrder: ["教育学原理", "中国教育史", "外国教育史", "教育心理学"]
+    };
+  </script>
   <script defer src="questions.js"></script>
-  <script defer src="app.js?v=submit-fixed-20261019"></script>
+  <script defer src="app.js?v=random-cover-20261022"></script>
 </head>
 <body>
   <header class="topbar">
@@ -22,8 +31,8 @@
     <section class="intro-row">
       <div>
         <p class="eyebrow">STUDY DESK <span>·</span> 311 教育学基础</p>
-        <h1>今天，先答一道。</h1>
-        <p class="intro-copy">从一题开始，把知识点慢慢变成自己的。</p>
+        <h1>四科随机刷题，先把题库过一遍。</h1>
+        <p class="intro-copy">教育学原理、中教、外教、教心共 659 题。默认「随机（先未答）」会打乱四科混合出题，优先还没做过的题。</p>
       </div>
       <div class="stats" aria-label="学习统计">
         <div class="stat"><span id="stat-done">0</span><small>已作答</small></div>
@@ -41,12 +50,14 @@
         <select id="module-select" class="select-control"></select>
         <label class="field-label" for="mode-select">出题顺序</label>
         <select id="mode-select" class="select-control">
+          <option value="random-cover">随机刷题（先未答）</option>
+          <option value="random">完全随机</option>
           <option value="order">按题目顺序</option>
-          <option value="random">随机练习</option>
         </select>
         <label class="search-label" for="search-input">快速查找</label>
         <div class="search-wrap"><span aria-hidden="true">⌕</span><input id="search-input" type="search" placeholder="输入关键词" autocomplete="off"></div>
         <button id="wrong-filter" class="wrong-filter" type="button"><span class="bookmark-icon">◇</span><span>只练错题</span><span id="wrong-count" class="count-pill">0</span></button>
+        <button id="pending-filter" class="wrong-filter pending-filter" type="button"><span class="bookmark-icon">○</span><span>只练未答</span><span id="pending-count" class="count-pill">0</span></button>
         <section class="sync-card" aria-label="跨设备进度同步">
           <div class="sync-heading"><span>跨设备记忆</span><span class="sync-cloud">↗</span></div>
           <input id="sync-code" class="sync-code" type="password" autocomplete="off" placeholder="设置你的同步码">

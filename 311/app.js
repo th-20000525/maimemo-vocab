@@ -56,12 +56,19 @@
     const text = question.stem || "";
     return rules.find(([, pattern]) => pattern.test(text))?.[0] || "综合与其他知识点";
   }
-  const categories = [...new Set(bank.map(categoryOf))];
+  const subjectOrder = appConfig.subjectOrder || [];
+  const categories = [...new Set(bank.map(categoryOf))].sort((a, b) => {
+    const aIndex = subjectOrder.indexOf(a);
+    const bIndex = subjectOrder.indexOf(b);
+    if (aIndex >= 0 || bIndex >= 0) return (aIndex < 0 ? Infinity : aIndex) - (bIndex < 0 ? Infinity : bIndex);
+    return a.localeCompare(b, "zh-CN");
+  });
   const defaultSyncCode = "1234";
   const state = loadState();
   let currentCategory = categories.includes(state.lastCategory) ? state.lastCategory : "全部题目";
   let currentModule = state.lastModule || "全部模块";
   let wrongOnly = false;
+  let pendingOnly = false;
   let query = "";
   let mode = state.mode;
   let questions = [];
@@ -88,11 +95,11 @@
         lastCategory: categoryLabels[saved.lastCategory] || saved.lastCategory || "全部题目",
         lastModule: saved.lastModule || "全部模块",
         lastQuestionId: saved.lastQuestionId || "",
-        mode: saved.mode === "random" ? "random" : "order",
+        mode: ["random", "random-cover", "order"].includes(saved.mode) ? saved.mode : (appConfig.defaultMode || "order"),
         syncCode: defaultSyncCode
       };
     } catch {
-      return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastModule: "全部模块", lastQuestionId: "", mode: "order", syncCode: defaultSyncCode };
+      return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastModule: "全部模块", lastQuestionId: "", mode: appConfig.defaultMode || "order", syncCode: defaultSyncCode };
     }
   }
 
@@ -116,11 +123,23 @@
     $("stat-wrong").textContent = state.wrong.size;
     $("wrong-count").textContent = state.wrong.size;
     $("wrong-filter").classList.toggle("active", wrongOnly);
+    const pendingEl = $("pending-filter");
+    const pendingCountEl = $("pending-count");
+    if (pendingEl) pendingEl.classList.toggle("active", pendingOnly);
+    if (pendingCountEl) {
+      const scope = bank.filter(q => {
+        if (currentCategory !== "全部题目" && categoryOf(q) !== currentCategory) return false;
+        if (currentModule !== "全部模块" && moduleOf(q) !== currentModule) return false;
+        return true;
+      });
+      pendingCountEl.textContent = scope.filter(q => !state.attempted.has(q.id)).length;
+    }
   }
 
   function populateCategories() {
     const counts = Object.fromEntries(categories.map(c => [c, bank.filter(q => categoryOf(q) === c).length]));
-    categorySelect.innerHTML = `<option value="全部题目">全部题目 · ${bank.length}</option>` +
+    const allLabel = subjectOrder.length ? "四科全部" : "全部题目";
+    categorySelect.innerHTML = `<option value="全部题目">${allLabel} · ${bank.length}</option>` +
       categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)} · ${counts[c]}</option>`).join("");
     populateModules();
   }
@@ -140,10 +159,16 @@
       if (currentCategory !== "全部题目" && categoryOf(q) !== currentCategory) return false;
       if (currentModule !== "全部模块" && moduleOf(q) !== currentModule) return false;
       if (wrongOnly && !state.wrong.has(q.id)) return false;
+      if (pendingOnly && state.attempted.has(q.id)) return false;
       if (needle && !`${q.stem} ${Object.values(q.options).join(" ")}`.toLowerCase().includes(needle)) return false;
       return true;
     });
     if (mode === "random") questions = shuffle(questions);
+    else if (mode === "random-cover") {
+      const pending = questions.filter(q => !state.attempted.has(q.id));
+      const done = questions.filter(q => state.attempted.has(q.id));
+      questions = shuffle(pending).concat(shuffle(done));
+    }
     if (reset) currentIndex = 0;
     else currentIndex = Math.min(currentIndex, Math.max(0, questions.length - 1));
     if (restorePosition) {
@@ -159,7 +184,8 @@
     const host = $("question-view");
     if (!questions.length) {
       const isWrong = wrongOnly;
-      host.innerHTML = `<div class="empty-state"><span class="empty-symbol">${isWrong ? "◇" : "✳"}</span><h2>${isWrong ? "错题本还是空的" : "没有找到这道题"}</h2><p>${isWrong ? "答错的题会自动加入错题本，你也可以在答案揭晓后手动收藏。" : "试试更短的关键词，或切换到其他题库继续练习。"}</p></div>`;
+      const isPending = pendingOnly;
+      host.innerHTML = `<div class="empty-state"><span class="empty-symbol">${isWrong ? "◇" : isPending ? "✓" : "✳"}</span><h2>${isWrong ? "错题本还是空的" : isPending ? "这一范围已经练完了" : "没有找到这道题"}</h2><p>${isWrong ? "答错的题会自动加入错题本，你也可以在答案揭晓后手动收藏。" : isPending ? "当前范围内的题目都已作答，可以换模式或练错题。" : "试试更短的关键词，或切换到其他题库继续练习。"}</p></div>`;
       return;
     }
     const q = questions[currentIndex];
@@ -169,7 +195,7 @@
     const submitted = state.submitted.has(q.id);
     const correct = state.correct.has(q.id);
     const percent = ((currentIndex + 1) / questions.length) * 100;
-    const label = currentCategory === "全部题目" ? q.category : currentCategory;
+    const label = currentCategory === "全部题目" ? categoryOf(q) : currentCategory;
     const optionsHtml = letters.map(letter => {
       let classes = "option";
       const isSelected = selected.includes(letter);
@@ -287,7 +313,11 @@
   moduleSelect.addEventListener("change", () => { currentModule = moduleSelect.value; buildList(); });
   modeSelect.addEventListener("change", () => { mode = modeSelect.value; buildList(); });
   searchInput.addEventListener("input", () => { query = searchInput.value; buildList(); });
-  $("wrong-filter").addEventListener("click", () => { wrongOnly = !wrongOnly; buildList(); updateStats(); });
+  $("wrong-filter").addEventListener("click", () => { wrongOnly = !wrongOnly; if (wrongOnly) pendingOnly = false; buildList(); updateStats(); });
+  const pendingFilter = $("pending-filter");
+  if (pendingFilter) {
+    pendingFilter.addEventListener("click", () => { pendingOnly = !pendingOnly; if (pendingOnly) wrongOnly = false; buildList(); updateStats(); });
+  }
   $("reset-progress").addEventListener("click", () => {
     if (!confirm("要清空这台设备上的全部答题记录和错题本吗？")) return;
     state.attempted.clear(); state.correct.clear(); state.wrong.clear(); state.submitted.clear(); state.choices = {};
@@ -363,7 +393,7 @@
       if (categories.includes(downloadedCategory)) state.lastCategory = downloadedCategory;
       if (data.lastModule) state.lastModule = data.lastModule;
       if (data.lastQuestionId) state.lastQuestionId = data.lastQuestionId;
-      state.mode = data.mode === "random" ? "random" : "order";
+      state.mode = ["random", "random-cover", "order"].includes(data.mode) ? data.mode : "order";
       currentCategory = categories.includes(state.lastCategory) ? state.lastCategory : "全部题目";
       currentModule = state.lastModule || "全部模块";
       mode = state.mode;
