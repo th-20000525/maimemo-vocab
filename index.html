@@ -989,30 +989,24 @@ function updateCycleUI() {
   $("btnCardNext").disabled = nextPhraseNavIdx() == null;
 }
 
+/** 左右浏览：按题库序号相邻切换（含已会短语），不影响学习进度 phraseCyclePos */
 function prevPhraseNavIdx() {
-  if (currentPhraseIdx == null) return null;
-  const deck = ensurePhraseDeck();
-  for (let i = currentPhraseIdx - 1; i >= 0; i--) {
-    if (phraseIsAvailable(deck[i])) return i;
-  }
-  return null;
+  if (currentPhraseIdx == null || currentPhraseIdx <= 0) return null;
+  return currentPhraseIdx - 1;
 }
 
 function nextPhraseNavIdx() {
-  if (currentPhraseIdx == null) return null;
   const deck = ensurePhraseDeck();
-  for (let i = currentPhraseIdx + 1; i < deck.length; i++) {
-    if (phraseIsAvailable(deck[i])) return i;
-  }
-  return null;
+  if (currentPhraseIdx == null || currentPhraseIdx >= deck.length - 1) return null;
+  return currentPhraseIdx + 1;
 }
 
 /** 左右切换只移动位置，不算熟悉/认识，也不计入每日额度 */
 function cardStep(dir) {
   const target = dir < 0 ? prevPhraseNavIdx() : nextPhraseNavIdx();
   if (target == null) return;
-  phraseCyclePos = target - 1;
-  renderCard();
+  currentPhraseIdx = target;
+  renderCard({ browse: true });
   savePersist();
 }
 
@@ -1108,7 +1102,8 @@ function formatPhraseMetaHtml(p) {
   return bits.join(" · ");
 }
 
-function renderCard() {
+function renderCard(options) {
+  const browse = options && options.browse;
   $("cardDone").hidden = true;
   $("cardStage").hidden = false;
   $("cardActions").hidden = true;
@@ -1117,7 +1112,7 @@ function renderCard() {
   $("cardPhraseZh").hidden = true;
   cardRevealed = false;
 
-  pickCurrentPhrase();
+  if (!browse) pickCurrentPhrase();
   updateDailyGoalUI();
   updateCycleUI();
   const deck = ensurePhraseDeck();
@@ -1134,6 +1129,13 @@ function renderCard() {
   if (currentPhraseIdx == null) {
     showCardDone();
     return;
+  }
+  if (!deck[currentPhraseIdx]) {
+    currentPhraseIdx = Math.min(currentPhraseIdx, deck.length - 1);
+    if (currentPhraseIdx < 0 || !deck[currentPhraseIdx]) {
+      showCardDone();
+      return;
+    }
   }
   const p = deck[currentPhraseIdx];
   $("cardNum").textContent = `#${p.id + 1}`;
@@ -1180,7 +1182,32 @@ function cardAnswer(act) {
   updateStats();
 }
 
-$("cardTap").onclick = () => onCardTap();
+let cardSwipeBlockTap = false;
+let cardSwipeStartX = 0;
+let cardSwipeStartY = 0;
+const cardTapEl = $("cardTap");
+cardTapEl.addEventListener("touchstart", (e) => {
+  const t = e.touches[0];
+  if (!t) return;
+  cardSwipeStartX = t.clientX;
+  cardSwipeStartY = t.clientY;
+  cardSwipeBlockTap = false;
+}, { passive: true });
+cardTapEl.addEventListener("touchend", (e) => {
+  const t = e.changedTouches[0];
+  if (!t) return;
+  const dx = t.clientX - cardSwipeStartX;
+  const dy = t.clientY - cardSwipeStartY;
+  if (Math.abs(dx) >= 48 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+    cardSwipeBlockTap = true;
+    cardStep(dx < 0 ? 1 : -1);
+    window.setTimeout(() => { cardSwipeBlockTap = false; }, 320);
+  }
+}, { passive: true });
+cardTapEl.onclick = () => {
+  if (cardSwipeBlockTap) return;
+  onCardTap();
+};
 $("btnCardReplay").onclick = () => {
   const deck = ensurePhraseDeck();
   if (currentPhraseIdx != null && deck[currentPhraseIdx]) speakWord(deck[currentPhraseIdx].phrase);
@@ -1192,9 +1219,9 @@ $("btnCycleJump").onclick = () => {
     alert(`请输入 1–${total} 之间的短语编号`);
     return;
   }
-  phraseCyclePos = n - 2;
+  currentPhraseIdx = n - 1;
   $("cycleJump").value = "";
-  renderCard();
+  renderCard({ browse: true });
   savePersist();
 };
 $("cardActions").addEventListener("click", (e) => {
