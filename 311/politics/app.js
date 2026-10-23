@@ -117,13 +117,33 @@
     return [currentCategory, mode, wrongOnly, pendingOnly, needle].join("\u0001");
   }
 
+  function matchesScopeBase(q, needle) {
+    if (!matchesCategory(q)) return false;
+    if (needle && !`${q.stem} ${Object.values(q.options).join(" ")}`.toLowerCase().includes(needle)) return false;
+    return true;
+  }
+
+  function pendingCountInScope(needle) {
+    return bank.filter(q => matchesScopeBase(q, needle) && !state.attempted.has(q.id)).length;
+  }
+
+  function wrongCountInScope(needle) {
+    return bank.filter(q => matchesScopeBase(q, needle) && state.wrong.has(q.id)).length;
+  }
+
+  function prepareRandomCoverPhase(needle) {
+    if (mode !== "random-cover" || pendingOnly) return;
+    if (pendingCountInScope(needle) === 0 && wrongCountInScope(needle) > 0) wrongOnly = true;
+  }
+
   function buildList(reset = true) {
     const needle = query.trim().toLowerCase();
+    prepareRandomCoverPhase(needle);
     const filtered = bank.filter(q => {
-      if (!matchesCategory(q)) return false;
+      if (!matchesScopeBase(q, needle)) return false;
       if (wrongOnly && !state.wrong.has(q.id)) return false;
       if (pendingOnly && state.attempted.has(q.id)) return false;
-      if (needle && !`${q.stem} ${Object.values(q.options).join(" ")}`.toLowerCase().includes(needle)) return false;
+      if (mode === "random-cover" && !wrongOnly && !pendingOnly && state.attempted.has(q.id)) return false;
       return true;
     });
     const built = Q.buildFromFiltered({
@@ -138,6 +158,12 @@
       currentIndex = Q.restoreListIndex(questions, state, mode);
       restorePosition = false;
     }
+    if (mode === "random-cover" && !wrongOnly && !pendingOnly && !questions.length && wrongCountInScope(needle) > 0) {
+      wrongOnly = true;
+      Q.clearQueue(state);
+      showToast("未答题已全部过完，开始刷错题");
+      return buildList(true);
+    }
     render();
     saveState();
   }
@@ -147,7 +173,8 @@
     if (!questions.length) {
       const isWrong = wrongOnly;
       const isPending = pendingOnly;
-      host.innerHTML = `<div class="empty-state"><span class="empty-symbol">${isWrong ? "◇" : isPending ? "✓" : "✳"}</span><h2>${isWrong ? "错题本还是空的" : isPending ? "这一范围已经练完了" : "没有找到这道题"}</h2><p>${isWrong ? "答错的题会自动加入错题本，你也可以在答案揭晓后手动收藏。" : isPending ? "当前筛选范围内的题目都已作答，可以切换分类或练习错题。" : "试试更短的关键词，或切换到其他题库继续练习。"}</p></div>`;
+      const coverDone = mode === "random-cover" && !pendingOnly && pendingCountInScope(query.trim().toLowerCase()) === 0;
+      host.innerHTML = `<div class="empty-state"><span class="empty-symbol">${isWrong || coverDone ? "◇" : isPending ? "✓" : "✳"}</span><h2>${isWrong ? "错题本还是空的" : isPending || coverDone ? "这一范围已经练完了" : "没有找到这道题"}</h2><p>${isWrong ? "答错的题会自动加入错题本，你也可以在答案揭晓后手动收藏。" : isPending || coverDone ? (coverDone && !state.wrong.size ? "当前范围题目都已作答且没有错题，可以换范围或切换出题模式。" : "错题会自动进入下一轮；若侧边「只练错题」未亮，刷新一下或点一次出题顺序。") : "试试更短的关键词，或切换到其他题库继续练习。"}</p></div>`;
       return;
     }
     const q = questions[currentIndex];
@@ -228,7 +255,8 @@
     }
     saveState();
     queueAutoUpload();
-    render();
+    if (mode === "random-cover" && !wrongOnly && !pendingOnly) buildList(false);
+    else render();
   }
 
   function toggleWrong() {
@@ -274,7 +302,11 @@
   }
 
   categorySelect.addEventListener("change", () => { currentCategory = categorySelect.value; buildList(); });
-  modeSelect.addEventListener("change", () => { mode = modeSelect.value; buildList(); });
+  modeSelect.addEventListener("change", () => {
+    mode = modeSelect.value;
+    if (mode === "random-cover") wrongOnly = false;
+    buildList();
+  });
   searchInput.addEventListener("input", () => { query = searchInput.value; buildList(); });
   $("wrong-filter").addEventListener("click", () => { wrongOnly = !wrongOnly; if (wrongOnly) pendingOnly = false; buildList(); updateStats(); });
   $("pending-filter").addEventListener("click", () => { pendingOnly = !pendingOnly; if (pendingOnly) wrongOnly = false; buildList(); updateStats(); });

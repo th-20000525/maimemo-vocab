@@ -19,8 +19,7 @@
     if (mode === "random") return shuffle(list);
     if (mode === "random-cover") {
       const pending = list.filter(q => !isAttempted(q.id));
-      const done = list.filter(q => isAttempted(q.id));
-      return shuffle(pending).concat(shuffle(done));
+      return shuffle(pending);
     }
     return list;
   }
