@@ -184,7 +184,7 @@
     if (pendingCountInScope(needle) === 0 && wrongCountInScope(needle) > 0) wrongOnly = true;
   }
 
-  function buildList(reset = true) {
+  function buildList(reset = true, focusQuestionId) {
     const needle = query.trim().toLowerCase();
     prepareRandomCoverPhase(needle);
     const filtered = bank.filter(q => {
@@ -200,9 +200,12 @@
     questions = built.questions;
     state.shuffleKey = built.shuffleKey;
     state.shuffleOrder = built.shuffleOrder;
-    if (reset) currentIndex = 0;
+    if (focusQuestionId) {
+      const idx = questions.findIndex(q => q.id === focusQuestionId);
+      currentIndex = idx >= 0 ? idx : 0;
+    } else if (reset) currentIndex = 0;
     else currentIndex = Math.min(currentIndex, Math.max(0, questions.length - 1));
-    if (restorePosition) {
+    if (restorePosition && !focusQuestionId) {
       currentIndex = Q.restoreListIndex(questions, state, mode);
       restorePosition = false;
     }
@@ -232,6 +235,10 @@
     const submitted = state.submitted.has(q.id);
     const correct = state.correct.has(q.id);
     const percent = ((currentIndex + 1) / questions.length) * 100;
+    const needle = query.trim().toLowerCase();
+    const handoffToWrong = mode === "random-cover" && !wrongOnly && !pendingOnly && submitted
+      && pendingCountInScope(needle) === 0 && wrongCountInScope(needle) > 0
+      && currentIndex === questions.length - 1;
     const label = currentCategory === "全部题目" ? categoryOf(q) : currentCategory;
     const optionsHtml = letters.map(letter => {
       let classes = "option";
@@ -263,7 +270,7 @@
         </div>
         <div class="control-right">
           <button id="submit-btn" class="btn btn-primary" type="button" ${submitted || !selected ? "disabled" : ""}>确认答案</button>
-          <button id="next-btn" class="btn ${submitted ? "btn-primary" : ""}" type="button" ${currentIndex === questions.length - 1 ? "disabled" : ""}>下一题 →</button>
+          <button id="next-btn" class="btn ${submitted ? "btn-primary" : ""}" type="button" ${currentIndex === questions.length - 1 && !handoffToWrong ? "disabled" : ""}>${handoffToWrong ? "开始刷错题 →" : "下一题 →"}</button>
         </div>
       </div>${answerBox}`;
     host.querySelectorAll("[data-choice]").forEach(button => button.addEventListener("click", () => {
@@ -301,8 +308,7 @@
     }
     saveState();
     queueAutoUpload();
-    if (mode === "random-cover" && !wrongOnly && !pendingOnly) buildList(false);
-    else render();
+    render();
   }
 
   function toggleWrong() {
@@ -321,6 +327,22 @@
   }
 
   function go(delta) {
+    if (delta > 0 && mode === "random-cover" && !wrongOnly && !pendingOnly) {
+      const cur = questions[currentIndex];
+      if (cur && state.submitted.has(cur.id)) {
+        const needle = query.trim().toLowerCase();
+        if (pendingCountInScope(needle) === 0 && wrongCountInScope(needle) > 0) {
+          wrongOnly = true;
+          Q.clearQueue(state);
+          showToast("未答题已全部过完，开始刷错题");
+          buildList(true);
+          return;
+        }
+        const nextId = questions[currentIndex + 1]?.id;
+        buildList(false, nextId);
+        return;
+      }
+    }
     currentIndex = Math.max(0, Math.min(questions.length - 1, currentIndex + delta));
     render();
     saveState();
