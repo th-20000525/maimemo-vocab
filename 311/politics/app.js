@@ -1,5 +1,16 @@
 (() => {
   const bank = window.QUESTION_BANK || [];
+  if (!window.StudyListQueue) {
+    const showBootError = () => {
+      const host = document.getElementById("question-view");
+      if (host) {
+        host.innerHTML = "<div class=\"empty-state\"><h2>刷题脚本加载失败</h2><p>请 Ctrl+F5 强刷本页。若仍空白，请检查网络后重试。</p></div>";
+      }
+    };
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", showBootError);
+    else showBootError();
+    return;
+  }
   const appConfig = window.STUDY_APP_CONFIG || {};
   const storageKey = appConfig.storageKey || "311-study-progress-v1";
   const appId = appConfig.appId || "311-study";
