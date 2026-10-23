@@ -99,10 +99,11 @@
         shuffleKey: saved.shuffleKey || "",
         shuffleOrder: Array.isArray(saved.shuffleOrder) ? saved.shuffleOrder : [],
         listIndex: Number.isFinite(saved.listIndex) ? saved.listIndex : 0,
+        coverPhase: saved.coverPhase === "wrong" ? "wrong" : "unanswered",
         syncCode: defaultSyncCode
       };
     } catch {
-      return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastModule: "全部模块", lastQuestionId: "", mode: appConfig.defaultMode || "order", shuffleKey: "", shuffleOrder: [], listIndex: 0, syncCode: defaultSyncCode };
+      return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastModule: "全部模块", lastQuestionId: "", mode: appConfig.defaultMode || "order", shuffleKey: "", shuffleOrder: [], listIndex: 0, coverPhase: "unanswered", syncCode: defaultSyncCode };
     }
   }
 
@@ -161,7 +162,20 @@
   const Q = window.StudyListQueue;
 
   function listScopeKey(needle) {
-    return [currentCategory, currentModule, mode, wrongOnly, pendingOnly, needle].join("\u0001");
+    const phaseKey = mode === "random-cover" ? state.coverPhase : "";
+    return [currentCategory, currentModule, mode, phaseKey, wrongOnly, pendingOnly, needle].join("\u0001");
+  }
+
+  function getCoverPhase(needle) {
+    if (mode !== "random-cover") return null;
+    return Q.resolveCoverPhase({
+      mode,
+      manualWrong: wrongOnly,
+      manualPending: pendingOnly,
+      pendingCount: pendingCountInScope(needle),
+      wrongCount: wrongCountInScope(needle),
+      savedPhase: state.coverPhase,
+    });
   }
 
   function matchesScopeBase(q, needle) {
@@ -179,19 +193,22 @@
     return bank.filter(q => matchesScopeBase(q, needle) && state.wrong.has(q.id)).length;
   }
 
-  function prepareRandomCoverPhase(needle) {
-    if (mode !== "random-cover" || pendingOnly) return;
-    if (pendingCountInScope(needle) === 0 && wrongCountInScope(needle) > 0) wrongOnly = true;
-  }
-
   function buildList(reset = true, focusQuestionId) {
     const needle = query.trim().toLowerCase();
-    prepareRandomCoverPhase(needle);
+    const coverPhase = getCoverPhase(needle);
+    if (coverPhase === "unanswered" || coverPhase === "wrong") state.coverPhase = coverPhase;
     const filtered = bank.filter(q => {
       if (!matchesScopeBase(q, needle)) return false;
+      if (coverPhase) {
+        return !Q.shouldExcludeQuestion({
+          phase: coverPhase,
+          attempted: id => state.attempted.has(id),
+          wrong: id => state.wrong.has(id),
+          q,
+        });
+      }
       if (wrongOnly && !state.wrong.has(q.id)) return false;
       if (pendingOnly && state.attempted.has(q.id)) return false;
-      if (mode === "random-cover" && !wrongOnly && !pendingOnly && state.attempted.has(q.id)) return false;
       return true;
     });
     const built = Q.buildFromFiltered({
@@ -209,7 +226,8 @@
       currentIndex = Q.restoreListIndex(questions, state, mode);
       restorePosition = false;
     }
-    if (mode === "random-cover" && !wrongOnly && !pendingOnly && !questions.length && wrongCountInScope(needle) > 0) {
+    if (mode === "random-cover" && coverPhase === "unanswered" && !questions.length && wrongCountInScope(needle) > 0) {
+      state.coverPhase = "wrong";
       wrongOnly = true;
       Q.clearQueue(state);
       showToast("未答题已全部过完，开始刷错题");
@@ -236,7 +254,8 @@
     const correct = state.correct.has(q.id);
     const percent = ((currentIndex + 1) / questions.length) * 100;
     const needle = query.trim().toLowerCase();
-    const handoffToWrong = mode === "random-cover" && !wrongOnly && !pendingOnly && submitted
+    const coverPhase = getCoverPhase(needle);
+    const handoffToWrong = coverPhase === "unanswered" && submitted
       && pendingCountInScope(needle) === 0 && wrongCountInScope(needle) > 0
       && currentIndex === questions.length - 1;
     const label = currentCategory === "全部题目" ? categoryOf(q) : currentCategory;
@@ -327,11 +346,13 @@
   }
 
   function go(delta) {
-    if (delta > 0 && mode === "random-cover" && !wrongOnly && !pendingOnly) {
+    const needle = query.trim().toLowerCase();
+    const coverPhase = getCoverPhase(needle);
+    if (delta > 0 && coverPhase === "unanswered") {
       const cur = questions[currentIndex];
       if (cur && state.submitted.has(cur.id)) {
-        const needle = query.trim().toLowerCase();
         if (pendingCountInScope(needle) === 0 && wrongCountInScope(needle) > 0) {
+          state.coverPhase = "wrong";
           wrongOnly = true;
           Q.clearQueue(state);
           showToast("未答题已全部过完，开始刷错题");
@@ -373,7 +394,11 @@
   moduleSelect.addEventListener("change", () => { currentModule = moduleSelect.value; buildList(); });
   modeSelect.addEventListener("change", () => {
     mode = modeSelect.value;
-    if (mode === "random-cover") wrongOnly = false;
+    if (mode === "random-cover") {
+      state.coverPhase = "unanswered";
+      wrongOnly = false;
+      pendingOnly = false;
+    }
     buildList();
   });
   searchInput.addEventListener("input", () => { query = searchInput.value; buildList(); });
@@ -385,6 +410,7 @@
   $("reset-progress").addEventListener("click", () => {
     if (!confirm("要清空这台设备上的全部答题记录和错题本吗？")) return;
     state.attempted.clear(); state.correct.clear(); state.wrong.clear(); state.submitted.clear(); state.choices = {};
+    state.coverPhase = "unanswered";
     Q.clearQueue(state);
     saveState(); buildList(); queueAutoUpload(); showToast("学习记录已清空");
   });
@@ -447,6 +473,7 @@
       if (!data || data.app !== appId) {
         setSyncStatus("云端暂无记录");
         if (!automatic) alert("云端还没有这个同步码的刷题进度，请先在已有记录的设备上上传。");
+        else buildList(false);
         return;
       }
       data.attempted?.forEach(id => state.attempted.add(id));
@@ -501,11 +528,14 @@
     }
   });
 
-  populateCategories();
-  categorySelect.value = currentCategory;
-  populateModules();
-  modeSelect.value = mode;
-  updateStats();
-  buildList(false);
-  if (state.syncCode.length >= 4) downloadProgress({ automatic: true });
+  async function boot() {
+    populateCategories();
+    categorySelect.value = currentCategory;
+    populateModules();
+    modeSelect.value = mode;
+    updateStats();
+    if (state.syncCode.length >= 4) await downloadProgress({ automatic: true });
+    else buildList(false);
+  }
+  boot();
 })();
