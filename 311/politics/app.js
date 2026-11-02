@@ -167,17 +167,21 @@
     return bank.filter(q => matchesScopeBase(q, needle)).length;
   }
 
+  function syncReviewPool(needle) {
+    bank.forEach(q => {
+      if (!matchesScopeBase(q, needle)) return;
+      if (state.wrong.has(q.id) || !state.correct.has(q.id)) state.reviewMastered.delete(q.id);
+      else state.reviewMastered.add(q.id);
+    });
+  }
+
   function resetReviewSessionForScope(needle) {
     bank.forEach(q => {
       if (!matchesScopeBase(q, needle)) return;
       state.reviewMastered.delete(q.id);
       delete state.wrongCounts[q.id];
-      if (state.correct.has(q.id)) state.reviewMastered.add(q.id);
     });
-  }
-
-  function beginReviewSession(needle) {
-    resetReviewSessionForScope(needle);
+    syncReviewPool(needle);
   }
 
   function advanceReviewRandom(needle) {
@@ -219,19 +223,22 @@
     </div>`;
   }
 
-  function buildList(reset = true, focusQuestionId) {
+  function buildList(reset = true, focusQuestionId, retried = false) {
     const needle = query.trim().toLowerCase();
     const previousPhase = state.coverPhase;
     const coverPhase = getCoverPhase(needle);
     if (coverPhase === "unanswered" || coverPhase === "wrong" || coverPhase === "review") state.coverPhase = coverPhase;
-    if (coverPhase === "review" && previousPhase !== "review") {
+    if (coverPhase === "review") {
       wrongOnly = false;
-      pendingOnly = false;
-      beginReviewSession(needle);
-      clearAttemptUiForScope(needle);
-      Q.clearQueue(state);
-      reset = true;
-      showToast("第一轮完成：剩余错题随机抽取，答对剔除、答错计次");
+      const entering = previousPhase !== "review";
+      if (entering) {
+        pendingOnly = false;
+        clearAttemptUiForScope(needle);
+        Q.clearQueue(state);
+        reset = true;
+        showToast(`开始刷错题：随机抽取，答对剔除、答错计次（${wrongCountInScope(needle)} 题）`);
+      }
+      syncReviewPool(needle);
     }
     const filtered = bank.filter(q => {
       if (!matchesScopeBase(q, needle)) return false;
@@ -273,11 +280,16 @@
     }
     if (mode === "random-cover" && coverPhase === "unanswered" && !questions.length && pendingCountInScope(needle) === 0) {
       state.coverPhase = "review";
-      beginReviewSession(needle);
+      syncReviewPool(needle);
       clearAttemptUiForScope(needle);
       Q.clearQueue(state);
-      showToast("第一轮完成：剩余错题随机抽取，答对剔除、答错计次");
+      showToast(`开始刷错题：随机抽取，答对剔除、答错计次（${wrongCountInScope(needle)} 题）`);
       return buildList(true);
+    }
+    if (!retried && mode === "random-cover" && coverPhase === "review" && !questions.length && wrongCountInScope(needle) > 0) {
+      syncReviewPool(needle);
+      Q.clearQueue(state);
+      return buildList(true, undefined, true);
     }
     render();
     saveState();
@@ -341,7 +353,7 @@
     host.innerHTML = `<div class="question-topline">
         <div class="badges"><span class="category-badge">${escapeHtml(label)}</span>${q.subjectLabel ? `<span class="paper-badge subject-badge">${escapeHtml(q.subjectLabel)}</span>` : ""}<span class="paper-badge">${q.type === "multiple" ? "多选题" : "单选题"}</span></div>
         <div class="question-count">${inReview
-          ? `<strong>剩余 ${reviewPoolInScope(needle).length}</strong> · 已掌握 ${masteredInScope}/${scopeTotal}`
+          ? `<strong>错题剩余 ${reviewPoolInScope(needle).length}</strong> · 已掌握 ${masteredInScope}/${scopeTotal}`
           : `<strong>${currentIndex + 1}</strong> / ${questions.length}`}</div>
       </div>
       <div class="progress-track"><div class="progress-fill" style="width:${percent}%"></div></div>
@@ -396,6 +408,7 @@
         state.wrong.delete(q.id);
       } else {
         state.wrongCounts[q.id] = (state.wrongCounts[q.id] || 0) + 1;
+        state.reviewMastered.delete(q.id);
         state.correct.delete(q.id);
         state.wrong.add(q.id);
       }
@@ -441,10 +454,10 @@
       if (cur && state.submitted.has(cur.id)) {
         if (pendingCountInScope(needle) === 0) {
           state.coverPhase = "review";
-          beginReviewSession(needle);
+          syncReviewPool(needle);
           clearAttemptUiForScope(needle);
           Q.clearQueue(state);
-          showToast("第一轮完成：剩余错题随机抽取，答对剔除、答错计次");
+          showToast(`开始刷错题：随机抽取，答对剔除、答错计次（${wrongCountInScope(needle)} 题）`);
           buildList(true);
           return;
         }
