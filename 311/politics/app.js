@@ -35,6 +35,8 @@
   let mode = state.mode;
   let questions = [];
   let currentIndex = 0;
+  let reviewHistory = [];
+  let reviewCursor = 0;
   let restorePosition = true;
   let toastTimer;
   let autoUploadTimer;
@@ -184,8 +186,20 @@
     syncReviewPool(needle);
   }
 
+  function showHistoryQuestion() {
+    const q = bank.find(item => item.id === reviewHistory[reviewCursor]);
+    questions = q ? [q] : [];
+    currentIndex = 0;
+    if (q) state.lastQuestionId = q.id;
+    render();
+    saveState();
+  }
+
   function advanceReviewRandom(needle) {
-    const pool = reviewPoolInScope(needle);
+    let pool = reviewPoolInScope(needle);
+    const currentId = reviewHistory[reviewCursor];
+    const others = pool.filter(q => q.id !== currentId);
+    if (others.length) pool = others;
     if (!pool.length) {
       questions = [];
       render();
@@ -194,10 +208,13 @@
       return;
     }
     const next = Q.pickRandomFromPool(pool);
-    questions = pool;
-    currentIndex = Math.max(0, questions.findIndex(q => q.id === next.id));
     state.submitted.delete(next.id);
     delete state.choices[next.id];
+    reviewHistory = reviewHistory.slice(0, reviewCursor + 1);
+    reviewHistory.push(next.id);
+    reviewCursor = reviewHistory.length - 1;
+    questions = [next];
+    currentIndex = 0;
     state.lastQuestionId = next.id;
     render();
     saveState();
@@ -270,13 +287,21 @@
       currentIndex = Q.restoreListIndex(questions, state, mode);
       restorePosition = false;
     }
-    if (coverPhase === "review" && questions.length && reset && !focusQuestionId) {
-      currentIndex = Math.floor(Math.random() * questions.length);
-      const cur = questions[currentIndex];
-      if (cur) {
-        state.submitted.delete(cur.id);
-        delete state.choices[cur.id];
+    if (coverPhase === "review") {
+      if (reset || !reviewHistory.length) {
+        const next = questions.length ? Q.pickRandomFromPool(questions) : null;
+        reviewHistory = next ? [next.id] : [];
+        reviewCursor = 0;
+        if (next) {
+          state.submitted.delete(next.id);
+          delete state.choices[next.id];
+        }
+      } else if (reviewCursor >= reviewHistory.length) {
+        reviewCursor = Math.max(0, reviewHistory.length - 1);
       }
+      const current = bank.find(item => item.id === reviewHistory[reviewCursor]);
+      questions = current ? [current] : [];
+      currentIndex = 0;
     }
     if (mode === "random-cover" && coverPhase === "unanswered" && !questions.length && pendingCountInScope(needle) === 0) {
       state.coverPhase = "review";
@@ -333,7 +358,11 @@
       : ((currentIndex + 1) / questions.length) * 100;
     const reviewMisses = state.wrongCounts[q.id] || 0;
     const inReview = coverPhase === "review";
-    const nextDisabled = !submitted || (!inReview && currentIndex === questions.length - 1);
+    const reviewAtEnd = !inReview || reviewCursor >= reviewHistory.length - 1;
+    const nextDisabled = inReview
+      ? (reviewAtEnd && !submitted)
+      : (!submitted || currentIndex === questions.length - 1);
+    const prevDisabled = inReview ? reviewCursor <= 0 : currentIndex === 0;
     const label = q.subjectLabel
       ? (currentCategory === "全部题目" || currentCategory.startsWith("subject:") ? `${q.subjectLabel} · ${q.category}` : q.category)
       : (currentCategory === "全部题目" ? q.category : currentCategory);
@@ -366,12 +395,12 @@
       </div>
       <div class="controls">
         <div class="control-left">
-          <button id="prev-btn" class="btn btn-ghost" type="button" ${currentIndex === 0 ? "disabled" : ""}>← 上一题</button>
+          <button id="prev-btn" class="btn btn-ghost" type="button" ${prevDisabled ? "disabled" : ""}>← 上一题</button>
           <button id="save-btn" class="btn btn-save ${state.wrong.has(q.id) ? "saved" : ""}" type="button">${state.wrong.has(q.id) ? "◇ 已在错题本" : "◇ 加入错题本"}</button>
         </div>
         <div class="control-right">
           <button id="submit-btn" class="btn btn-primary" type="button" ${submitted || !selected ? "disabled" : ""}>确认答案</button>
-          <button id="next-btn" class="btn ${submitted ? "btn-primary" : ""}" type="button" ${nextDisabled ? "disabled" : ""}>${inReview ? "随机下一题 →" : "下一题 →"}</button>
+          <button id="next-btn" class="btn ${submitted || !reviewAtEnd ? "btn-primary" : ""}" type="button" ${nextDisabled ? "disabled" : ""}>${inReview && reviewAtEnd ? "随机下一题 →" : "下一题 →"}</button>
         </div>
       </div>${answerBox}`;
     host.querySelectorAll("[data-choice]").forEach(button => button.addEventListener("click", () => {
@@ -442,12 +471,21 @@
   function go(delta) {
     const needle = query.trim().toLowerCase();
     const coverPhase = getCoverPhase(needle);
-    if (delta > 0 && coverPhase === "review") {
-      const cur = questions[currentIndex];
-      if (cur && state.submitted.has(cur.id)) {
-        advanceReviewRandom(needle);
+    if (coverPhase === "review") {
+      if (delta < 0) {
+        if (reviewCursor <= 0) return;
+        reviewCursor -= 1;
+        showHistoryQuestion();
         return;
       }
+      if (reviewCursor < reviewHistory.length - 1) {
+        reviewCursor += 1;
+        showHistoryQuestion();
+        return;
+      }
+      const cur = questions[currentIndex];
+      if (cur && state.submitted.has(cur.id)) advanceReviewRandom(needle);
+      return;
     }
     if (delta > 0 && coverPhase === "unanswered") {
       const cur = questions[currentIndex];
@@ -513,6 +551,8 @@
     state.coverPhase = "unanswered";
     state.reviewMastered = new Set();
     state.wrongCounts = {};
+    reviewHistory = [];
+    reviewCursor = 0;
     Q.clearQueue(state);
     saveState(); buildList(); queueAutoUpload(); showToast("学习记录已清空");
   });
