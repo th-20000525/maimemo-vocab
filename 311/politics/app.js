@@ -303,7 +303,8 @@
       }
       const isWrong = wrongOnly;
       const isPending = pendingOnly;
-      const coverDone = mode === "random-cover" && !pendingOnly && phaseNow !== "review" && pendingCountInScope(needle) === 0;
+      const coverDone = mode === "random-cover" && !pendingOnly && !wrongOnly
+        && phaseNow === "unanswered" && pendingCountInScope(needle) === 0 && wrongCountInScope(needle) === 0;
       host.innerHTML = `<div class="empty-state"><span class="empty-symbol">${isWrong || coverDone ? "◇" : isPending ? "✓" : "✳"}</span><h2>${isWrong ? "错题本还是空的" : isPending || coverDone ? "这一范围已经练完了" : "没有找到这道题"}</h2><p>${isWrong ? "答错的题会自动加入错题本，你也可以在答案揭晓后手动收藏。" : isPending || coverDone ? (coverDone && !state.wrong.size ? "当前范围题目都已作答且没有错题，将自动进入第二轮随机。" : "错题会自动进入下一轮；若侧边「只练错题」未亮，刷新一下或点一次出题顺序。") : "试试更短的关键词，或切换到其他题库继续练习。"}</p></div>`;
       return;
     }
