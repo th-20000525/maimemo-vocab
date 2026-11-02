@@ -76,3 +76,20 @@ const built2 = Q.buildFromFiltered({
 assert.deepEqual(built2.shuffleOrder, order);
 assert.equal(built2.questions[0].id, order.find(id => !state.attempted.has(id)));
 console.log("study-cover-flow.test.mjs OK");
+
+const reviewList = bank.slice();
+const reviewBuilt = Q.buildFromFiltered({
+  filtered: reviewList,
+  mode: "random-cover",
+  reset: true,
+  listKey: "review-scope",
+  state: { attempted: state.attempted, shuffleKey: "", shuffleOrder: [] },
+  shuffle,
+  phase: "review",
+});
+assert.equal(reviewBuilt.questions.length, 8);
+
+const repeatState = { shuffleOrder: reviewBuilt.shuffleOrder.slice() };
+Q.scheduleRepeat(repeatState, "q5", 0, 4);
+assert.ok(repeatState.shuffleOrder.indexOf("q5", 1) >= 1);
+console.log("review + scheduleRepeat OK");

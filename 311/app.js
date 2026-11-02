@@ -99,7 +99,7 @@
         shuffleKey: saved.shuffleKey || "",
         shuffleOrder: Array.isArray(saved.shuffleOrder) ? saved.shuffleOrder : [],
         listIndex: Number.isFinite(saved.listIndex) ? saved.listIndex : 0,
-        coverPhase: saved.coverPhase === "wrong" ? "wrong" : "unanswered",
+        coverPhase: saved.coverPhase === "wrong" ? "wrong" : saved.coverPhase === "review" ? "review" : "unanswered",
         syncCode: defaultSyncCode
       };
     } catch {
@@ -118,6 +118,7 @@
       choices: state.choices, submitted: [...state.submitted], lastCategory: state.lastCategory,
       lastQuestionId: state.lastQuestionId, lastModule: state.lastModule, mode: state.mode,
       shuffleKey: state.shuffleKey || "", shuffleOrder: state.shuffleOrder || [], listIndex: currentIndex,
+      coverPhase: state.coverPhase || "unanswered",
       syncCode: $("sync-code")?.value.trim() || state.syncCode
     }));
     updateStats();
@@ -193,10 +194,27 @@
     return bank.filter(q => matchesScopeBase(q, needle) && state.wrong.has(q.id)).length;
   }
 
+  function clearAttemptUiForScope(needle) {
+    bank.forEach(q => {
+      if (!matchesScopeBase(q, needle)) return;
+      state.submitted.delete(q.id);
+      delete state.choices[q.id];
+    });
+  }
+
   function buildList(reset = true, focusQuestionId) {
     const needle = query.trim().toLowerCase();
+    const previousPhase = state.coverPhase;
     const coverPhase = getCoverPhase(needle);
-    if (coverPhase === "unanswered" || coverPhase === "wrong") state.coverPhase = coverPhase;
+    if (coverPhase === "unanswered" || coverPhase === "wrong" || coverPhase === "review") state.coverPhase = coverPhase;
+    if (coverPhase === "review" && previousPhase !== "review") {
+      wrongOnly = false;
+      pendingOnly = false;
+      clearAttemptUiForScope(needle);
+      Q.clearQueue(state);
+      reset = true;
+      showToast("第一轮完成：开始全科随机第二轮，答错的题会反复出现");
+    }
     const filtered = bank.filter(q => {
       if (!matchesScopeBase(q, needle)) return false;
       if (coverPhase) {
@@ -212,7 +230,7 @@
       return true;
     });
     const built = Q.buildFromFiltered({
-      filtered, mode, reset, listKey: listScopeKey(needle), state, shuffle,
+      filtered, mode, reset, listKey: listScopeKey(needle), state, shuffle, phase: coverPhase,
     });
     questions = built.questions;
     state.shuffleKey = built.shuffleKey;
@@ -233,6 +251,13 @@
       showToast("未答题已全部过完，开始刷错题");
       return buildList(true);
     }
+    if (mode === "random-cover" && coverPhase === "wrong" && !questions.length && wrongCountInScope(needle) === 0) {
+      state.coverPhase = "review";
+      clearAttemptUiForScope(needle);
+      Q.clearQueue(state);
+      showToast("错题已刷完：开始全科随机第二轮，答错的题会反复出现");
+      return buildList(true);
+    }
     render();
     saveState();
   }
@@ -242,8 +267,9 @@
     if (!questions.length) {
       const isWrong = wrongOnly;
       const isPending = pendingOnly;
-      const coverDone = mode === "random-cover" && !pendingOnly && pendingCountInScope(query.trim().toLowerCase()) === 0;
-      host.innerHTML = `<div class="empty-state"><span class="empty-symbol">${isWrong || coverDone ? "◇" : isPending ? "✓" : "✳"}</span><h2>${isWrong ? "错题本还是空的" : isPending || coverDone ? "这一范围已经练完了" : "没有找到这道题"}</h2><p>${isWrong ? "答错的题会自动加入错题本，你也可以在答案揭晓后手动收藏。" : isPending || coverDone ? (coverDone && !state.wrong.size ? "当前范围题目都已作答且没有错题，可以换范围或切换出题模式。" : "错题会自动进入下一轮；若侧边「只练错题」未亮，刷新一下或点一次出题顺序。") : "试试更短的关键词，或切换到其他题库继续练习。"}</p></div>`;
+      const phaseNow = getCoverPhase(query.trim().toLowerCase());
+      const coverDone = mode === "random-cover" && !pendingOnly && phaseNow !== "review" && pendingCountInScope(query.trim().toLowerCase()) === 0;
+      host.innerHTML = `<div class="empty-state"><span class="empty-symbol">${isWrong || coverDone ? "◇" : isPending ? "✓" : "✳"}</span><h2>${isWrong ? "错题本还是空的" : isPending || coverDone ? "这一范围已经练完了" : "没有找到这道题"}</h2><p>${isWrong ? "答错的题会自动加入错题本，你也可以在答案揭晓后手动收藏。" : isPending || coverDone ? (coverDone && !state.wrong.size ? "当前范围题目都已作答且没有错题，将自动进入第二轮随机。" : "错题会自动进入下一轮；若侧边「只练错题」未亮，刷新一下或点一次出题顺序。") : "试试更短的关键词，或切换到其他题库继续练习。"}</p></div>`;
       return;
     }
     const q = questions[currentIndex];
@@ -278,7 +304,7 @@
       </div>
       <div class="progress-track"><div class="progress-fill" style="width:${percent}%"></div></div>
       <div class="question-content">
-        <p class="question-meta">第 ${q.number} 题 <span>·</span> ${q.type === "multiple" ? "请选择所有正确选项" : "请选择一个最合适的答案"}</p>
+        <p class="question-meta">第 ${q.number} 题 <span>·</span> ${coverPhase === "review" ? "复习轮 · 答错会再次出现" : q.type === "multiple" ? "请选择所有正确选项" : "请选择一个最合适的答案"}</p>
         <h2 class="question-stem">${escapeHtml(q.stem)}</h2>
         <div class="options">${optionsHtml}</div>
       </div>
@@ -324,6 +350,9 @@
     } else {
       state.correct.delete(q.id);
       state.wrong.add(q.id);
+      if (getCoverPhase(query.trim().toLowerCase()) === "review") {
+        Q.scheduleRepeat(state, q.id, currentIndex);
+      }
     }
     saveState();
     queueAutoUpload();
@@ -348,6 +377,17 @@
   function go(delta) {
     const needle = query.trim().toLowerCase();
     const coverPhase = getCoverPhase(needle);
+    if (delta > 0 && coverPhase === "review") {
+      const cur = questions[currentIndex];
+      if (cur && state.submitted.has(cur.id)) {
+        const oldIndex = currentIndex;
+        buildList(false);
+        currentIndex = Math.min(oldIndex + 1, Math.max(0, questions.length - 1));
+        render();
+        saveState();
+        return;
+      }
+    }
     if (delta > 0 && coverPhase === "unanswered") {
       const cur = questions[currentIndex];
       if (cur && state.submitted.has(cur.id)) {
