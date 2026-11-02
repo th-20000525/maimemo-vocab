@@ -15,9 +15,9 @@
       subjectOrder: ["教育学原理", "中国教育史", "外国教育史", "教育心理学", "教育研究方法"]
     };
   </script>
-  <script defer src="study-list.js?v=cover-flow-20261023"></script>
+  <script defer src="study-list.js?v=review-pool-20261102"></script>
   <script defer src="questions.js?v=edu-research-20261022b"></script>
-  <script defer src="app.js?v=cover-flow-20261023"></script>
+  <script defer src="app.js?v=review-pool-20261102"></script>
 </head>
 <body>
   <header class="topbar">
@@ -33,7 +33,7 @@
       <div>
         <p class="eyebrow">STUDY DESK <span>·</span> 311 教育学基础</p>
         <h1>全科随机：先过完一遍，再刷错题。</h1>
-        <p class="intro-copy">教育学原理、中教、外教、教心、教研共 733 题。默认模式<strong>只出还没做过的题</strong>；全部做完后会自动进入<strong>错题复习</strong>。</p>
+        <p class="intro-copy">教育学原理、中教、外教、教心、教研共 733 题。默认<strong>先未答、再错题</strong>，随后进入<strong>复习轮</strong>：从剩余题里<strong>随机抽</strong>，<strong>答对移出</strong>、<strong>答错继续留在池里并累计错次</strong>；全部掌握后查看反复错的题。</p>
       </div>
       <div class="stats" aria-label="学习统计">
         <div class="stat"><span id="stat-done">0</span><small>已作答</small></div>
@@ -51,7 +51,7 @@
         <select id="module-select" class="select-control"></select>
         <label class="field-label" for="mode-select">出题顺序</label>
         <select id="mode-select" class="select-control">
-          <option value="random-cover">随机刷题（过一遍→错题）</option>
+          <option value="random-cover">随机刷题（过一遍→错题→第二轮）</option>
           <option value="random">完全随机</option>
           <option value="order">按题目顺序</option>
         </select>

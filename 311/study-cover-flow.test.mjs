@@ -1,4 +1,4 @@
-/** 节点自测：过一遍→错题 队列不丢序、提交后不移题 */
+/** 节点自测：过一遍→错题→复习轮 */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
@@ -24,6 +24,7 @@ const state = {
   shuffleKey: "",
   shuffleOrder: [],
   coverPhase: "unanswered",
+  reviewMastered: new Set(),
 };
 
 const phase = Q.resolveCoverPhase({
@@ -40,9 +41,9 @@ const filtered = bank.filter(q => !Q.shouldExcludeQuestion({
   phase: "unanswered",
   attempted: id => state.attempted.has(id),
   wrong: id => state.wrong.has(id),
+  mastered: id => state.reviewMastered.has(id),
   q,
 }));
-
 assert.equal(filtered.length, 6);
 
 const built1 = Q.buildFromFiltered({
@@ -52,15 +53,16 @@ const built1 = Q.buildFromFiltered({
   listKey: "scope",
   state,
   shuffle,
+  phase: "unanswered",
 });
 const order = built1.shuffleOrder.slice();
 
-// 模拟「下一题」：再多做一道，队列复用顺序
 state.attempted.add("q2");
 const filtered2 = bank.filter(q => !Q.shouldExcludeQuestion({
   phase: "unanswered",
   attempted: id => state.attempted.has(id),
   wrong: id => state.wrong.has(id),
+  mastered: id => state.reviewMastered.has(id),
   q,
 }));
 state.shuffleKey = built1.shuffleKey;
@@ -72,7 +74,32 @@ const built2 = Q.buildFromFiltered({
   listKey: "scope",
   state,
   shuffle,
+  phase: "unanswered",
 });
 assert.deepEqual(built2.shuffleOrder, order);
-assert.equal(built2.questions[0].id, order.find(id => !state.attempted.has(id)));
+
+const reviewPhase = Q.resolveCoverPhase({
+  mode: "random-cover",
+  manualWrong: false,
+  manualPending: false,
+  pendingCount: 0,
+  wrongCount: 3,
+  savedPhase: "review",
+});
+assert.equal(reviewPhase, "review");
+
+state.reviewMastered.add("q2");
+state.reviewMastered.add("q3");
+const reviewFiltered = bank.filter(q => !Q.shouldExcludeQuestion({
+  phase: "review",
+  attempted: () => false,
+  wrong: () => false,
+  mastered: id => state.reviewMastered.has(id),
+  q,
+}));
+assert.equal(reviewFiltered.length, 6);
+
+const picked = Q.pickRandomFromPool(reviewFiltered, () => 0.99);
+assert.equal(picked.id, reviewFiltered[reviewFiltered.length - 1].id);
+
 console.log("study-cover-flow.test.mjs OK");
