@@ -102,4 +102,22 @@ assert.equal(reviewFiltered.length, 6);
 const picked = Q.pickRandomFromPool(reviewFiltered, () => 0.99);
 assert.equal(picked.id, reviewFiltered[reviewFiltered.length - 1].id);
 
+const wrongFiltered = bank.filter(q => !Q.shouldExcludeQuestion({
+  phase: "wrong",
+  attempted: id => state.attempted.has(id),
+  wrong: id => state.wrong.has(id),
+  mastered: id => state.reviewMastered.has(id),
+  q,
+}));
+const wrongBuilt = Q.buildFromFiltered({
+  filtered: wrongFiltered,
+  mode: "random-cover",
+  reset: true,
+  listKey: "wrong-scope",
+  state: { ...state, attempted: new Set(bank.map(q => q.id)) },
+  shuffle,
+  phase: "wrong",
+});
+assert.equal(wrongBuilt.questions.length, 1);
+
 console.log("study-cover-flow.test.mjs OK");

@@ -18,8 +18,8 @@
   function shuffleQuestions(list, mode, isAttempted, shuffle, phase) {
     if (mode === "random") return shuffle(list);
     if (mode === "random-cover") {
-      if (phase === "review") return shuffle(list);
-      return shuffle(list.filter(q => !isAttempted(q.id)));
+      if (phase === "unanswered") return shuffle(list.filter(q => !isAttempted(q.id)));
+      return shuffle(list);
     }
     return list;
   }
