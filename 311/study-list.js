@@ -25,16 +25,14 @@
   }
 
   /**
-   * random-cover 三阶段：
-   * unanswered — 仅未答；wrong — 仅错题本；review — 随机池（已掌握剔除，错题计数）。
+   * random-cover：unanswered → review（第一轮结束后直接进复习池；侧边栏「只练错题」仍走 wrong）。
    */
-  function resolveCoverPhase({ mode, manualWrong, manualPending, pendingCount, wrongCount, savedPhase }) {
+  function resolveCoverPhase({ mode, manualWrong, manualPending, pendingCount, savedPhase }) {
     if (mode !== "random-cover") return null;
     if (manualPending) return "unanswered";
     if (manualWrong) return "wrong";
     if (pendingCount > 0) return "unanswered";
-    if (savedPhase === "review") return "review";
-    if (wrongCount > 0) return "wrong";
+    if (savedPhase === "review" || savedPhase === "wrong") return "review";
     return "review";
   }
 

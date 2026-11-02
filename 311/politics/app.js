@@ -172,7 +172,12 @@
       if (!matchesScopeBase(q, needle)) return;
       state.reviewMastered.delete(q.id);
       delete state.wrongCounts[q.id];
+      if (state.correct.has(q.id)) state.reviewMastered.add(q.id);
     });
+  }
+
+  function beginReviewSession(needle) {
+    resetReviewSessionForScope(needle);
   }
 
   function advanceReviewRandom(needle) {
@@ -222,11 +227,11 @@
     if (coverPhase === "review" && previousPhase !== "review") {
       wrongOnly = false;
       pendingOnly = false;
-      resetReviewSessionForScope(needle);
+      beginReviewSession(needle);
       clearAttemptUiForScope(needle);
       Q.clearQueue(state);
       reset = true;
-      showToast("开始复习轮：答对移出池子，答错随机再抽并计错次");
+      showToast("第一轮完成：剩余错题随机抽取，答对剔除、答错计次");
     }
     const filtered = bank.filter(q => {
       if (!matchesScopeBase(q, needle)) return false;
@@ -266,18 +271,12 @@
         delete state.choices[cur.id];
       }
     }
-    if (mode === "random-cover" && coverPhase === "unanswered" && !questions.length && wrongCountInScope(needle) > 0) {
-      state.coverPhase = "wrong";
-      wrongOnly = true;
-      Q.clearQueue(state);
-      showToast("未答题已全部过完，开始刷错题");
-      return buildList(true);
-    }
-    if (mode === "random-cover" && coverPhase === "wrong" && !questions.length && wrongCountInScope(needle) === 0) {
+    if (mode === "random-cover" && coverPhase === "unanswered" && !questions.length && pendingCountInScope(needle) === 0) {
       state.coverPhase = "review";
+      beginReviewSession(needle);
       clearAttemptUiForScope(needle);
       Q.clearQueue(state);
-      showToast("错题已刷完：进入复习轮（答对剔除，答错反复随机）");
+      showToast("第一轮完成：剩余错题随机抽取，答对剔除、答错计次");
       return buildList(true);
     }
     render();
@@ -321,11 +320,8 @@
       ? (masteredInScope / scopeTotal) * 100
       : ((currentIndex + 1) / questions.length) * 100;
     const reviewMisses = state.wrongCounts[q.id] || 0;
-    const handoffToWrong = coverPhase === "unanswered" && submitted
-      && pendingCountInScope(needle) === 0 && wrongCountInScope(needle) > 0
-      && currentIndex === questions.length - 1;
     const inReview = coverPhase === "review";
-    const nextDisabled = !submitted || (!inReview && currentIndex === questions.length - 1 && !handoffToWrong);
+    const nextDisabled = !submitted || (!inReview && currentIndex === questions.length - 1);
     const label = q.subjectLabel
       ? (currentCategory === "全部题目" || currentCategory.startsWith("subject:") ? `${q.subjectLabel} · ${q.category}` : q.category)
       : (currentCategory === "全部题目" ? q.category : currentCategory);
@@ -363,7 +359,7 @@
         </div>
         <div class="control-right">
           <button id="submit-btn" class="btn btn-primary" type="button" ${submitted || !selected ? "disabled" : ""}>确认答案</button>
-          <button id="next-btn" class="btn ${submitted ? "btn-primary" : ""}" type="button" ${nextDisabled ? "disabled" : ""}>${handoffToWrong ? "开始刷错题 →" : inReview ? "随机下一题 →" : "下一题 →"}</button>
+          <button id="next-btn" class="btn ${submitted ? "btn-primary" : ""}" type="button" ${nextDisabled ? "disabled" : ""}>${inReview ? "随机下一题 →" : "下一题 →"}</button>
         </div>
       </div>${answerBox}`;
     host.querySelectorAll("[data-choice]").forEach(button => button.addEventListener("click", () => {
@@ -443,11 +439,12 @@
     if (delta > 0 && coverPhase === "unanswered") {
       const cur = questions[currentIndex];
       if (cur && state.submitted.has(cur.id)) {
-        if (pendingCountInScope(needle) === 0 && wrongCountInScope(needle) > 0) {
-          state.coverPhase = "wrong";
-          wrongOnly = true;
+        if (pendingCountInScope(needle) === 0) {
+          state.coverPhase = "review";
+          beginReviewSession(needle);
+          clearAttemptUiForScope(needle);
           Q.clearQueue(state);
-          showToast("未答题已全部过完，开始刷错题");
+          showToast("第一轮完成：剩余错题随机抽取，答对剔除、答错计次");
           buildList(true);
           return;
         }

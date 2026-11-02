@@ -83,8 +83,7 @@ const reviewPhase = Q.resolveCoverPhase({
   manualWrong: false,
   manualPending: false,
   pendingCount: 0,
-  wrongCount: 3,
-  savedPhase: "review",
+  savedPhase: "unanswered",
 });
 assert.equal(reviewPhase, "review");
 
