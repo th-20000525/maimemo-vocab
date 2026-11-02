@@ -1,4 +1,4 @@
-/** 311 / 政治刷题共用：随机队列、过一遍→错题→复习轮（错题反复出现） */
+/** 311 / 政治刷题共用：随机队列、过一遍→错题→复习轮（答对剔除、答错随机再抽） */
 (() => {
   function applyShuffleOrder(filtered, orderedIds) {
     const map = new Map(filtered.map(q => [q.id, q]));
@@ -26,34 +26,28 @@
 
   /**
    * random-cover 三阶段：
-   * unanswered — 仅未答；wrong — 仅错题本；review — 全科随机第二轮起，错题会重新入队。
+   * unanswered — 仅未答；wrong — 仅错题本；review — 随机池（已掌握剔除，错题计数）。
    */
   function resolveCoverPhase({ mode, manualWrong, manualPending, pendingCount, wrongCount, savedPhase }) {
     if (mode !== "random-cover") return null;
     if (manualPending) return "unanswered";
     if (manualWrong) return "wrong";
     if (pendingCount > 0) return "unanswered";
-    if (wrongCount > 0) return "wrong";
     if (savedPhase === "review") return "review";
+    if (wrongCount > 0) return "wrong";
     return "review";
   }
 
-  function shouldExcludeQuestion({ phase, attempted, wrong, q }) {
+  function shouldExcludeQuestion({ phase, attempted, wrong, mastered, q }) {
     if (phase === "unanswered") return attempted(q.id);
     if (phase === "wrong") return !wrong(q.id);
+    if (phase === "review") return mastered(q.id);
     return false;
   }
 
-  /** 复习轮答错：几题后再出现同一题（已在后面排队则不再插入） */
-  function scheduleRepeat(state, questionId, listIndex, gap = 4) {
-    const order = [...(state.shuffleOrder || [])];
-    if (!order.length) return;
-    const head = order.slice(0, listIndex + 1);
-    const tail = order.slice(listIndex + 1);
-    if (tail.includes(questionId)) return;
-    const insertAt = Math.min(gap, tail.length);
-    const newTail = [...tail.slice(0, insertAt), questionId, ...tail.slice(insertAt)];
-    state.shuffleOrder = [...head, ...newTail];
+  function pickRandomFromPool(pool, random = Math.random) {
+    if (!pool.length) return null;
+    return pool[Math.floor(random() * pool.length)];
   }
 
   function restoreListIndex(questions, state, mode) {
@@ -97,6 +91,8 @@
       shuffleOrder: state.shuffleOrder || [],
       listIndex: Number.isFinite(listIndex) ? listIndex : (state.listIndex || 0),
       coverPhase: state.coverPhase || "unanswered",
+      reviewMastered: [...(state.reviewMastered || [])],
+      wrongCounts: { ...(state.wrongCounts || {}) },
       ...extra,
     };
   }
@@ -108,6 +104,8 @@
     if (data.coverPhase === "wrong" || data.coverPhase === "unanswered" || data.coverPhase === "review") {
       state.coverPhase = data.coverPhase;
     }
+    if (Array.isArray(data.reviewMastered)) state.reviewMastered = new Set(data.reviewMastered);
+    if (data.wrongCounts && typeof data.wrongCounts === "object") state.wrongCounts = { ...data.wrongCounts };
   }
 
   function clearQueue(state) {
@@ -121,7 +119,7 @@
     shuffleQuestions,
     resolveCoverPhase,
     shouldExcludeQuestion,
-    scheduleRepeat,
+    pickRandomFromPool,
     restoreListIndex,
     buildFromFiltered,
     queuePayloadSlice,
