@@ -102,10 +102,11 @@
         coverPhase: saved.coverPhase === "wrong" ? "wrong" : saved.coverPhase === "review" ? "review" : "unanswered",
         reviewMastered: new Set(saved.reviewMastered || []),
         wrongCounts: saved.wrongCounts && typeof saved.wrongCounts === "object" ? saved.wrongCounts : {},
+        roundsByScope: saved.roundsByScope && typeof saved.roundsByScope === "object" ? saved.roundsByScope : {},
         syncCode: defaultSyncCode
       };
     } catch {
-      return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastModule: "全部模块", lastQuestionId: "", mode: appConfig.defaultMode || "order", shuffleKey: "", shuffleOrder: [], listIndex: 0, coverPhase: "unanswered", reviewMastered: new Set(), wrongCounts: {}, syncCode: defaultSyncCode };
+      return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastModule: "全部模块", lastQuestionId: "", mode: appConfig.defaultMode || "order", shuffleKey: "", shuffleOrder: [], listIndex: 0, coverPhase: "unanswered", reviewMastered: new Set(), wrongCounts: {}, roundsByScope: {}, syncCode: defaultSyncCode };
     }
   }
 
@@ -123,6 +124,7 @@
       coverPhase: state.coverPhase || "unanswered",
       reviewMastered: [...state.reviewMastered],
       wrongCounts: state.wrongCounts,
+      roundsByScope: state.roundsByScope || {},
       syncCode: $("sync-code")?.value.trim() || state.syncCode
     }));
     updateStats();
@@ -165,6 +167,7 @@
   }
 
   const Q = window.StudyListQueue;
+  state.roundsByScope = Q.sanitizeRounds(state.roundsByScope);
 
   function listScopeKey(needle) {
     const phaseKey = mode === "random-cover" ? state.coverPhase : "";
@@ -264,14 +267,99 @@
       : `<p class="report-empty">这一轮每题都一次答对，没有反复错的题。</p>`;
     return `<div class="empty-state review-report">
       <span class="empty-symbol">✓</span>
-      <h2>本范围已全部掌握</h2>
-      <p class="report-summary">共 ${scope.length} 题。${troubled.length ? `下面 ${troubled.length} 道题复习过程中曾答错，按错次从高到低排列，建议重点回看。` : ""}</p>
+      <h2>本范围各轮已完成</h2>
+      <p class="report-summary">共 ${scope.length} 题。第 1 轮过后，每一轮只出现上一轮答错的题；最后一轮没有答错。${troubled.length ? `下面 ${troubled.length} 道题曾答错，按错次从高到低排列，建议重点回看。` : ""}</p>
       ${listHtml}
-      <button id="review-restart-btn" class="btn btn-primary" type="button">再刷一轮复习</button>
+      <button id="review-restart-btn" class="btn btn-primary" type="button">从第 1 轮再来</button>
     </div>`;
   }
 
+  function scopeKey() {
+    return `${currentCategory}\u0001${currentModule}`;
+  }
+
+  function isRoundCover() {
+    return mode === "random-cover" && !wrongOnly && !pendingOnly;
+  }
+
+  function scopeQuestionIds() {
+    return bank.filter(q => matchesScopeBase(q, "")).map(q => q.id);
+  }
+
+  function clearRoundAnswers(ids) {
+    ids.forEach(id => {
+      state.submitted.delete(id);
+      delete state.choices[id];
+    });
+  }
+
+  function buildRoundSession(focusQuestionId) {
+    const needle = query.trim().toLowerCase();
+    const key = scopeKey();
+    let rec = state.roundsByScope[key];
+    let enteredRound = 0;
+    if (!rec) {
+      rec = Q.createInitialRound({
+        scopeIds: shuffle(scopeQuestionIds()),
+        attempted: [...state.attempted],
+        wrong: [...state.wrong],
+        correct: [...state.correct],
+      });
+      if (!rec.done && rec.round > 1) {
+        rec = { ...rec, set: shuffle(rec.set) };
+        clearRoundAnswers(rec.set);
+        enteredRound = rec.round;
+      }
+      state.roundsByScope[key] = rec;
+    }
+    const known = new Set(scopeQuestionIds());
+    if (!rec.done && rec.set.length > 0 && Q.roundRemainingIds(rec, known).length === 0) {
+      const next = Q.advanceRound(rec, shuffle);
+      next.set = next.set.filter(id => known.has(id));
+      if (!next.done && next.set.length === 0) next.done = true;
+      if (!next.done) clearRoundAnswers(next.set);
+      state.roundsByScope[key] = next;
+      rec = next;
+      if (!rec.done) enteredRound = rec.round;
+    }
+    state.coverPhase = !rec.done && rec.round <= 1 ? "unanswered" : "review";
+    const byId = new Map(bank.map(q => [q.id, q]));
+    const remaining = rec.done ? [] : Q.roundRemainingIds(rec, known);
+    questions = remaining.map(id => byId.get(id)).filter(q => q && matchesScopeBase(q, needle));
+    if (focusQuestionId) {
+      const idx = questions.findIndex(q => q.id === focusQuestionId);
+      currentIndex = idx >= 0 ? idx : 0;
+    } else if (enteredRound) {
+      currentIndex = 0;
+      restorePosition = false;
+    } else if (restorePosition) {
+      const idx = questions.findIndex(q => q.id === state.lastQuestionId);
+      currentIndex = idx >= 0 ? idx : 0;
+      restorePosition = false;
+    } else {
+      currentIndex = Math.min(currentIndex, Math.max(0, questions.length - 1));
+    }
+    if (enteredRound) showToast(`进入第 ${enteredRound} 轮：只练上一轮答错的 ${rec.set.length} 题`);
+    render();
+    saveState();
+  }
+
+  function restartRoundCycle() {
+    const ids = shuffle(scopeQuestionIds());
+    ids.forEach(id => { delete state.wrongCounts[id]; });
+    clearRoundAnswers(ids);
+    state.roundsByScope[scopeKey()] = { round: 1, set: ids, answered: [], wrong: [], done: false };
+    state.coverPhase = "unanswered";
+    restorePosition = false;
+    buildRoundSession();
+    showToast("从第 1 轮重新开始");
+  }
+
   function buildList(reset = true, focusQuestionId, retried = false) {
+    if (isRoundCover()) {
+      buildRoundSession(focusQuestionId);
+      return;
+    }
     const needle = query.trim().toLowerCase();
     const previousPhase = state.coverPhase;
     const coverPhase = getCoverPhase(needle);
@@ -347,6 +435,17 @@
     const host = $("question-view");
     const needle = query.trim().toLowerCase();
     if (!questions.length) {
+      if (isRoundCover()) {
+        const rec = state.roundsByScope[scopeKey()];
+        if (rec?.done) {
+          host.innerHTML = renderReviewCompleteReport(needle);
+          const restart = $("review-restart-btn");
+          if (restart) restart.addEventListener("click", restartRoundCycle);
+          return;
+        }
+        host.innerHTML = `<div class="empty-state"><span class="empty-symbol">✳</span><h2>没有找到这道题</h2><p>试试更短的关键词，或清空搜索继续这一轮。</p></div>`;
+        return;
+      }
       const phaseNow = getCoverPhase(needle);
       if (phaseNow === "review" && reviewScopeTotal(needle) > 0 && !reviewPoolInScope(needle).length) {
         host.innerHTML = renderReviewCompleteReport(needle);
@@ -374,14 +473,18 @@
     const submitted = state.submitted.has(q.id);
     const correct = state.correct.has(q.id);
     const coverPhase = getCoverPhase(needle);
+    const roundRec = isRoundCover() ? state.roundsByScope[scopeKey()] : null;
+    const inRound = !!(roundRec && !roundRec.done);
     const scopeTotal = reviewScopeTotal(needle);
     const masteredInScope = scopeTotal - reviewPoolInScope(needle).length;
-    const percent = coverPhase === "review" && scopeTotal
+    const percent = inRound && roundRec.set.length
+      ? (roundRec.answered.length / roundRec.set.length) * 100
+      : coverPhase === "review" && scopeTotal
       ? (masteredInScope / scopeTotal) * 100
       : ((currentIndex + 1) / questions.length) * 100;
     const reviewMisses = state.wrongCounts[q.id] || 0;
     const inReview = coverPhase === "review";
-    const nextDisabled = !submitted || (!inReview && currentIndex === questions.length - 1);
+    const nextDisabled = !submitted || (!(inRound || inReview) && currentIndex === questions.length - 1);
     const label = currentCategory === "全部题目" ? categoryOf(q) : currentCategory;
     const optionsHtml = letters.map(letter => {
       let classes = "option";
@@ -398,13 +501,17 @@
     </div>` : "";
     host.innerHTML = `<div class="question-topline">
         <div class="badges"><span class="category-badge">${escapeHtml(label)}</span><span class="paper-badge">${q.type === "multiple" ? "多选题" : "单选题"}</span></div>
-        <div class="question-count">${inReview
+        <div class="question-count">${inRound
+          ? `<strong>第 ${roundRec.round} 轮</strong> · 已答 ${roundRec.answered.length} / ${roundRec.set.length}`
+          : inReview
           ? `<strong>错题剩余 ${reviewPoolInScope(needle).length}</strong> · 已掌握 ${masteredInScope}/${scopeTotal}`
           : `<strong>${currentIndex + 1}</strong> / ${questions.length}`}</div>
       </div>
       <div class="progress-track"><div class="progress-fill" style="width:${percent}%"></div></div>
       <div class="question-content">
-        <p class="question-meta">第 ${q.number} 题 <span>·</span> ${inReview
+        <p class="question-meta">第 ${q.number} 题 <span>·</span> ${inRound
+          ? (roundRec.round <= 1 ? "第 1 轮 · 这一范围每题做一次" : `第 ${roundRec.round} 轮 · 只练上一轮答错的题`)
+          : inReview
           ? `复习轮 · 随机抽取${reviewMisses ? ` · 本题已错 ${reviewMisses} 次` : ""}`
           : q.type === "multiple" ? "请选择所有正确选项" : "请选择一个最合适的答案"}</p>
         <h2 class="question-stem">${escapeHtml(q.stem)}</h2>
@@ -417,7 +524,7 @@
         </div>
         <div class="control-right">
           <button id="submit-btn" class="btn btn-primary" type="button" ${submitted || !selected ? "disabled" : ""}>确认答案</button>
-          <button id="next-btn" class="btn ${submitted ? "btn-primary" : ""}" type="button" ${nextDisabled ? "disabled" : ""}>${inReview ? "随机下一题 →" : "下一题 →"}</button>
+          <button id="next-btn" class="btn ${submitted ? "btn-primary" : ""}" type="button" ${nextDisabled ? "disabled" : ""}>${inRound ? "下一题 →" : inReview ? "随机下一题 →" : "下一题 →"}</button>
         </div>
       </div>${answerBox}`;
     host.querySelectorAll("[data-choice]").forEach(button => button.addEventListener("click", () => {
@@ -444,6 +551,26 @@
     const q = questions[currentIndex];
     if (!q || !state.choices[q.id]) return;
     const isCorrect = String(state.choices[q.id]).split("").sort().join("") === String(q.answer).split("").sort().join("");
+    if (isRoundCover()) {
+      const key = scopeKey();
+      const rec = state.roundsByScope[key];
+      if (!rec || rec.done) return;
+      state.attempted.add(q.id);
+      state.submitted.add(q.id);
+      state.roundsByScope[key] = Q.recordRoundAnswer(rec, q.id, isCorrect);
+      if (isCorrect) {
+        state.correct.add(q.id);
+        state.wrong.delete(q.id);
+      } else {
+        state.wrongCounts[q.id] = (state.wrongCounts[q.id] || 0) + 1;
+        state.correct.delete(q.id);
+        state.wrong.add(q.id);
+      }
+      saveState();
+      queueAutoUpload();
+      render();
+      return;
+    }
     const coverPhase = getCoverPhase(query.trim().toLowerCase());
     state.attempted.add(q.id);
     state.submitted.add(q.id);
@@ -482,10 +609,35 @@
     }
     saveState();
     queueAutoUpload();
-    buildList(false);
+    if (isRoundCover()) render();
+    else buildList(false);
   }
 
   function go(delta) {
+    if (isRoundCover()) {
+      if (delta > 0) {
+        const cur = questions[currentIndex];
+        if (!cur || !state.submitted.has(cur.id)) return;
+        const nextId = questions[currentIndex + 1]?.id;
+        if (nextId) {
+          buildRoundSession(nextId);
+          return;
+        }
+        const rec = state.roundsByScope[scopeKey()];
+        const remaining = Q.roundRemainingIds(rec, new Set(scopeQuestionIds()));
+        const visible = new Set(questions.map(q => q.id));
+        if (remaining.some(id => !visible.has(id))) {
+          showToast("还有题目不在当前搜索里，清空搜索后会继续这一轮");
+          return;
+        }
+        buildRoundSession();
+        return;
+      }
+      currentIndex = Math.max(0, Math.min(questions.length - 1, currentIndex + delta));
+      render();
+      saveState();
+      return;
+    }
     const needle = query.trim().toLowerCase();
     const coverPhase = getCoverPhase(needle);
     if (delta > 0 && coverPhase === "review") {
@@ -543,9 +695,6 @@
   modeSelect.addEventListener("change", () => {
     mode = modeSelect.value;
     if (mode === "random-cover") {
-      state.coverPhase = "unanswered";
-      state.reviewMastered = new Set();
-      state.wrongCounts = {};
       wrongOnly = false;
       pendingOnly = false;
     }
@@ -563,6 +712,7 @@
     state.coverPhase = "unanswered";
     state.reviewMastered = new Set();
     state.wrongCounts = {};
+    state.roundsByScope = {};
     Q.clearQueue(state);
     saveState(); buildList(); queueAutoUpload(); showToast("学习记录已清空");
   });
@@ -597,6 +747,7 @@
       wrong: [...state.wrong], choices: state.choices, submitted: [...state.submitted],
       lastCategory: state.lastCategory, lastQuestionId: state.lastQuestionId, lastModule: state.lastModule, mode: state.mode,
       ...Q.queuePayloadSlice(state, currentIndex),
+      roundsByScope: state.roundsByScope || {},
     };
     try {
       const response = await fetch(`${SB_URL}/rest/v1/vocab_progress?on_conflict=sync_code`, {
@@ -642,6 +793,10 @@
       Q.applyQueuePayload(state, data);
       if (Array.isArray(data.reviewMastered)) state.reviewMastered = new Set(data.reviewMastered);
       if (data.wrongCounts && typeof data.wrongCounts === "object") Object.assign(state.wrongCounts, data.wrongCounts);
+      if (data.roundsByScope && typeof data.roundsByScope === "object" && !Array.isArray(data.roundsByScope)) {
+        const incoming = Q.sanitizeRounds(data.roundsByScope);
+        if (Object.keys(incoming).length || !automatic) state.roundsByScope = incoming;
+      }
       currentCategory = categories.includes(state.lastCategory) ? state.lastCategory : "全部题目";
       currentModule = state.lastModule || "全部模块";
       mode = state.mode;

@@ -119,4 +119,89 @@ const wrongBuilt = Q.buildFromFiltered({
 });
 assert.equal(wrongBuilt.questions.length, 1);
 
+const plain = value => JSON.parse(JSON.stringify(value));
+
+const roundOne = Q.createInitialRound({
+  scopeIds: ["a", "b", "c", "d"],
+  attempted: [],
+  wrong: [],
+  correct: [],
+});
+assert.equal(roundOne.round, 1);
+assert.deepEqual(plain(Q.roundRemainingIds(roundOne)), ["a", "b", "c", "d"]);
+
+let round = Q.recordRoundAnswer(roundOne, "a", false);
+round = Q.recordRoundAnswer(round, "b", true);
+round = Q.recordRoundAnswer(round, "c", false);
+round = Q.recordRoundAnswer(round, "d", true);
+assert.deepEqual(plain(Q.roundRemainingIds(round)), []);
+assert.deepEqual(plain(round.wrong), ["a", "c"]);
+
+const roundTwo = Q.advanceRound(round, ids => ids.slice().sort());
+assert.equal(roundTwo.round, 2);
+assert.equal(roundTwo.done, false);
+assert.deepEqual(plain(roundTwo.set), ["a", "c"]);
+assert.deepEqual(plain(roundTwo.answered), []);
+assert.equal(roundTwo.set.includes("a"), true);
+assert.equal(roundTwo.set.includes("b"), false);
+
+let roundTwoDone = Q.recordRoundAnswer(roundTwo, "a", false);
+roundTwoDone = Q.recordRoundAnswer(roundTwoDone, "c", true);
+const roundThree = Q.advanceRound(roundTwoDone, ids => ids);
+assert.equal(roundThree.round, 3);
+assert.deepEqual(plain(roundThree.set), ["a"]);
+
+const finished = Q.advanceRound(Q.recordRoundAnswer(roundThree, "a", true), ids => ids);
+assert.equal(finished.done, true);
+assert.deepEqual(plain(finished.set), []);
+assert.deepEqual(plain(Q.advanceRound(finished, ids => ids)), plain(finished));
+
+const corrected = Q.recordRoundAnswer(
+  { round: 1, set: ["a", "b"], answered: ["b"], wrong: ["a", "b"], done: false },
+  "a",
+  true,
+);
+assert.deepEqual(plain(corrected.wrong), ["b"]);
+
+const midPass = Q.createInitialRound({
+  scopeIds: ["a", "b", "c"],
+  attempted: ["a"],
+  wrong: ["a"],
+  correct: [],
+});
+assert.equal(midPass.round, 1);
+assert.deepEqual(plain(Q.roundRemainingIds(midPass)), ["b", "c"]);
+assert.deepEqual(plain(midPass.wrong), ["a"]);
+
+const afterPass = Q.createInitialRound({
+  scopeIds: ["a", "b", "c"],
+  attempted: ["a", "b", "c"],
+  wrong: ["b"],
+  correct: ["a", "c"],
+});
+assert.equal(afterPass.round, 2);
+assert.deepEqual(plain(afterPass.set), ["b"]);
+
+const allCorrect = Q.createInitialRound({
+  scopeIds: ["a"],
+  attempted: ["a"],
+  wrong: [],
+  correct: ["a"],
+});
+assert.equal(allCorrect.done, true);
+
+const restored = Q.normalizeRoundRecord({ round: 3, set: ["a", "b"], answered: ["a"], wrong: ["a"], done: false });
+assert.equal(restored.round, 3);
+assert.deepEqual(plain(Q.roundRemainingIds(restored)), ["b"]);
+assert.deepEqual(plain(Q.roundRemainingIds(restored, new Set(["b"]))), ["b"]);
+assert.deepEqual(plain(Q.roundRemainingIds({ ...restored, answered: ["a", "b"] }, new Set(["b"]))), []);
+
+const stored = Q.sanitizeRounds({
+  "全部\u0001全部": { round: 2, set: ["x", "x"], answered: [], wrong: [], done: false },
+  bad: null,
+});
+assert.equal(stored["全部\u0001全部"].round, 2);
+assert.deepEqual(plain(stored["全部\u0001全部"].set), ["x"]);
+assert.equal(stored.bad, undefined);
+
 console.log("study-cover-flow.test.mjs OK");

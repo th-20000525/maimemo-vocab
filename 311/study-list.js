@@ -112,6 +112,91 @@
     state.listIndex = 0;
   }
 
+  function uniqueIds(ids) {
+    const out = [];
+    const seen = new Set();
+    if (!Array.isArray(ids)) return out;
+    for (const id of ids) {
+      if (typeof id !== "string" || !id || seen.has(id)) continue;
+      seen.add(id);
+      out.push(id);
+    }
+    return out;
+  }
+
+  /** 311 按轮复习：一轮做完才进入下一轮，下一轮只含上一轮答错的题。 */
+  function normalizeRoundRecord(raw) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    const round = Number.isFinite(raw.round) && raw.round >= 1 ? Math.floor(raw.round) : 1;
+    return {
+      round,
+      set: uniqueIds(raw.set),
+      answered: uniqueIds(raw.answered),
+      wrong: uniqueIds(raw.wrong),
+      done: raw.done === true,
+    };
+  }
+
+  function sanitizeRounds(raw) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+    const out = {};
+    for (const [key, value] of Object.entries(raw)) {
+      if (typeof key !== "string" || !key) continue;
+      const rec = normalizeRoundRecord(value);
+      if (rec) out[key] = rec;
+    }
+    return out;
+  }
+
+  /**
+   * 没有存过轮次时：还有未答题就停在第 1 轮；第 1 轮已全部作答则用错题本作为第 2 轮。
+   * 答对的题不会因为曾经出现过就留在下一轮。
+   */
+  function createInitialRound({ scopeIds, attempted, wrong, correct }) {
+    const ids = uniqueIds(scopeIds);
+    if (!ids.length) return { round: 1, set: [], answered: [], wrong: [], done: false };
+    const attemptedSet = new Set(attempted || []);
+    const wrongSet = new Set(wrong || []);
+    const correctSet = new Set(correct || []);
+    const pending = ids.filter(id => !attemptedSet.has(id));
+    if (pending.length) {
+      return {
+        round: 1,
+        set: ids,
+        answered: ids.filter(id => attemptedSet.has(id)),
+        wrong: ids.filter(id => attemptedSet.has(id) && wrongSet.has(id) && !correctSet.has(id)),
+        done: false,
+      };
+    }
+    const misses = ids.filter(id => wrongSet.has(id) && !correctSet.has(id));
+    if (!misses.length) return { round: 2, set: [], answered: [], wrong: [], done: true };
+    return { round: 2, set: misses, answered: [], wrong: [], done: false };
+  }
+
+  function roundRemainingIds(record, knownIds) {
+    const answered = new Set(record?.answered || []);
+    const known = knownIds ? new Set(knownIds) : null;
+    return (record?.set || []).filter(id => !answered.has(id) && (!known || known.has(id)));
+  }
+
+  function recordRoundAnswer(record, id, isCorrect) {
+    const current = normalizeRoundRecord(record) || { round: 1, set: [], answered: [], wrong: [], done: false };
+    const answered = uniqueIds([...current.answered, id]);
+    const wrong = new Set(current.wrong);
+    if (isCorrect) wrong.delete(id);
+    else if (typeof id === "string" && id) wrong.add(id);
+    return { round: current.round, set: current.set, answered, wrong: [...wrong], done: false };
+  }
+
+  function advanceRound(record, shuffle) {
+    const current = normalizeRoundRecord(record) || { round: 1, set: [], answered: [], wrong: [], done: false };
+    if (current.done) return current;
+    const wrong = uniqueIds(current.wrong);
+    if (!wrong.length) return { round: current.round, set: [], answered: [], wrong: [], done: true };
+    const order = typeof shuffle === "function" ? uniqueIds(shuffle(wrong.slice())) : wrong;
+    return { round: current.round + 1, set: order, answered: [], wrong: [], done: false };
+  }
+
   window.StudyListQueue = {
     applyShuffleOrder,
     shuffleQuestions,
@@ -123,5 +208,11 @@
     queuePayloadSlice,
     applyQueuePayload,
     clearQueue,
+    normalizeRoundRecord,
+    sanitizeRounds,
+    createInitialRound,
+    roundRemainingIds,
+    recordRoundAnswer,
+    advanceRound,
   };
 })();
