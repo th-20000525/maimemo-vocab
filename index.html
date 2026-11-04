@@ -316,7 +316,7 @@
 
   <div id="cardModeBlock" class="card-mode">
     <div class="card-top">
-      <span id="dailyGoalStatus">今日已刷 <b>0</b> / 1000</span>
+      <span id="dailyGoalStatus">今日已刷 <b>0</b></span>
       <span>已会 <b id="cardKnownCount">0</b> / <b id="cardTotalCount">—</b> 条搭配</span>
       <span class="row">
         <label>短语 # <input id="cycleJump" type="number" min="1" placeholder="编号" /></label>
@@ -345,7 +345,7 @@
       <button type="button" class="act-know" data-card-act="know">认识</button>
     </div>
     <div class="card-done" id="cardDone" hidden>
-      <b>今日已刷满</b>
+      <b>全部短语都认识了</b>
       <span id="cardDoneText"></span>
     </div>
   </div>
@@ -384,7 +384,6 @@ const ALL_WORDS = [{"id": 1, "word": "abandon", "phonetic": "[aˈbændan]", "pos
 const STORAGE_KEY = "vocab_batch_v1";
 const BACKUP_KEY = "vocab_batch_backups_v1";
 const BATCH = 1000; // 每批序号宽度
-const DAILY_GOAL = 1000; // 每天刷词上限（认识/熟悉都算）
 const SB_URL = "https://drtkvfcjbwvqpgolkwur.supabase.co";
 const SB_KEY = "sb_publishable_GFoECb3NXu0jHUUP3krFjQ_JgLLeUxH";
 const $ = (id) => document.getElementById(id);
@@ -472,13 +471,9 @@ function getDailyLearnedCount() {
   return dailyLearnedCount;
 }
 
-function dailyStudyBudget() {
-  return Math.max(0, DAILY_GOAL - getDailyLearnedCount());
-}
-
 function recordDailyStudied(n) {
   rollDailyCounter();
-  dailyLearnedCount = Math.min(DAILY_GOAL, dailyLearnedCount + (n || 1));
+  dailyLearnedCount += (n || 1);
   dailyLearnedDate = todayKey();
   updateDailyGoalUI();
 }
@@ -486,9 +481,7 @@ function recordDailyStudied(n) {
 function updateDailyGoalUI() {
   const n = getDailyLearnedCount();
   const el = $("dailyGoalStatus");
-  if (el) {
-    el.innerHTML = `今日已刷 <b>${n}</b> / ${DAILY_GOAL}` + (n >= DAILY_GOAL ? " · 今日已满" : "");
-  }
+  if (el) el.innerHTML = `今日已刷 <b>${n}</b>`;
 }
 
 function idsDueForReview() {
@@ -1046,13 +1039,8 @@ function showCardDone() {
   $("cardActions").hidden = true;
   $("cardDone").hidden = false;
   const deck = ensurePhraseDeck();
-  if (currentPhraseIdx == null) {
-    $("cardDone").querySelector("b").textContent = `全部 ${deck.length} 条短语都认识了`;
-    $("cardDoneText").textContent = "可以清空已会记录后重新背，或去「查看已会」看单词列表。";
-  } else {
-    $("cardDone").querySelector("b").textContent = `今日已刷满 ${DAILY_GOAL} 条`;
-    $("cardDoneText").textContent = `明天从第 ${phraseRound} 轮 · 短语 #${currentPhraseIdx + 1} 接着背。`;
-  }
+  $("cardDone").querySelector("b").textContent = `全部 ${deck.length} 条短语都认识了`;
+  $("cardDoneText").textContent = "可以清空已会记录后重新背，或去「查看已会」看单词列表。";
 }
 
 function wordCollocationPairs(word) {
@@ -1122,10 +1110,6 @@ function renderCard(options) {
     showCardDone();
     return;
   }
-  if (getDailyLearnedCount() >= DAILY_GOAL) {
-    showCardDone();
-    return;
-  }
   if (currentPhraseIdx == null) {
     showCardDone();
     return;
@@ -1161,10 +1145,6 @@ function cardAnswer(act) {
   if (currentPhraseIdx == null) return;
   if (!cardRevealed) {
     onCardTap();
-    return;
-  }
-  if (getDailyLearnedCount() >= DAILY_GOAL) {
-    alert(`今日已刷满 ${DAILY_GOAL} 条，明天再继续。`);
     return;
   }
   const deck = ensurePhraseDeck();
@@ -1261,11 +1241,6 @@ async function deleteChecked() {
   }
   if (!checked.size) {
     alert("还没有勾选「已会」的词");
-    return;
-  }
-  const room = dailyStudyBudget();
-  if (checked.size > room) {
-    alert(`今日还可刷 ${room} 个（每天 ${DAILY_GOAL} 个）。请少勾选一些，或明天继续。`);
     return;
   }
   const n = checked.size;
