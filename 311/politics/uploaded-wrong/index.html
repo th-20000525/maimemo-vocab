@@ -3,69 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f6f3ed">
-  <title>错题</title>
-  <link rel="stylesheet" href="../style.css?v=option-why-20261105">
-  <script src="questions.js?v=all-wrong-pool-20261105"></script>
-  <script>
-    window.STUDY_APP_CONFIG = {
-      storageKey: "all-wrong-pool-progress-v1",
-      appId: "all-wrong-pool",
-      syncNamespace: "all-wrong:",
-      defaultMode: "random-cover",
-      roundOnly: true,
-      singlePool: true
-    };
-  </script>
-  <script defer src="../../study-list.js?v=shuffle-round-20261105"></script>
-  <script defer src="../app.js?v=all-wrong-pool-20261105"></script>
+  <meta http-equiv="refresh" content="0; url=../wrong/">
+  <title>政治错题</title>
+  <link rel="canonical" href="../wrong/">
+  <script>location.replace("../wrong/");</script>
 </head>
 <body>
-  <header class="topbar">
-    <a class="brand" href="../" aria-label="政治练习站">
-      <span class="brand-mark">错</span>
-      <span class="brand-copy"><strong>错题</strong><small>按轮复习，直到没有错题</small></span>
-    </a>
-    <div class="topbar-right"><span class="offline-dot"></span><span>离线可用 · 云端进度同步</span></div>
-  </header>
-
-  <main class="page-shell">
-    <section class="intro-row">
-      <div>
-        <p class="eyebrow">STUDY DESK <span>·</span> 错题</p>
-        <h1>错题按轮：这一轮答错的，下一轮再打乱来过。</h1>
-        <p class="intro-copy">政治和 311 里还没做对的题，加上新上传的错题，一共 <strong id="bank-total">—</strong> 题，放在<strong>同一池</strong>里。<strong>第 1 轮</strong>把整池打乱，每题做一遍。这一轮全部作答后进入<strong>下一轮</strong>，下一轮只留下上一轮答错的题，并<strong>重新打乱</strong>。答对的不再出现，直到没有错题为止。刷新后仍停在这一轮的这个顺序。</p>
-      </div>
-      <div class="stats" aria-label="学习统计">
-        <div class="stat"><span id="stat-done">0</span><small>已作答</small></div>
-        <div class="stat"><span id="stat-accuracy">—</span><small>正确率</small></div>
-        <div class="stat"><span id="stat-wrong">0</span><small>错题收藏</small></div>
-      </div>
-    </section>
-
-    <section class="workspace">
-      <aside class="sidebar">
-        <div class="sidebar-heading"><span class="section-kicker">进度</span><span class="tiny-rule"></span></div>
-        <section class="sync-card" aria-label="跨设备进度同步">
-          <div class="sync-heading"><span>跨设备记忆</span><span class="sync-cloud">↗</span></div>
-          <input id="sync-code" class="sync-code" type="password" autocomplete="off" placeholder="设置你的同步码">
-          <div class="sync-actions"><button id="sync-upload" type="button">上传</button><button id="sync-download" type="button">拉取</button></div>
-          <p class="sync-help">换设备：旧机先「上传」，新机「拉取」。这一池的进度和轮次单独保存，不改原来各科的记录。刷新后仍停在同一轮。</p>
-          <p id="sync-status" class="sync-status" role="status"></p>
-        </section>
-        <div class="sidebar-note"><span class="note-mark">✳</span><p>交卷后，错的选项上会标出短原因。整池一起按轮刷，直到没有错题。</p></div>
-        <button id="reset-progress" class="text-button" type="button">清空本机学习记录</button>
-      </aside>
-
-      <section class="question-panel" aria-live="polite">
-        <div id="question-view"></div>
-      </section>
-    </section>
-    <footer class="footer"><span>专注当下这一题。</span><span>错题 <i>·</i> 按轮复习</span></footer>
-  </main>
-  <div id="toast" class="toast" role="status"></div>
-  <script>
-    document.getElementById("bank-total").textContent = (window.QUESTION_BANK || []).length;
-  </script>
+  <p><a href="../wrong/">政治错题</a></p>
 </body>
 </html>
