@@ -341,7 +341,7 @@
   <div id="cardModeBlock" class="card-mode">
     <div class="card-top">
       <span id="dailyGoalStatus">今日已刷 <b>0</b></span>
-      <span>已会 <b id="cardKnownCount">0</b> / <b id="cardTotalCount">—</b> 条搭配</span>
+      <span>已会 <b id="cardKnownCount">0</b> · 本轮 <b id="cardTotalCount">—</b> 条</span>
       <span class="row">
         <label>短语 # <input id="cycleJump" type="number" min="1" placeholder="编号" /></label>
         <button type="button" class="btn-ghost" id="btnCycleJump" style="padding:4px 10px;">开始</button>
@@ -1015,10 +1015,9 @@ function ensurePhraseDeck() {
   return PHRASE_DECK;
 }
 
+/** 认识过的短语不再出现。熟悉的留在后面的轮次里，所以每一轮只剩还没认识的，套数会变小。 */
 function phraseIsAvailable(p) {
-  if (knownPhraseKeys.includes(p.key)) return false;
-  const due = phraseReviewSchedule[p.key];
-  return !due || due <= todayKey();
+  return !knownPhraseKeys.includes(p.key);
 }
 
 function nextPhraseDeckId() {
@@ -1048,22 +1047,43 @@ function pickCurrentPhrase() {
 
 function updateCycleUI() {
   const deck = ensurePhraseDeck();
+  let remaining = 0;
+  for (const p of deck) if (phraseIsAvailable(p)) remaining++;
   $("cardKnownCount").textContent = knownPhraseKeys.length;
-  $("cardTotalCount").textContent = deck.length;
+  $("cardTotalCount").textContent = remaining;
   $("btnCardPrev").disabled = prevPhraseNavIdx() == null;
   $("btnCardNext").disabled = nextPhraseNavIdx() == null;
 }
 
-/** 左右浏览：按题库序号相邻切换（含已会短语），不影响学习进度 phraseCyclePos */
+/** 左右浏览只在还没认识的短语里移动，跳过已认识的 */
 function prevPhraseNavIdx() {
-  if (currentPhraseIdx == null || currentPhraseIdx <= 0) return null;
-  return currentPhraseIdx - 1;
+  const deck = ensurePhraseDeck();
+  if (currentPhraseIdx == null) return null;
+  for (let i = currentPhraseIdx - 1; i >= 0; i--) {
+    if (phraseIsAvailable(deck[i])) return i;
+  }
+  return null;
 }
 
 function nextPhraseNavIdx() {
   const deck = ensurePhraseDeck();
-  if (currentPhraseIdx == null || currentPhraseIdx >= deck.length - 1) return null;
-  return currentPhraseIdx + 1;
+  if (currentPhraseIdx == null) return null;
+  for (let i = currentPhraseIdx + 1; i < deck.length; i++) {
+    if (phraseIsAvailable(deck[i])) return i;
+  }
+  return null;
+}
+
+function ensureCurrentAvailable() {
+  const deck = ensurePhraseDeck();
+  if (currentPhraseIdx == null) return;
+  if (deck[currentPhraseIdx] && phraseIsAvailable(deck[currentPhraseIdx])) return;
+  const next = nextPhraseNavIdx();
+  if (next != null) {
+    currentPhraseIdx = next;
+    return;
+  }
+  currentPhraseIdx = prevPhraseNavIdx();
 }
 
 /** 左右切换只移动位置，不算熟悉/认识，也不计入每日额度 */
@@ -1187,8 +1207,7 @@ function paintCardFace(p) {
   const sayLabel = p.wordOnly ? "这个词" : "这个搭配";
   card.classList.remove("recall-say", "recall-sentence", "revealed");
   sourceEl.hidden = false;
-  if (cardRecallStep >= 2) {
-    cardRevealed = true;
+  if (cardRevealed) {
     card.classList.add("revealed");
     $("cardPhraseEn").innerHTML = formatPhraseEnHtml(p);
     sourceEl.innerHTML = sourceSentenceHtml(p, true);
@@ -1197,20 +1216,13 @@ function paintCardFace(p) {
     $("cardActions").hidden = false;
     return;
   }
-  cardRevealed = false;
+  card.classList.add("recall-say");
   $("cardPhraseEn").innerHTML = hiddenPhraseHtml();
   sourceEl.innerHTML = sourceSentenceHtml(p, false);
+  $("cardPhraseZh").hidden = true;
   $("cardHint").hidden = false;
   $("cardActions").hidden = true;
-  if (cardRecallStep === 0) {
-    card.classList.add("recall-say");
-    $("cardPhraseZh").hidden = true;
-    $("cardHint").textContent = `第 1 步 · 先说出${sayLabel} · 点一下看释义`;
-  } else {
-    card.classList.add("recall-sentence");
-    $("cardPhraseZh").hidden = false;
-    $("cardHint").textContent = "第 2 步 · 再用自己的话造一个短句，不要用这句原句";
-  }
+  $("cardHint").textContent = `先说出${sayLabel}，再造一个短句，不要用原句 · 点一下看释义`;
 }
 
 function renderCard(options) {
@@ -1227,6 +1239,7 @@ function renderCard(options) {
   cardRecallStep = 0;
 
   if (!browse) pickCurrentPhrase();
+  else ensureCurrentAvailable();
   updateDailyGoalUI();
   updateCycleUI();
   const deck = ensurePhraseDeck();
@@ -1257,12 +1270,12 @@ function renderCard(options) {
 }
 
 function onCardTap() {
-  if (currentPhraseIdx == null || cardRecallStep >= 2) return;
+  if (currentPhraseIdx == null || cardRevealed) return;
   const p = ensurePhraseDeck()[currentPhraseIdx];
   if (!p) return;
-  cardRecallStep += 1;
+  cardRevealed = true;
   paintCardFace(p);
-  if (cardRecallStep >= 2) speakWord(p.phrase);
+  speakWord(p.phrase);
 }
 
 function cardAnswer(act) {
@@ -1276,10 +1289,8 @@ function cardAnswer(act) {
   recordDailyStudied(1);
   if (act === "know") {
     if (!knownPhraseKeys.includes(p.key)) knownPhraseKeys.push(p.key);
-    delete phraseReviewSchedule[p.key];
-  } else {
-    phraseReviewSchedule[p.key] = addDaysToKey(todayKey(), 1);
   }
+  delete phraseReviewSchedule[p.key];
   phraseCyclePos = p.id;
   renderCard();
   savePersist();
