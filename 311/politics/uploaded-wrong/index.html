@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f6f3ed">
   <title>考研政治 · 新错题</title>
   <link rel="stylesheet" href="../style.css?v=option-why-20261105">
-  <script src="questions.js?v=uploaded-wrong-20261105"></script>
+  <script src="questions.js?v=single-pool-20261105"></script>
   <script>
     window.STUDY_APP_CONFIG = {
       storageKey: "politics-uploaded-wrong-progress-v1",
@@ -14,11 +14,11 @@
       syncNamespace: "politics:uploaded-wrong:",
       defaultMode: "random-cover",
       roundOnly: true,
-      categoryOrder: ["马原", "新思想", "毛中特", "史纲", "思修"]
+      singlePool: true
     };
   </script>
   <script defer src="../../study-list.js?v=shuffle-round-20261105"></script>
-  <script defer src="../app.js?v=shuffle-round-20261105"></script>
+  <script defer src="../app.js?v=single-pool-20261105"></script>
 </head>
 <body>
   <header class="topbar">
@@ -34,7 +34,7 @@
       <div>
         <p class="eyebrow">STUDY DESK <span>·</span> 考研政治 · 新错题</p>
         <h1>新错题按轮：过完一轮，只把错题带进下一轮。</h1>
-        <p class="intro-copy">这批题单独成库，共 <strong id="bank-total">—</strong> 题，按马原、新思想、毛中特、史纲、思修分开。<strong>第 1 轮</strong>把当前范围打乱后每题做一遍；这一轮全部作答后才进入<strong>下一轮</strong>，下一轮<strong>只出现上一轮答错的题，并且重新打乱</strong>。答对的不再进入下一轮。刷新后仍停在同一轮的这个顺序。</p>
+        <p class="intro-copy">这 <strong id="bank-total">—</strong> 题放在<strong>同一池</strong>里，不按科目拆开。<strong>第 1 轮</strong>把整池打乱后每题做一遍；这一轮全部作答后才进入<strong>下一轮</strong>，下一轮<strong>只出现上一轮答错的题，并且重新打乱</strong>。答对的不再进入下一轮。刷新后仍停在同一轮的这个顺序。</p>
       </div>
       <div class="stats" aria-label="学习统计">
         <div class="stat"><span id="stat-done">0</span><small>已作答</small></div>
@@ -56,8 +56,8 @@
     <section class="workspace">
       <aside class="sidebar">
         <div class="sidebar-heading"><span class="section-kicker">练习范围</span><span class="tiny-rule"></span></div>
-        <label class="field-label" for="category-select">选择科目</label>
-        <select id="category-select" class="select-control"></select>
+        <label class="field-label" for="category-select" hidden>选择科目</label>
+        <select id="category-select" class="select-control" hidden></select>
         <label class="field-label" for="mode-select">出题顺序</label>
         <select id="mode-select" class="select-control">
           <option value="random-cover">按轮刷题（错题进入下一轮）</option>
@@ -73,7 +73,7 @@
           <p class="sync-help">换设备：旧机先「上传」，新机「拉取」。这批新错题的进度和轮次单独保存，不改原来五科的记录。刷新后仍停在同一轮。</p>
           <p id="sync-status" class="sync-status" role="status"></p>
         </section>
-        <div class="sidebar-note"><span class="note-mark">✳</span><p>交卷后，错的选项上会标出短原因。想只刷某一科，在「选择科目」里点它。</p></div>
+        <div class="sidebar-note"><span class="note-mark">✳</span><p>交卷后，错的选项上会标出短原因。整池一起按轮刷。</p></div>
         <button id="reset-progress" class="text-button" type="button">清空本机学习记录</button>
       </aside>
 
