@@ -90,6 +90,7 @@ h1 { margin:0; color:var(--navy); font-family:Georgia,"Microsoft YaHei UI",serif
 .answer-result.good { color:var(--green); }
 .answer-result.bad { color:var(--red); }
 .answer-text { margin:0; color:#6c706e; font-size:12px; line-height:1.85; }
+.answer-text .trap { color:#c42323; font-weight:700; padding:0 3px; border:1px solid #e23b3b; border-radius:2px; background:transparent; box-decoration-break:clone; }
 @keyframes appear { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
 .controls { display:flex; justify-content:space-between; align-items:center; gap:15px; padding-top:17px; }
 .control-left,.control-right { display:flex; align-items:center; gap:9px; }
