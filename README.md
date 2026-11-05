@@ -27,3 +27,11 @@
 
 - 空格：显示释义  
 - `1` 熟悉 · `2` 认识  
+
+## 错题导出
+
+仓库 `exports/` 目录提供可下载的 Markdown 错题清单（GitHub raw URL）：
+
+- **311 教育学错题** → [`exports/311-wrong-items.md`](exports/311-wrong-items.md)
+- **政治错题** → [`exports/politics-wrong-items.md`](exports/politics-wrong-items.md)
+
