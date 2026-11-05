@@ -204,4 +204,28 @@ assert.equal(stored["全部\u0001全部"].round, 2);
 assert.deepEqual(plain(stored["全部\u0001全部"].set), ["x"]);
 assert.equal(stored.bad, undefined);
 
+const eduHtml = readFileSync(new URL("./index.html", import.meta.url), "utf8");
+const mixedHtml = readFileSync(new URL("./politics/mixed/index.html", import.meta.url), "utf8");
+const eduApp = readFileSync(new URL("./app.js", import.meta.url), "utf8");
+const politicsApp = readFileSync(new URL("./politics/app.js", import.meta.url), "utf8");
+
+function modeValues(html) {
+  const block = html.split('id="mode-select"')[1].split("</select>")[0];
+  return [...block.matchAll(/value="([^"]+)"/g)].map(match => match[1]);
+}
+
+assert.deepEqual(modeValues(eduHtml), ["random-cover"]);
+assert.deepEqual(modeValues(mixedHtml), ["random-cover"]);
+assert.equal(eduHtml.includes("roundOnly: true"), true);
+assert.equal(mixedHtml.includes("roundOnly: true"), true);
+assert.equal(eduHtml.includes("完全随机"), false);
+assert.equal(mixedHtml.includes("完全随机"), false);
+assert.equal(mixedHtml.includes("按题库顺序"), false);
+for (const src of [eduApp, politicsApp]) {
+  assert.equal(src.includes("advanceRound(rec, shuffle)"), false);
+  assert.equal(src.includes("shuffle(scopeQuestionIds())"), false);
+  assert.equal(src.includes("roundsByScope"), true);
+  assert.equal(src.includes("Q.advanceRound(rec)"), true);
+}
+
 console.log("study-cover-flow.test.mjs OK");

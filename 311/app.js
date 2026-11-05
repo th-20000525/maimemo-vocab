@@ -64,6 +64,12 @@
     return a.localeCompare(b, "zh-CN");
   });
   const defaultSyncCode = "1234";
+
+  function resolveMode(value) {
+    if (appConfig.roundOnly) return "random-cover";
+    return ["random", "random-cover", "order"].includes(value) ? value : (appConfig.defaultMode || "order");
+  }
+
   const state = loadState();
   let currentCategory = categories.includes(state.lastCategory) ? state.lastCategory : "全部题目";
   let currentModule = state.lastModule || "全部模块";
@@ -95,7 +101,7 @@
         lastCategory: categoryLabels[saved.lastCategory] || saved.lastCategory || "全部题目",
         lastModule: saved.lastModule || "全部模块",
         lastQuestionId: saved.lastQuestionId || "",
-        mode: ["random", "random-cover", "order"].includes(saved.mode) ? saved.mode : (appConfig.defaultMode || "order"),
+        mode: resolveMode(saved.mode),
         shuffleKey: saved.shuffleKey || "",
         shuffleOrder: Array.isArray(saved.shuffleOrder) ? saved.shuffleOrder : [],
         listIndex: Number.isFinite(saved.listIndex) ? saved.listIndex : 0,
@@ -106,7 +112,7 @@
         syncCode: defaultSyncCode
       };
     } catch {
-      return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastModule: "全部模块", lastQuestionId: "", mode: appConfig.defaultMode || "order", shuffleKey: "", shuffleOrder: [], listIndex: 0, coverPhase: "unanswered", reviewMastered: new Set(), wrongCounts: {}, roundsByScope: {}, syncCode: defaultSyncCode };
+      return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastModule: "全部模块", lastQuestionId: "", mode: resolveMode(appConfig.defaultMode), shuffleKey: "", shuffleOrder: [], listIndex: 0, coverPhase: "unanswered", reviewMastered: new Set(), wrongCounts: {}, roundsByScope: {}, syncCode: defaultSyncCode };
     }
   }
 
@@ -279,6 +285,7 @@
   }
 
   function isRoundCover() {
+    if (appConfig.roundOnly) return mode === "random-cover";
     return mode === "random-cover" && !wrongOnly && !pendingOnly;
   }
 
@@ -300,13 +307,12 @@
     let enteredRound = 0;
     if (!rec) {
       rec = Q.createInitialRound({
-        scopeIds: shuffle(scopeQuestionIds()),
+        scopeIds: scopeQuestionIds(),
         attempted: [...state.attempted],
         wrong: [...state.wrong],
         correct: [...state.correct],
       });
       if (!rec.done && rec.round > 1) {
-        rec = { ...rec, set: shuffle(rec.set) };
         clearRoundAnswers(rec.set);
         enteredRound = rec.round;
       }
@@ -314,7 +320,7 @@
     }
     const known = new Set(scopeQuestionIds());
     if (!rec.done && rec.set.length > 0 && Q.roundRemainingIds(rec, known).length === 0) {
-      const next = Q.advanceRound(rec, shuffle);
+      const next = Q.advanceRound(rec);
       next.set = next.set.filter(id => known.has(id));
       if (!next.done && next.set.length === 0) next.done = true;
       if (!next.done) clearRoundAnswers(next.set);
@@ -325,7 +331,11 @@
     state.coverPhase = !rec.done && rec.round <= 1 ? "unanswered" : "review";
     const byId = new Map(bank.map(q => [q.id, q]));
     const remaining = rec.done ? [] : Q.roundRemainingIds(rec, known);
-    questions = remaining.map(id => byId.get(id)).filter(q => q && matchesScopeBase(q, needle));
+    questions = remaining.map(id => byId.get(id)).filter(q => {
+      if (!q || !matchesScopeBase(q, needle)) return false;
+      if (wrongOnly && !state.wrong.has(q.id)) return false;
+      return true;
+    });
     if (focusQuestionId) {
       const idx = questions.findIndex(q => q.id === focusQuestionId);
       currentIndex = idx >= 0 ? idx : 0;
@@ -345,7 +355,7 @@
   }
 
   function restartRoundCycle() {
-    const ids = shuffle(scopeQuestionIds());
+    const ids = scopeQuestionIds();
     ids.forEach(id => { delete state.wrongCounts[id]; });
     clearRoundAnswers(ids);
     state.roundsByScope[scopeKey()] = { round: 1, set: ids, answered: [], wrong: [], done: false };
@@ -441,6 +451,10 @@
           host.innerHTML = renderReviewCompleteReport(needle);
           const restart = $("review-restart-btn");
           if (restart) restart.addEventListener("click", restartRoundCycle);
+          return;
+        }
+        if (wrongOnly) {
+          host.innerHTML = `<div class="empty-state"><span class="empty-symbol">◇</span><h2>这一轮没有待做的错题</h2><p>答错的题会在本轮全部作答后进入下一轮，不会在这一轮里抽出来重做。</p></div>`;
           return;
         }
         host.innerHTML = `<div class="empty-state"><span class="empty-symbol">✳</span><h2>没有找到这道题</h2><p>试试更短的关键词，或清空搜索继续这一轮。</p></div>`;
@@ -627,7 +641,7 @@
         const remaining = Q.roundRemainingIds(rec, new Set(scopeQuestionIds()));
         const visible = new Set(questions.map(q => q.id));
         if (remaining.some(id => !visible.has(id))) {
-          showToast("还有题目不在当前搜索里，清空搜索后会继续这一轮");
+          showToast("还有题目不在当前筛选里。清空搜索、关掉「只练错题」后会继续这一轮");
           return;
         }
         buildRoundSession();
@@ -789,7 +803,7 @@
       if (categories.includes(downloadedCategory)) state.lastCategory = downloadedCategory;
       if (data.lastModule) state.lastModule = data.lastModule;
       if (data.lastQuestionId) state.lastQuestionId = data.lastQuestionId;
-      state.mode = ["random", "random-cover", "order"].includes(data.mode) ? data.mode : "order";
+      state.mode = resolveMode(data.mode);
       Q.applyQueuePayload(state, data);
       if (Array.isArray(data.reviewMastered)) state.reviewMastered = new Set(data.reviewMastered);
       if (data.wrongCounts && typeof data.wrongCounts === "object") Object.assign(state.wrongCounts, data.wrongCounts);
