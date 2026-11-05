@@ -188,11 +188,19 @@
   .card-phrase-pos .pos-word { font-weight: 700; color: var(--teal-dark); margin-right: 6px; }
   .card-phrase-pos .pos-tag { font-weight: 600; color: #5a7a72; }
   .card-phrase-pos .pos-hint { font-weight: 500; color: var(--muted); }
-  .card-phrase-zh {
-    margin-top: 14px; padding: 14px 16px; border-radius: 14px;
-    background: #fff8ec; border: 1px solid #f0d2a0;
+  .card-reveal { margin-top: 14px; display: grid; gap: 8px; text-align: left; }
+  .card-reveal[hidden] { display: none; }
+  .card-phrase-zh, .card-sentence-zh {
+    padding: 12px 14px; border-radius: 14px;
     font-size: 1.05rem; line-height: 1.5; color: var(--text);
   }
+  .card-phrase-zh { background: #fff8ec; border: 1px solid #f0d2a0; }
+  .card-sentence-zh { background: #f4f8ff; border: 1px solid #d5e2f5; }
+  .card-phrase-zh .label, .card-sentence-zh .label {
+    display: block; margin-bottom: 4px; font-size: 0.72rem; font-weight: 700;
+    letter-spacing: 0.04em; color: var(--muted);
+  }
+  .card-phrase-zh p, .card-sentence-zh p { margin: 0; }
   .card-phrase-sub { margin-top: 12px; font-size: 0.78rem; color: var(--muted); }
   .card-phrase-source {
     margin-top: 12px; padding: 12px 14px; border-radius: 12px;
@@ -211,8 +219,6 @@
   }
   .recall-phrase { color: #d64545; font-weight: 750; }
   .card-recall-mask { color: var(--muted); letter-spacing: 0.08em; font-weight: 700; }
-  .flash-card.recall-say .card-phrase-zh,
-  .flash-card.recall-sentence .card-phrase-zh { order: -1; margin-top: 0; margin-bottom: 12px; }
   .flash-card.recall-say .card-hint,
   .flash-card.recall-sentence .card-hint {
     color: var(--teal-dark); font-weight: 700; font-size: 0.92rem;
@@ -357,8 +363,17 @@
           <div class="card-phrase-en" id="cardPhraseEn"></div>
           <div class="card-phrase-pos" id="cardPhrasePos"></div>
         </div>
-        <div class="card-phrase-zh" id="cardPhraseZh" hidden></div>
         <div class="card-phrase-source" id="cardPhraseSource" hidden></div>
+        <div class="card-reveal" id="cardReveal" hidden>
+          <div class="card-phrase-zh">
+            <span class="label" id="cardPhraseLabel">短语释义</span>
+            <div id="cardPhraseZh"></div>
+          </div>
+          <div class="card-sentence-zh">
+            <span class="label">整句意思</span>
+            <p id="cardSentenceZh"></p>
+          </div>
+        </div>
         <div class="card-phrase-sub" id="cardPhraseSub"></div>
       </div>
       <div class="card-hint" id="cardHint">点击卡片 · 显示释义</div>
@@ -927,36 +942,70 @@ $("list").addEventListener("click", (e) => {
   toggleRowMeaning(item, id, w, true);
 });
 
-const PHRASE_DECK_BUILD = 7;
-/** 手写原句只覆盖少数搭配；其余在运行时嵌进短句，整本短语都走同一套回忆。 */
+const PHRASE_DECK_BUILD = 8;
+/** 手写原句只覆盖少数搭配；其余在运行时嵌进短句。整句意思按同一句式用短语释义生成。 */
 const SOURCE_SENTENCES = {
-  "abandon hope": "They had to abandon hope of finding any survivors.",
-  "abandon a plan": "We decided to abandon a plan that cost too much.",
-  "an abandoned building": "They found an abandoned building.",
-  "abandoned children": "The report describes abandoned children in the city.",
+  "abandon hope": {
+    sentence: "They had to abandon hope of finding any survivors.",
+    zh: "他们不得不放弃找到任何幸存者的希望。",
+  },
+  "abandon a plan": {
+    sentence: "We decided to abandon a plan that cost too much.",
+    zh: "我们决定放弃一个花费太高的计划。",
+  },
+  "an abandoned building": {
+    sentence: "They found an abandoned building.",
+    zh: "他们发现了一座废弃的建筑。",
+  },
+  "abandoned children": {
+    sentence: "The report describes abandoned children in the city.",
+    zh: "这份报告描述了城里被遗弃的儿童。",
+  },
 };
 const SOURCE_PREPS = new Set("in on at by for with from into over under after before about between without within during through across against among around behind beyond despite via upon toward towards inside outside near off out up down along beside besides except of to as like per".split(" "));
 
 function sourceSentenceFor(phrase, pos, word) {
   const raw = String(phrase || "");
-  const wrap = (prefix) => {
-    if (!raw) return { sentence: "", index: -1 };
-    if (prefix.toLowerCase().includes(raw.toLowerCase())) return { sentence: `${raw}.`, index: 0 };
-    return { sentence: `${prefix}${raw}.`, index: prefix.length };
+  const wrap = (prefix, kind) => {
+    if (!raw) return { sentence: "", index: -1, kind: "self" };
+    if (prefix.toLowerCase().includes(raw.toLowerCase())) return { sentence: `${raw}.`, index: 0, kind: "self" };
+    return { sentence: `${prefix}${raw}.`, index: prefix.length, kind };
   };
-  if (!raw) return wrap("");
+  if (!raw) return wrap("", "self");
   if (SOURCE_SENTENCES[raw]) {
-    const sentence = SOURCE_SENTENCES[raw];
-    return { sentence, index: sentence.toLowerCase().indexOf(raw.toLowerCase()) };
+    const item = SOURCE_SENTENCES[raw];
+    return {
+      sentence: item.sentence,
+      index: item.sentence.toLowerCase().indexOf(raw.toLowerCase()),
+      kind: "custom",
+      zh: item.zh,
+    };
   }
-  if (/[.!?]$/.test(raw)) return { sentence: raw, index: 0 };
+  if (/[.!?]$/.test(raw)) return { sentence: raw, index: 0, kind: "self" };
   const lead = ((raw.trim().match(/^[A-Za-z]+/) || [""])[0] || "").toLowerCase();
-  if (SOURCE_PREPS.has(lead)) return wrap("This matters ");
+  if (SOURCE_PREPS.has(lead)) return wrap("This matters ", "matters");
   const determiner = /^(a|an|the|this|that|these|those|his|her|their|its|our|my|your|one|some|any|no|another|every|each|such|many|much|few|more|most|other|whose)$/.test(lead);
   const head = String(word || "").trim().toLowerCase();
   const verbFirst = /^v\./i.test(String(pos || "").trim());
-  if (!determiner && verbFirst && head && raw.trim().toLowerCase().startsWith(head)) return wrap("They had to ");
-  return wrap("We noticed ");
+  if (!determiner && verbFirst && head && raw.trim().toLowerCase().startsWith(head)) return wrap("They had to ", "had-to");
+  return wrap("We noticed ", "noticed");
+}
+
+function firstSense(meaning, wordOnly) {
+  let text = String(meaning || "");
+  if (wordOnly) text = text.replace(/\[[^\]]{1,8}\]/g, " ");
+  text = text.replace(/\s+/g, " ").trim().split(/[；;]/)[0].trim();
+  text = text.replace(/^[，,。．.]+|[，,。．.]+$/g, "").trim();
+  return text || "……";
+}
+
+function sentenceMeaning(source, meaning, wordOnly) {
+  if (source && source.zh) return source.zh;
+  const gloss = firstSense(meaning, wordOnly);
+  if (source && source.kind === "had-to") return `他们不得不${gloss}。`;
+  if (source && source.kind === "matters") return `这与「${gloss}」有关。`;
+  if (source && source.kind === "self") return /[。！？]$/.test(gloss) ? gloss : `${gloss}。`;
+  return `我们注意到${gloss}。`;
 }
 
 function showsHeadwordCue(p) {
@@ -991,6 +1040,7 @@ function ensurePhraseDeck() {
           recall: true,
           source: source.sentence,
           sourceIndex: source.index,
+          sentenceZh: sentenceMeaning(source, meaning, false),
         });
       }
     } else {
@@ -1008,6 +1058,7 @@ function ensurePhraseDeck() {
         recall: true,
         source: source.sentence,
         sourceIndex: source.index,
+        sentenceZh: sentenceMeaning(source, w.meaning, true),
       });
     }
   }
@@ -1204,25 +1255,25 @@ function sourceSentenceHtml(p, reveal) {
 function paintCardFace(p) {
   const card = $("cardTap");
   const sourceEl = $("cardPhraseSource");
-  const sayLabel = p.wordOnly ? "这个词" : "这个搭配";
+  const reveal = $("cardReveal");
   card.classList.remove("recall-say", "recall-sentence", "revealed");
+  $("cardPhraseEn").innerHTML = formatPhraseEnHtml(p);
   sourceEl.hidden = false;
+  sourceEl.innerHTML = sourceSentenceHtml(p, false);
   if (cardRevealed) {
     card.classList.add("revealed");
-    $("cardPhraseEn").innerHTML = formatPhraseEnHtml(p);
-    sourceEl.innerHTML = sourceSentenceHtml(p, true);
-    $("cardPhraseZh").hidden = false;
+    reveal.hidden = false;
     $("cardHint").hidden = true;
     $("cardActions").hidden = false;
     return;
   }
   card.classList.add("recall-say");
-  $("cardPhraseEn").innerHTML = hiddenPhraseHtml();
-  sourceEl.innerHTML = sourceSentenceHtml(p, false);
-  $("cardPhraseZh").hidden = true;
+  reveal.hidden = true;
   $("cardHint").hidden = false;
   $("cardActions").hidden = true;
-  $("cardHint").textContent = `先说出${sayLabel}，再造一个短句，不要用原句 · 点一下看释义`;
+  $("cardHint").textContent = p.wordOnly
+    ? "先猜这个词的意思，以及整句的意思 · 点一下揭晓"
+    : "先猜搭配的意思，以及整句的意思 · 点一下揭晓";
 }
 
 function renderCard(options) {
@@ -1232,7 +1283,7 @@ function renderCard(options) {
   $("cardActions").hidden = true;
   $("cardTap").classList.remove("revealed", "recall-say", "recall-sentence");
   $("cardHint").hidden = false;
-  $("cardPhraseZh").hidden = true;
+  $("cardReveal").hidden = true;
   $("cardPhraseSource").hidden = true;
   $("cardPhraseSource").innerHTML = "";
   cardRevealed = false;
@@ -1263,8 +1314,10 @@ function renderCard(options) {
   const p = deck[currentPhraseIdx];
   $("cardNum").textContent = `#${p.id + 1}`;
   $("cardPhrasePos").innerHTML = formatPhraseMetaHtml(p);
+  $("cardPhraseLabel").textContent = p.wordOnly ? "词义" : "短语释义";
   if (p.wordOnly) $("cardPhraseZh").innerHTML = formatMeaningHtml(p.meaning);
   else $("cardPhraseZh").textContent = p.meaning;
+  $("cardSentenceZh").textContent = p.sentenceZh || "";
   $("cardPhraseSub").textContent = `#${p.wordId} · 第 ${phraseRound} 轮${p.wordOnly ? " · 单词" : ""}`;
   paintCardFace(p);
 }
@@ -1326,7 +1379,7 @@ cardTapEl.onclick = () => {
 $("btnCardReplay").onclick = () => {
   const deck = ensurePhraseDeck();
   const p = currentPhraseIdx != null ? deck[currentPhraseIdx] : null;
-  if (!p || !cardRevealed) return;
+  if (!p) return;
   speakWord(p.phrase);
 };
 $("btnCycleJump").onclick = () => {
