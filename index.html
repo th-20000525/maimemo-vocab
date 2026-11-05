@@ -163,7 +163,7 @@
     cursor: pointer; user-select: none;
     position: relative;
   }
-  .phrase-card-body { width: 100%; text-align: center; padding: 8px 4px 0; }
+  .phrase-card-body { width: 100%; text-align: center; padding: 8px 4px 0; display: flex; flex-direction: column; }
   .card-phrase-en-wrap {
     padding: 16px 14px; border-radius: 14px; background: #f8fcfa; border: 1px solid var(--line);
   }
@@ -194,6 +194,28 @@
     font-size: 1.05rem; line-height: 1.5; color: var(--text);
   }
   .card-phrase-sub { margin-top: 12px; font-size: 0.78rem; color: var(--muted); }
+  .card-phrase-source {
+    margin-top: 12px; padding: 12px 14px; border-radius: 12px;
+    background: #f4f8ff; border: 1px solid #d5e2f5;
+    text-align: left; font-size: 0.95rem; line-height: 1.55; color: var(--text);
+  }
+  .card-phrase-source[hidden] { display: none; }
+  .card-phrase-source .label {
+    display: block; margin-bottom: 4px; font-size: 0.72rem; font-weight: 700;
+    letter-spacing: 0.04em; color: var(--muted);
+  }
+  .card-phrase-source p { margin: 0; }
+  .recall-blank {
+    display: inline-block; min-width: 5.2em; margin: 0 3px;
+    border-bottom: 2px solid var(--teal-dark); transform: translateY(-1px);
+  }
+  .card-recall-mask { color: var(--muted); letter-spacing: 0.08em; font-weight: 700; }
+  .flash-card.recall-say .card-phrase-zh,
+  .flash-card.recall-sentence .card-phrase-zh { order: -1; margin-top: 0; margin-bottom: 12px; }
+  .flash-card.recall-say .card-hint,
+  .flash-card.recall-sentence .card-hint {
+    color: var(--teal-dark); font-weight: 700; font-size: 0.92rem;
+  }
   .flash-card .card-num {
     position: absolute; top: 12px; left: 14px; font-size: 0.75rem; color: var(--muted); font-weight: 700;
   }
@@ -221,6 +243,7 @@
   .card-actions {
     display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px;
   }
+  .card-actions[hidden] { display: none; }
   .card-actions button {
     padding: 12px 8px; border-radius: 12px; font-size: 0.85rem; border: 0;
   }
@@ -334,6 +357,7 @@
           <div class="card-phrase-pos" id="cardPhrasePos"></div>
         </div>
         <div class="card-phrase-zh" id="cardPhraseZh" hidden></div>
+        <div class="card-phrase-source" id="cardPhraseSource" hidden></div>
         <div class="card-phrase-sub" id="cardPhraseSub"></div>
       </div>
       <div class="card-hint" id="cardHint">点击卡片 · 显示释义</div>
@@ -418,6 +442,8 @@ function invalidatePhraseDeckCache() {
   try { delete window.__phraseDeckBuild; } catch (e) {}
 }
 let cardRevealed = false;
+/** 样例回忆：0 先说搭配，1 再造原句以外的短句，2 已揭晓 */
+let cardRecallStep = 0;
 let PHRASE_DECK = null;
 let knownPhraseKeys = [];
 let phraseReviewSchedule = {};
@@ -900,7 +926,35 @@ $("list").addEventListener("click", (e) => {
   toggleRowMeaning(item, id, w, true);
 });
 
-const PHRASE_DECK_BUILD = 5;
+const PHRASE_DECK_BUILD = 6;
+/** 只改这几张样例，其余搭配仍是点一下看释义。原句仅用于揭晓对照。 */
+const RECALL_SAMPLES = [
+  {
+    word: "abandon",
+    phrase: "abandon hope",
+    source: "They had to abandon hope of finding any survivors.",
+  },
+  {
+    word: "abandon",
+    phrase: "abandon a plan",
+    source: "We decided to abandon a plan that cost too much.",
+  },
+  {
+    word: "abandoned",
+    phrase: "an abandoned building",
+    source: "They found an abandoned building.",
+  },
+  {
+    word: "abandoned",
+    phrase: "abandoned children",
+    source: "The report describes abandoned children in the city.",
+  },
+];
+
+function recallSampleFor(word, phrase) {
+  const w = String(word || "").toLowerCase();
+  return RECALL_SAMPLES.find((s) => s.word === w && s.phrase === phrase) || null;
+}
 
 function ensurePhraseDeck() {
   if (PHRASE_DECK && window.__phraseDeckBuild === PHRASE_DECK_BUILD) {
@@ -913,6 +967,7 @@ function ensurePhraseDeck() {
     const pairs = wordCollocationPairs(w.word);
     if (pairs.length) {
       for (const [phrase, meaning] of pairs) {
+        const sample = recallSampleFor(w.word, phrase);
         PHRASE_DECK.push({
           id: idx++,
           key: `${w.id}\u0001${phrase}`,
@@ -923,6 +978,8 @@ function ensurePhraseDeck() {
           phrase,
           meaning,
           wordOnly: false,
+          recall: !!sample,
+          source: sample ? sample.source : "",
         });
       }
     } else {
@@ -936,6 +993,8 @@ function ensurePhraseDeck() {
         phrase: w.word,
         meaning: w.meaning || "",
         wordOnly: true,
+        recall: false,
+        source: "",
       });
     }
   }
@@ -1090,15 +1149,77 @@ function formatPhraseMetaHtml(p) {
   return bits.join(" · ");
 }
 
+function hiddenPhraseHtml() {
+  return `<p class="phrase-line"><span class="card-recall-mask">______</span></p>`;
+}
+
+function sourceSentenceHtml(p, reveal) {
+  const sentence = String(p.source || "");
+  const phrase = String(p.phrase || "");
+  let body = escapeHtml(sentence);
+  if (!reveal && phrase) {
+    const idx = sentence.toLowerCase().indexOf(phrase.toLowerCase());
+    if (idx >= 0) {
+      body = escapeHtml(sentence.slice(0, idx))
+        + `<span class="recall-blank" aria-label="搭配空出"></span>`
+        + escapeHtml(sentence.slice(idx + phrase.length));
+    }
+  }
+  return `<span class="label">原句</span><p>${body}</p>`;
+}
+
+function paintCardFace(p) {
+  const card = $("cardTap");
+  const sourceEl = $("cardPhraseSource");
+  card.classList.remove("recall-say", "recall-sentence", "revealed");
+  if (!p.recall) {
+    sourceEl.hidden = true;
+    sourceEl.innerHTML = "";
+    $("cardPhraseEn").innerHTML = formatPhraseEnHtml(p);
+    $("cardPhraseZh").hidden = true;
+    $("cardHint").hidden = false;
+    $("cardHint").textContent = "点击卡片 · 显示释义";
+    $("cardActions").hidden = true;
+    cardRevealed = false;
+    return;
+  }
+  sourceEl.hidden = false;
+  $("cardPhraseZh").hidden = false;
+  if (cardRecallStep >= 2) {
+    cardRevealed = true;
+    card.classList.add("revealed");
+    $("cardPhraseEn").innerHTML = formatPhraseEnHtml(p);
+    sourceEl.innerHTML = sourceSentenceHtml(p, true);
+    $("cardHint").hidden = true;
+    $("cardActions").hidden = false;
+    return;
+  }
+  cardRevealed = false;
+  $("cardPhraseEn").innerHTML = hiddenPhraseHtml();
+  sourceEl.innerHTML = sourceSentenceHtml(p, false);
+  $("cardHint").hidden = false;
+  $("cardActions").hidden = true;
+  if (cardRecallStep === 0) {
+    card.classList.add("recall-say");
+    $("cardHint").textContent = "第 1 步 · 先说出这个搭配";
+  } else {
+    card.classList.add("recall-sentence");
+    $("cardHint").textContent = "第 2 步 · 再用自己的话造一个短句，不要用这句原句";
+  }
+}
+
 function renderCard(options) {
   const browse = options && options.browse;
   $("cardDone").hidden = true;
   $("cardStage").hidden = false;
   $("cardActions").hidden = true;
-  $("cardTap").classList.remove("revealed");
+  $("cardTap").classList.remove("revealed", "recall-say", "recall-sentence");
   $("cardHint").hidden = false;
   $("cardPhraseZh").hidden = true;
+  $("cardPhraseSource").hidden = true;
+  $("cardPhraseSource").innerHTML = "";
   cardRevealed = false;
+  cardRecallStep = 0;
 
   if (!browse) pickCurrentPhrase();
   updateDailyGoalUI();
@@ -1123,22 +1244,31 @@ function renderCard(options) {
   }
   const p = deck[currentPhraseIdx];
   $("cardNum").textContent = `#${p.id + 1}`;
-  $("cardPhraseEn").innerHTML = formatPhraseEnHtml(p);
   $("cardPhrasePos").innerHTML = formatPhraseMetaHtml(p);
   if (p.wordOnly) $("cardPhraseZh").innerHTML = formatMeaningHtml(p.meaning);
   else $("cardPhraseZh").textContent = p.meaning;
-  $("cardPhraseSub").textContent = `#${p.wordId} · 第 ${phraseRound} 轮${p.wordOnly ? " · 单词" : ""}`;
+  const sampleMark = p.recall ? " · 样例回忆" : "";
+  $("cardPhraseSub").textContent = `#${p.wordId} · 第 ${phraseRound} 轮${p.wordOnly ? " · 单词" : ""}${sampleMark}`;
+  paintCardFace(p);
 }
 
 function onCardTap() {
-  if (currentPhraseIdx == null || cardRevealed) return;
+  if (currentPhraseIdx == null) return;
+  const p = ensurePhraseDeck()[currentPhraseIdx];
+  if (!p) return;
+  if (p.recall && cardRecallStep < 2) {
+    cardRecallStep += 1;
+    paintCardFace(p);
+    if (cardRecallStep >= 2) speakWord(p.phrase);
+    return;
+  }
+  if (cardRevealed) return;
   cardRevealed = true;
   $("cardHint").hidden = true;
   $("cardTap").classList.add("revealed");
   $("cardPhraseZh").hidden = false;
   $("cardActions").hidden = false;
-  const p = ensurePhraseDeck()[currentPhraseIdx];
-  if (p) speakWord(p.phrase);
+  speakWord(p.phrase);
 }
 
 function cardAnswer(act) {
@@ -1190,7 +1320,9 @@ cardTapEl.onclick = () => {
 };
 $("btnCardReplay").onclick = () => {
   const deck = ensurePhraseDeck();
-  if (currentPhraseIdx != null && deck[currentPhraseIdx]) speakWord(deck[currentPhraseIdx].phrase);
+  const p = currentPhraseIdx != null ? deck[currentPhraseIdx] : null;
+  if (!p || (p.recall && !cardRevealed)) return;
+  speakWord(p.phrase);
 };
 $("btnCycleJump").onclick = () => {
   const n = parseInt($("cycleJump").value, 10);
