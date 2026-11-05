@@ -96,15 +96,20 @@
     updateStats();
   }
 
+  function setText(id, value) {
+    const el = $(id);
+    if (el) el.textContent = value;
+  }
+
   function updateStats() {
-    $("stat-done").textContent = state.attempted.size;
-    $("stat-accuracy").textContent = state.attempted.size ? `${Math.round(state.correct.size / state.attempted.size * 100)}%` : "—";
-    $("stat-wrong").textContent = state.wrong.size;
-    $("wrong-count").textContent = state.wrong.size;
-    $("wrong-filter").classList.toggle("active", wrongOnly);
-    $("pending-filter").classList.toggle("active", pendingOnly);
+    setText("stat-done", state.attempted.size);
+    setText("stat-accuracy", state.attempted.size ? `${Math.round(state.correct.size / state.attempted.size * 100)}%` : "—");
+    setText("stat-wrong", state.wrong.size);
+    setText("wrong-count", state.wrong.size);
+    $("wrong-filter")?.classList.toggle("active", wrongOnly);
+    $("pending-filter")?.classList.toggle("active", pendingOnly);
     const currentScope = bank.filter(matchesCategory);
-    $("pending-count").textContent = currentScope.filter(q => !state.attempted.has(q.id)).length;
+    setText("pending-count", currentScope.filter(q => !state.attempted.has(q.id)).length);
   }
 
   function matchesCategory(q) {
@@ -114,6 +119,7 @@
   }
 
   function populateCategories() {
+    if (!categorySelect) return;
     if (singlePool) {
       categorySelect.innerHTML = `<option value="全部题目">全部题目 · ${bank.length}</option>`;
       categorySelect.hidden = true;
@@ -685,8 +691,8 @@
     toastTimer = setTimeout(() => toast.classList.remove("show"), 1700);
   }
 
-  categorySelect.addEventListener("change", () => { currentCategory = categorySelect.value; buildList(); });
-  modeSelect.addEventListener("change", () => {
+  categorySelect?.addEventListener("change", () => { currentCategory = categorySelect.value; buildList(); });
+  modeSelect?.addEventListener("change", () => {
     mode = modeSelect.value;
     if (mode === "random-cover") {
       state.coverPhase = "unanswered";
@@ -697,10 +703,10 @@
     }
     buildList();
   });
-  searchInput.addEventListener("input", () => { query = searchInput.value; buildList(); });
-  $("wrong-filter").addEventListener("click", () => { wrongOnly = !wrongOnly; if (wrongOnly) pendingOnly = false; buildList(); updateStats(); });
-  $("pending-filter").addEventListener("click", () => { pendingOnly = !pendingOnly; if (pendingOnly) wrongOnly = false; buildList(); updateStats(); });
-  $("reset-progress").addEventListener("click", () => {
+  searchInput?.addEventListener("input", () => { query = searchInput.value; buildList(); });
+  $("wrong-filter")?.addEventListener("click", () => { wrongOnly = !wrongOnly; if (wrongOnly) pendingOnly = false; buildList(); updateStats(); });
+  $("pending-filter")?.addEventListener("click", () => { pendingOnly = !pendingOnly; if (pendingOnly) wrongOnly = false; buildList(); updateStats(); });
+  $("reset-progress")?.addEventListener("click", () => {
     if (!confirm("要清空这台设备上的全部答题记录和错题本吗？")) return;
     state.attempted.clear(); state.correct.clear(); state.wrong.clear(); state.submitted.clear(); state.choices = {};
     state.coverPhase = "unanswered";
@@ -711,7 +717,7 @@
     saveState(); buildList(); queueAutoUpload(); showToast("学习记录已清空");
   });
   function syncCode() {
-    const code = $("sync-code").value.trim();
+    const code = ($("sync-code")?.value || state.syncCode).trim();
     if (code.length < 4) {
       alert("请设置至少 4 位的同步码；电脑和手机需要使用同一个同步码。");
       return "";
@@ -725,7 +731,7 @@
     return Object.assign({ apikey: SB_KEY, Authorization: "Bearer " + SB_KEY, "Content-Type": "application/json" }, extra || {});
   }
 
-  function setSyncStatus(message) { $("sync-status").textContent = message || ""; }
+  function setSyncStatus(message) { setText("sync-status", message || ""); }
 
   function queueAutoUpload() {
     clearTimeout(autoUploadTimer);
@@ -791,8 +797,8 @@
       }
       currentCategory = singlePool ? "全部题目" : (categories.includes(state.lastCategory) ? state.lastCategory : "全部题目");
       mode = state.mode;
-      categorySelect.value = currentCategory;
-      modeSelect.value = mode;
+      if (categorySelect) categorySelect.value = currentCategory;
+      if (modeSelect) modeSelect.value = mode;
       restorePosition = true;
       buildList(false);
       setSyncStatus(`已拉取 · ${new Date().toLocaleTimeString()}`);
@@ -804,13 +810,16 @@
     }
   }
 
-  $("sync-code").value = state.syncCode;
-  $("sync-code").addEventListener("change", () => {
-    saveState();
-    if ($("sync-code").value.trim().length >= 4) downloadProgress({ automatic: true });
-  });
-  $("sync-upload").addEventListener("click", uploadProgress);
-  $("sync-download").addEventListener("click", downloadProgress);
+  const syncCodeInput = $("sync-code");
+  if (syncCodeInput) {
+    syncCodeInput.value = state.syncCode;
+    syncCodeInput.addEventListener("change", () => {
+      saveState();
+      if (syncCodeInput.value.trim().length >= 4) downloadProgress({ automatic: true });
+    });
+  }
+  $("sync-upload")?.addEventListener("click", uploadProgress);
+  $("sync-download")?.addEventListener("click", downloadProgress);
 
   window.addEventListener("keydown", event => {
     if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
@@ -829,8 +838,8 @@
 
   async function boot() {
     populateCategories();
-    categorySelect.value = currentCategory;
-    modeSelect.value = mode;
+    if (categorySelect) categorySelect.value = currentCategory;
+    if (modeSelect) modeSelect.value = mode;
     updateStats();
     if (state.syncCode.length >= 4) await downloadProgress({ automatic: true });
     else buildList(false);
