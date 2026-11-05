@@ -465,7 +465,7 @@
     }).join("");
     const answerBox = submitted ? `<div class="answer-box">
       <p class="answer-result ${correct ? "good" : "bad"}">${correct ? "回答正确" : `正确答案：${answerLetters.join("、")}`} · ${correct ? "记得很好，继续保持。" : "看看解析，下一次就能答对。"}</p>
-      <p class="answer-text">${escapeHtml(q.analysis || "这道题暂无解析。")}</p>
+      <p class="answer-text">${renderAnalysis(q.analysis || "这道题暂无解析。")}</p>
     </div>` : "";
     host.innerHTML = `<div class="question-topline">
         <div class="badges"><span class="category-badge">${escapeHtml(label)}</span>${q.subjectLabel ? `<span class="paper-badge subject-badge">${escapeHtml(q.subjectLabel)}</span>` : ""}<span class="paper-badge">${q.type === "multiple" ? "多选题" : "单选题"}</span></div>
@@ -648,6 +648,14 @@
 
   function escapeHtml(value) {
     return String(value).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+  }
+
+  function renderAnalysis(value) {
+    return String(value).split(/(\{\{[^{}]+\}\})/g).map(part => {
+      const marked = part.match(/^\{\{([^{}]+)\}\}$/);
+      if (!marked) return escapeHtml(part);
+      return `<span class="trap">${escapeHtml(marked[1])}</span>`;
+    }).join("").replace(/\n/g, "<br>");
   }
 
   function showToast(message) {
