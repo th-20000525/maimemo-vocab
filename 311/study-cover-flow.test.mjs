@@ -222,10 +222,24 @@ assert.equal(eduHtml.includes("完全随机"), false);
 assert.equal(mixedHtml.includes("完全随机"), false);
 assert.equal(mixedHtml.includes("按题库顺序"), false);
 for (const src of [eduApp, politicsApp]) {
-  assert.equal(src.includes("advanceRound(rec, shuffle)"), false);
-  assert.equal(src.includes("shuffle(scopeQuestionIds())"), false);
+  assert.equal(src.includes("advanceRound(rec, shuffle)"), true);
+  assert.equal(src.includes("shuffle(scopeQuestionIds())"), true);
   assert.equal(src.includes("roundsByScope"), true);
-  assert.equal(src.includes("Q.advanceRound(rec)"), true);
 }
+
+const kept = Q.recordRoundAnswer(
+  { round: 1, set: ["a", "b", "c"], answered: [], wrong: [], done: false, shuffled: true },
+  "a",
+  false,
+);
+assert.equal(kept.shuffled, true);
+const reshuffled = Q.advanceRound(
+  { round: 1, set: ["a", "b", "c"], answered: ["a", "b", "c"], wrong: ["a", "c"], done: false, shuffled: true },
+  ids => ids.slice().reverse(),
+);
+assert.deepEqual(plain(reshuffled.set), ["c", "a"]);
+assert.equal(reshuffled.shuffled, true);
+assert.equal(Q.normalizeRoundRecord({ round: 2, set: ["a", "b"], answered: [], wrong: [], done: false }).shuffled, false);
+assert.equal(Q.normalizeRoundRecord({ round: 2, set: ["a", "b"], answered: [], wrong: [], done: false, shuffled: true }).shuffled, true);
 
 console.log("study-cover-flow.test.mjs OK");

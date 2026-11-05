@@ -307,20 +307,26 @@
     let enteredRound = 0;
     if (!rec) {
       rec = Q.createInitialRound({
-        scopeIds: scopeQuestionIds(),
+        scopeIds: shuffle(scopeQuestionIds()),
         attempted: [...state.attempted],
         wrong: [...state.wrong],
         correct: [...state.correct],
       });
+      if (!rec.done) rec = { ...rec, set: shuffle(rec.set), shuffled: true };
+      else rec = { ...rec, shuffled: true };
       if (!rec.done && rec.round > 1) {
         clearRoundAnswers(rec.set);
         enteredRound = rec.round;
       }
       state.roundsByScope[key] = rec;
+    } else if (!rec.done && !rec.shuffled) {
+      rec = { ...rec, set: shuffle(rec.set), shuffled: true };
+      state.roundsByScope[key] = rec;
+      restorePosition = false;
     }
     const known = new Set(scopeQuestionIds());
     if (!rec.done && rec.set.length > 0 && Q.roundRemainingIds(rec, known).length === 0) {
-      const next = Q.advanceRound(rec);
+      const next = Q.advanceRound(rec, shuffle);
       next.set = next.set.filter(id => known.has(id));
       if (!next.done && next.set.length === 0) next.done = true;
       if (!next.done) clearRoundAnswers(next.set);
@@ -355,10 +361,10 @@
   }
 
   function restartRoundCycle() {
-    const ids = scopeQuestionIds();
+    const ids = shuffle(scopeQuestionIds());
     ids.forEach(id => { delete state.wrongCounts[id]; });
     clearRoundAnswers(ids);
-    state.roundsByScope[scopeKey()] = { round: 1, set: ids, answered: [], wrong: [], done: false };
+    state.roundsByScope[scopeKey()] = { round: 1, set: ids, answered: [], wrong: [], done: false, shuffled: true };
     state.coverPhase = "unanswered";
     restorePosition = false;
     buildRoundSession();
@@ -525,7 +531,7 @@
       <div class="progress-track"><div class="progress-fill" style="width:${percent}%"></div></div>
       <div class="question-content">
         <p class="question-meta">第 ${q.number} 题 <span>·</span> ${inRound
-          ? (roundRec.round <= 1 ? "第 1 轮 · 这一范围每题做一次" : `第 ${roundRec.round} 轮 · 只练上一轮答错的题`)
+          ? (roundRec.round <= 1 ? "第 1 轮 · 打乱后每题做一次" : `第 ${roundRec.round} 轮 · 上一轮错题，重新打乱`)
           : inReview
           ? `复习轮 · 随机抽取${reviewMisses ? ` · 本题已错 ${reviewMisses} 次` : ""}`
           : q.type === "multiple" ? "请选择所有正确选项" : "请选择一个最合适的答案"}</p>
