@@ -134,6 +134,7 @@
       answered: uniqueIds(raw.answered),
       wrong: uniqueIds(raw.wrong),
       done: raw.done === true,
+      shuffled: raw.shuffled === true,
     };
   }
 
@@ -185,16 +186,16 @@
     const wrong = new Set(current.wrong);
     if (isCorrect) wrong.delete(id);
     else if (typeof id === "string" && id) wrong.add(id);
-    return { round: current.round, set: current.set, answered, wrong: [...wrong], done: false };
+    return { round: current.round, set: current.set, answered, wrong: [...wrong], done: false, shuffled: current.shuffled === true };
   }
 
   function advanceRound(record, shuffle) {
     const current = normalizeRoundRecord(record) || { round: 1, set: [], answered: [], wrong: [], done: false };
     if (current.done) return current;
     const wrong = uniqueIds(current.wrong);
-    if (!wrong.length) return { round: current.round, set: [], answered: [], wrong: [], done: true };
+    if (!wrong.length) return { round: current.round, set: [], answered: [], wrong: [], done: true, shuffled: current.shuffled === true };
     const order = typeof shuffle === "function" ? uniqueIds(shuffle(wrong.slice())) : wrong;
-    return { round: current.round + 1, set: order, answered: [], wrong: [], done: false };
+    return { round: current.round + 1, set: order, answered: [], wrong: [], done: false, shuffled: typeof shuffle === "function" };
   }
 
   window.StudyListQueue = {
