@@ -209,6 +209,7 @@
     display: inline-block; min-width: 5.2em; margin: 0 3px;
     border-bottom: 2px solid var(--teal-dark); transform: translateY(-1px);
   }
+  .recall-phrase { color: #d64545; font-weight: 750; }
   .card-recall-mask { color: var(--muted); letter-spacing: 0.08em; font-weight: 700; }
   .flash-card.recall-say .card-phrase-zh,
   .flash-card.recall-sentence .card-phrase-zh { order: -1; margin-top: 0; margin-bottom: 12px; }
@@ -926,34 +927,43 @@ $("list").addEventListener("click", (e) => {
   toggleRowMeaning(item, id, w, true);
 });
 
-const PHRASE_DECK_BUILD = 6;
-/** 只改这几张样例，其余搭配仍是点一下看释义。原句仅用于揭晓对照。 */
-const RECALL_SAMPLES = [
-  {
-    word: "abandon",
-    phrase: "abandon hope",
-    source: "They had to abandon hope of finding any survivors.",
-  },
-  {
-    word: "abandon",
-    phrase: "abandon a plan",
-    source: "We decided to abandon a plan that cost too much.",
-  },
-  {
-    word: "abandoned",
-    phrase: "an abandoned building",
-    source: "They found an abandoned building.",
-  },
-  {
-    word: "abandoned",
-    phrase: "abandoned children",
-    source: "The report describes abandoned children in the city.",
-  },
-];
+const PHRASE_DECK_BUILD = 7;
+/** 手写原句只覆盖少数搭配；其余在运行时嵌进短句，整本短语都走同一套回忆。 */
+const SOURCE_SENTENCES = {
+  "abandon hope": "They had to abandon hope of finding any survivors.",
+  "abandon a plan": "We decided to abandon a plan that cost too much.",
+  "an abandoned building": "They found an abandoned building.",
+  "abandoned children": "The report describes abandoned children in the city.",
+};
+const SOURCE_PREPS = new Set("in on at by for with from into over under after before about between without within during through across against among around behind beyond despite via upon toward towards inside outside near off out up down along beside besides except of to as like per".split(" "));
 
-function recallSampleFor(word, phrase) {
-  const w = String(word || "").toLowerCase();
-  return RECALL_SAMPLES.find((s) => s.word === w && s.phrase === phrase) || null;
+function sourceSentenceFor(phrase, pos, word) {
+  const raw = String(phrase || "");
+  const wrap = (prefix) => {
+    if (!raw) return { sentence: "", index: -1 };
+    if (prefix.toLowerCase().includes(raw.toLowerCase())) return { sentence: `${raw}.`, index: 0 };
+    return { sentence: `${prefix}${raw}.`, index: prefix.length };
+  };
+  if (!raw) return wrap("");
+  if (SOURCE_SENTENCES[raw]) {
+    const sentence = SOURCE_SENTENCES[raw];
+    return { sentence, index: sentence.toLowerCase().indexOf(raw.toLowerCase()) };
+  }
+  if (/[.!?]$/.test(raw)) return { sentence: raw, index: 0 };
+  const lead = ((raw.trim().match(/^[A-Za-z]+/) || [""])[0] || "").toLowerCase();
+  if (SOURCE_PREPS.has(lead)) return wrap("This matters ");
+  const determiner = /^(a|an|the|this|that|these|those|his|her|their|its|our|my|your|one|some|any|no|another|every|each|such|many|much|few|more|most|other|whose)$/.test(lead);
+  const head = String(word || "").trim().toLowerCase();
+  const verbFirst = /^v\./i.test(String(pos || "").trim());
+  if (!determiner && verbFirst && head && raw.trim().toLowerCase().startsWith(head)) return wrap("They had to ");
+  return wrap("We noticed ");
+}
+
+function showsHeadwordCue(p) {
+  if (!p || p.wordOnly) return false;
+  const phrase = String(p.phrase || "").trim().toLowerCase();
+  const word = String(p.word || "").trim().toLowerCase();
+  return !!word && !!phrase && phrase !== word;
 }
 
 function ensurePhraseDeck() {
@@ -967,7 +977,7 @@ function ensurePhraseDeck() {
     const pairs = wordCollocationPairs(w.word);
     if (pairs.length) {
       for (const [phrase, meaning] of pairs) {
-        const sample = recallSampleFor(w.word, phrase);
+        const source = sourceSentenceFor(phrase, w.pos, w.word);
         PHRASE_DECK.push({
           id: idx++,
           key: `${w.id}\u0001${phrase}`,
@@ -978,11 +988,13 @@ function ensurePhraseDeck() {
           phrase,
           meaning,
           wordOnly: false,
-          recall: !!sample,
-          source: sample ? sample.source : "",
+          recall: true,
+          source: source.sentence,
+          sourceIndex: source.index,
         });
       }
     } else {
+      const source = sourceSentenceFor(w.word, w.pos, w.word);
       PHRASE_DECK.push({
         id: idx++,
         key: `${w.id}\u0001@word`,
@@ -993,8 +1005,9 @@ function ensurePhraseDeck() {
         phrase: w.word,
         meaning: w.meaning || "",
         wordOnly: true,
-        recall: false,
-        source: "",
+        recall: true,
+        source: source.sentence,
+        sourceIndex: source.index,
       });
     }
   }
@@ -1140,6 +1153,7 @@ function formatPhraseMetaHtml(p) {
   const pos = String(p.pos || "").trim();
   const phonetic = String(p.phonetic || "").trim();
   const bits = [];
+  if (showsHeadwordCue(p)) bits.push(`<span class="pos-word">${escapeHtml(p.word)}</span>`);
   if (pos) bits.push(`<span class="pos-tag">${escapeHtml(pos)}</span>`);
   if (phonetic) bits.push(`<span class="pos-phonetic">${escapeHtml(phonetic)}</span>`);
   if (p.wordOnly) {
@@ -1156,40 +1170,29 @@ function hiddenPhraseHtml() {
 function sourceSentenceHtml(p, reveal) {
   const sentence = String(p.source || "");
   const phrase = String(p.phrase || "");
-  let body = escapeHtml(sentence);
-  if (!reveal && phrase) {
-    const idx = sentence.toLowerCase().indexOf(phrase.toLowerCase());
-    if (idx >= 0) {
-      body = escapeHtml(sentence.slice(0, idx))
-        + `<span class="recall-blank" aria-label="搭配空出"></span>`
-        + escapeHtml(sentence.slice(idx + phrase.length));
-    }
-  }
+  const idx = Number.isInteger(p.sourceIndex) ? p.sourceIndex : -1;
+  const matches = idx >= 0 && sentence.slice(idx, idx + phrase.length).toLowerCase() === phrase.toLowerCase();
+  if (!matches) return escapeHtml(sentence);
+  const surface = escapeHtml(sentence.slice(idx, idx + phrase.length));
+  const marked = reveal
+    ? `<span class="recall-phrase">${surface}</span>`
+    : `<span class="recall-blank" aria-label="搭配空出"></span>`;
+  const body = escapeHtml(sentence.slice(0, idx)) + marked + escapeHtml(sentence.slice(idx + phrase.length));
   return `<span class="label">原句</span><p>${body}</p>`;
 }
 
 function paintCardFace(p) {
   const card = $("cardTap");
   const sourceEl = $("cardPhraseSource");
+  const sayLabel = p.wordOnly ? "这个词" : "这个搭配";
   card.classList.remove("recall-say", "recall-sentence", "revealed");
-  if (!p.recall) {
-    sourceEl.hidden = true;
-    sourceEl.innerHTML = "";
-    $("cardPhraseEn").innerHTML = formatPhraseEnHtml(p);
-    $("cardPhraseZh").hidden = true;
-    $("cardHint").hidden = false;
-    $("cardHint").textContent = "点击卡片 · 显示释义";
-    $("cardActions").hidden = true;
-    cardRevealed = false;
-    return;
-  }
   sourceEl.hidden = false;
-  $("cardPhraseZh").hidden = false;
   if (cardRecallStep >= 2) {
     cardRevealed = true;
     card.classList.add("revealed");
     $("cardPhraseEn").innerHTML = formatPhraseEnHtml(p);
     sourceEl.innerHTML = sourceSentenceHtml(p, true);
+    $("cardPhraseZh").hidden = false;
     $("cardHint").hidden = true;
     $("cardActions").hidden = false;
     return;
@@ -1201,9 +1204,11 @@ function paintCardFace(p) {
   $("cardActions").hidden = true;
   if (cardRecallStep === 0) {
     card.classList.add("recall-say");
-    $("cardHint").textContent = "第 1 步 · 先说出这个搭配";
+    $("cardPhraseZh").hidden = true;
+    $("cardHint").textContent = `第 1 步 · 先说出${sayLabel} · 点一下看释义`;
   } else {
     card.classList.add("recall-sentence");
+    $("cardPhraseZh").hidden = false;
     $("cardHint").textContent = "第 2 步 · 再用自己的话造一个短句，不要用这句原句";
   }
 }
@@ -1247,28 +1252,17 @@ function renderCard(options) {
   $("cardPhrasePos").innerHTML = formatPhraseMetaHtml(p);
   if (p.wordOnly) $("cardPhraseZh").innerHTML = formatMeaningHtml(p.meaning);
   else $("cardPhraseZh").textContent = p.meaning;
-  const sampleMark = p.recall ? " · 样例回忆" : "";
-  $("cardPhraseSub").textContent = `#${p.wordId} · 第 ${phraseRound} 轮${p.wordOnly ? " · 单词" : ""}${sampleMark}`;
+  $("cardPhraseSub").textContent = `#${p.wordId} · 第 ${phraseRound} 轮${p.wordOnly ? " · 单词" : ""}`;
   paintCardFace(p);
 }
 
 function onCardTap() {
-  if (currentPhraseIdx == null) return;
+  if (currentPhraseIdx == null || cardRecallStep >= 2) return;
   const p = ensurePhraseDeck()[currentPhraseIdx];
   if (!p) return;
-  if (p.recall && cardRecallStep < 2) {
-    cardRecallStep += 1;
-    paintCardFace(p);
-    if (cardRecallStep >= 2) speakWord(p.phrase);
-    return;
-  }
-  if (cardRevealed) return;
-  cardRevealed = true;
-  $("cardHint").hidden = true;
-  $("cardTap").classList.add("revealed");
-  $("cardPhraseZh").hidden = false;
-  $("cardActions").hidden = false;
-  speakWord(p.phrase);
+  cardRecallStep += 1;
+  paintCardFace(p);
+  if (cardRecallStep >= 2) speakWord(p.phrase);
 }
 
 function cardAnswer(act) {
@@ -1321,7 +1315,7 @@ cardTapEl.onclick = () => {
 $("btnCardReplay").onclick = () => {
   const deck = ensurePhraseDeck();
   const p = currentPhraseIdx != null ? deck[currentPhraseIdx] : null;
-  if (!p || (p.recall && !cardRevealed)) return;
+  if (!p || !cardRevealed) return;
   speakWord(p.phrase);
 };
 $("btnCycleJump").onclick = () => {
