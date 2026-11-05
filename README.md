@@ -30,9 +30,9 @@
 
 ## 错题导出
 
-仓库 `exports/` 目录提供可下载的 Markdown 错题清单（GitHub raw URL）。单文件体积较大时，优先用分册（约每册 ≤50 题）：
+仓库 `exports/` 目录提供可下载的 Markdown 错题清单（GitHub raw URL）。单文件体积较大时，优先用分册：
 
-- **311 教育学错题（分册）** → [`exports/311/`](exports/311/)（`311-wrong-01.md` …）
-- **政治错题（按科目分册）** → [`exports/politics/`](exports/politics/)（马原 / 新思想 / 毛中特 / 史纲 / 思修）
+- **311 教育学错题（分册）** → [`exports/311/`](exports/311/)（`311-wrong-01.md` … `05`）
+- **政治错题（5 册）** → [`exports/politics/`](exports/politics/)（`politics-wrong-01.md` … `05`）
 - 整包备份：[`exports/311-wrong-items.md`](exports/311-wrong-items.md)、[`exports/politics-wrong-items.md`](exports/politics-wrong-items.md)
 
