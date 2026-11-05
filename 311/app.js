@@ -506,8 +506,9 @@
       if (isSelected) classes += " selected";
       if (submitted && answerLetters.includes(letter)) classes += " correct";
       if (submitted && isSelected && !answerLetters.includes(letter)) classes += " incorrect";
+      const why = submitted && !answerLetters.includes(letter) ? optionWhy(q.analysis, letter) : "";
       return `<button class="${classes}" type="button" data-choice="${letter}" ${submitted ? "disabled" : ""}>
-        <span class="option-key">${letter}</span><span class="option-text">${escapeHtml(q.options[letter] || "")}</span></button>`;
+        <span class="option-key">${letter}</span><span class="option-main"><span class="option-text">${escapeHtml(q.options[letter] || "")}</span>${why ? `<span class="option-why">${escapeHtml(why)}</span>` : ""}</span></button>`;
     }).join("");
     const answerBox = submitted ? `<div class="answer-box">
       <p class="answer-result ${correct ? "good" : "bad"}">${correct ? "回答正确" : `正确答案：${answerLetters.join("、")}`} · ${correct ? "记得很好，继续保持。" : "看看解析，下一次就能答对。"}</p>
@@ -696,12 +697,16 @@
     return String(value).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
   }
 
+  function optionWhy(analysis, letter) {
+    const line = String(analysis || "").split("\n").map(item => item.trim()).find(item => item.startsWith(letter + "错在") || item.startsWith(letter + "不选"));
+    if (!line) return "";
+    return line.replace(new RegExp("^" + letter), "").replace(/\{\{([^{}]+)\}\}/g, "$1").trim();
+  }
+
   function renderAnalysis(value) {
-    return String(value).split(/(\{\{[^{}]+\}\})/g).map(part => {
-      const marked = part.match(/^\{\{([^{}]+)\}\}$/);
-      if (!marked) return escapeHtml(part);
-      return `<span class="trap">${escapeHtml(marked[1])}</span>`;
-    }).join("").replace(/\n/g, "<br>");
+    const kept = String(value || "").split("\n").filter(line => !/^[A-D](错在|不选)/.test(line.trim()));
+    const text = (kept.join("\n").trim() || String(value || "")).replace(/\{\{([^{}]+)\}\}/g, "$1");
+    return escapeHtml(text).replace(/\n/g, "<br>");
   }
 
   function showToast(message) {
