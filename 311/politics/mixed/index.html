@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f6f3ed">
-  <title>考研政治 · 五科随机综合练习</title>
+  <title>考研政治 · 五科按轮综合练习</title>
   <link rel="stylesheet" href="../style.css?v=red-mark-20261105">
   <script src="../questions.js?v=red-mark-20261105"></script>
   <script>
@@ -52,11 +52,12 @@
       appId: "politics-mixed",
       syncNamespace: "politics:mixed:",
       defaultMode: "random-cover",
+      roundOnly: true,
       subjectOrder: ["马原", "新思想", "毛中特", "史纲", "思修"],
       categoryOrder: []
     };
   </script>
-  <script defer src="../../study-list.js?v=wrong-pool-now-20261102"></script>
+  <script defer src="../../study-list.js?v=round-only-20261105"></script>
   <script defer src="../app.js?v=red-mark-20261105"></script>
 </head>
 <body>
@@ -72,8 +73,8 @@
     <section class="intro-row">
       <div>
         <p class="eyebrow">STUDY DESK <span>·</span> 考研政治 · 全科</p>
-        <h1>五科随机：先过完一遍，再刷错题。</h1>
-        <p class="intro-copy">马原、新思想、毛中特、史纲、思修共 <strong id="mixed-total">—</strong> 题。默认模式<strong>只出还没做过的题</strong>（随机打乱）；点「确认答案」看解析，再点「下一题」；全部做完后自动进入<strong>错题复习</strong>。</p>
+        <h1>五科按轮：过完一轮，只把错题带进下一轮。</h1>
+        <p class="intro-copy">马原、新思想、毛中特、史纲、思修共 <strong id="mixed-total">—</strong> 题。<strong>第 1 轮</strong>按当前范围的题目顺序每题做一遍；这一轮全部作答后才进入<strong>下一轮</strong>，而且下一轮<strong>只出现上一轮答错的题</strong>。答对的不再进入下一轮。刷新后仍停在同一轮。</p>
       </div>
       <div class="stats" aria-label="学习统计">
         <div class="stat"><span id="stat-done">0</span><small>已作答</small></div>
@@ -89,7 +90,7 @@
       <a href="../mao-zhongte/">毛中特</a>
       <a href="../history-outline/">史纲</a>
       <a href="../thought-morality/">思修</a>
-      <a class="active" href="./">全科随机</a>
+      <a class="active" href="./">全科按轮</a>
     </nav>
     <section class="workspace">
       <aside class="sidebar">
@@ -98,9 +99,7 @@
         <select id="category-select" class="select-control"></select>
         <label class="field-label" for="mode-select">出题顺序</label>
         <select id="mode-select" class="select-control">
-          <option value="random-cover">五科随机（过一遍→错题）</option>
-          <option value="random">完全随机</option>
-          <option value="order">按题库顺序</option>
+          <option value="random-cover">按轮刷题（错题进入下一轮）</option>
         </select>
         <label class="search-label" for="search-input">快速查找</label>
         <div class="search-wrap"><span aria-hidden="true">⌕</span><input id="search-input" type="search" placeholder="输入关键词" autocomplete="off"></div>
@@ -110,7 +109,7 @@
           <div class="sync-heading"><span>跨设备记忆</span><span class="sync-cloud">↗</span></div>
           <input id="sync-code" class="sync-code" type="password" autocomplete="off" placeholder="设置你的同步码">
           <div class="sync-actions"><button id="sync-upload" type="button">上传</button><button id="sync-download" type="button">拉取</button></div>
-          <p class="sync-help">换设备：旧机先「上传」，新机「拉取」。全科进度与随机顺序单独保存，与各单科互不影响。</p>
+          <p class="sync-help">换设备：旧机先「上传」，新机「拉取」。全科进度和当前轮次单独保存，与各单科互不影响。刷新后仍停在同一轮。</p>
           <p id="sync-status" class="sync-status" role="status"></p>
         </section>
         <div class="sidebar-note"><span class="note-mark">✳</span><p>想只刷某一科时，在「选择范围」里点对应科目即可。</p></div>
