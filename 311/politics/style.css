@@ -79,9 +79,9 @@ h1 { margin:0; color:var(--navy); font-family:Georgia,"Microsoft YaHei UI",serif
 .option { width:100%; min-height:49px; display:flex; gap:13px; align-items:flex-start; padding:12px 15px; border:1px solid #e9e5dd; border-radius:8px; background:#fffefa; color:#4a545d; text-align:left; transition:background .15s,border-color .15s,transform .15s; }
 .option:hover:not(:disabled) { border-color:#bcc8cc; background:#fbfcfa; transform:translateY(-1px); }
 .option-key { flex:none; width:23px; height:23px; display:grid; place-items:center; border:1px solid #dedbd3; border-radius:50%; color:#7b8386; font-family:Georgia,serif; font-size:11px; }
-.option-main { flex:1; min-width:0; display:flex; flex-direction:column; gap:8px; }
-.option-text { padding-top:2px; font-size:13px; line-height:1.75; }
-.option-why { display:block; color:#c42323; font-weight:700; font-size:13px; line-height:1.65; padding:6px 8px; border:1px solid #e23b3b; border-radius:4px; background:#fff; }
+.option-main { flex:1; min-width:0; display:flex; flex-flow:row nowrap; align-items:flex-start; gap:10px; }
+.option-text { flex:1 1 42%; min-width:0; padding-top:2px; font-size:13px; line-height:1.75; }
+.option-why { flex:1 1 46%; min-width:0; color:#c42323; font-weight:700; font-size:13px; line-height:1.65; padding:2px 8px; border:1px solid #e23b3b; border-radius:4px; background:#fff; }
 .option.selected { border-color:#8096a2; background:#f1f5f5; }
 .option.selected .option-key { border-color:var(--navy); background:var(--navy); color:white; }
 .option.correct { border-color:#9fc2ad; background:var(--green-soft); }
@@ -139,6 +139,9 @@ h1 { margin:0; color:var(--navy); font-family:Georgia,"Microsoft YaHei UI",serif
   .question-content { padding-top:23px; }
   .question-stem { font-size:15px; }
   .option { min-height:46px; padding:10px 11px; }
+  .option-main { display:block; }
+  .option-text,.option-why { display:inline; box-decoration-break:clone; -webkit-box-decoration-break:clone; }
+  .option-why { margin-left:8px; padding:1px 6px; }
   .controls { flex-wrap:wrap; }
   .control-left { width:100%; justify-content:space-between; }
   .control-right { width:100%; justify-content:flex-end; }
