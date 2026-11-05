@@ -20,6 +20,7 @@
   const letters = ["A", "B", "C", "D"];
   const categoryOrder = appConfig.categoryOrder || [];
   const subjectOrder = appConfig.subjectOrder || [];
+  const singlePool = appConfig.singlePool === true;
   const categories = [...new Set(bank.map(q => q.category))].sort((a, b) => {
     const aIndex = categoryOrder.indexOf(a);
     const bIndex = categoryOrder.indexOf(b);
@@ -34,7 +35,7 @@
   }
 
   const state = loadState();
-  let currentCategory = categories.includes(state.lastCategory) ? state.lastCategory : "全部题目";
+  let currentCategory = singlePool ? "全部题目" : (categories.includes(state.lastCategory) ? state.lastCategory : "全部题目");
   let wrongOnly = false;
   let pendingOnly = false;
   let query = "";
@@ -107,12 +108,19 @@
   }
 
   function matchesCategory(q) {
-    if (currentCategory === "全部题目") return true;
+    if (singlePool || currentCategory === "全部题目") return true;
     if (currentCategory.startsWith("subject:")) return q.subjectLabel === currentCategory.slice(8);
     return q.category === currentCategory;
   }
 
   function populateCategories() {
+    if (singlePool) {
+      categorySelect.innerHTML = `<option value="全部题目">全部题目 · ${bank.length}</option>`;
+      categorySelect.hidden = true;
+      const field = document.querySelector('label[for="category-select"]');
+      if (field) field.hidden = true;
+      return;
+    }
     const counts = Object.fromEntries(categories.map(c => [c, bank.filter(q => q.category === c).length]));
     let html = `<option value="全部题目">${subjectOrder.length ? "五科全部" : "全部题目"} · ${bank.length}</option>`;
     if (subjectOrder.length) {
@@ -185,7 +193,7 @@
   }
 
   function scopeKey() {
-    return currentCategory;
+    return singlePool ? "全部题目" : currentCategory;
   }
 
   function isRoundCover() {
@@ -771,7 +779,7 @@
       data.submitted?.forEach(id => state.submitted.add(id));
       Object.assign(state.choices, data.choices || {});
       for (const id of state.correct) state.wrong.delete(id);
-      if (categories.includes(data.lastCategory)) state.lastCategory = data.lastCategory;
+      if (!singlePool && categories.includes(data.lastCategory)) state.lastCategory = data.lastCategory;
       if (data.lastQuestionId) state.lastQuestionId = data.lastQuestionId;
       state.mode = resolveMode(data.mode);
       Q.applyQueuePayload(state, data);
@@ -781,7 +789,7 @@
         const incoming = Q.sanitizeRounds(data.roundsByScope);
         if (Object.keys(incoming).length || !automatic) state.roundsByScope = incoming;
       }
-      currentCategory = categories.includes(state.lastCategory) ? state.lastCategory : "全部题目";
+      currentCategory = singlePool ? "全部题目" : (categories.includes(state.lastCategory) ? state.lastCategory : "全部题目");
       mode = state.mode;
       categorySelect.value = currentCategory;
       modeSelect.value = mode;
