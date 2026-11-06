@@ -188,7 +188,7 @@
   .card-phrase-pos .pos-word { font-weight: 700; color: var(--teal-dark); margin-right: 6px; }
   .card-phrase-pos .pos-tag { font-weight: 600; color: #5a7a72; }
   .card-phrase-pos .pos-hint { font-weight: 500; color: var(--muted); }
-  .card-reveal { margin-top: 14px; display: grid; gap: 8px; text-align: left; }
+  .card-reveal { margin: 0 0 14px; display: grid; gap: 8px; text-align: left; }
   .card-reveal[hidden] { display: none; }
   .card-phrase-zh, .card-sentence-zh {
     padding: 12px 14px; border-radius: 14px;
@@ -368,11 +368,6 @@
     <div class="flash-card" id="cardTap">
       <span class="card-num" id="cardNum">#1</span>
       <div id="cardBody" class="phrase-card-body">
-        <div class="card-phrase-en-wrap">
-          <div class="card-phrase-en" id="cardPhraseEn"></div>
-          <div class="card-phrase-pos" id="cardPhrasePos"></div>
-        </div>
-        <div class="card-phrase-source" id="cardPhraseSource" hidden></div>
         <div class="card-reveal" id="cardReveal" hidden>
           <div class="card-phrase-zh">
             <span class="label" id="cardPhraseLabel">短语释义</span>
@@ -387,6 +382,11 @@
             <p id="cardPhraseTip"></p>
           </div>
         </div>
+        <div class="card-phrase-en-wrap">
+          <div class="card-phrase-en" id="cardPhraseEn"></div>
+          <div class="card-phrase-pos" id="cardPhrasePos"></div>
+        </div>
+        <div class="card-phrase-source" id="cardPhraseSource" hidden></div>
         <div class="card-phrase-sub" id="cardPhraseSub"></div>
       </div>
       <div class="card-hint" id="cardHint">点击卡片 · 显示释义</div>
