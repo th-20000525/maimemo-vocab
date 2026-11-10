@@ -5,30 +5,31 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f6f3ed">
   <title>311预测卷</title>
-  <link rel="stylesheet" href="../style.css?v=predict-papers-20261110">
+  <link rel="stylesheet" href="../style.css?v=predict-exam-20261110">
   <script src="questions.js?v=predict-342-order-20261110"></script>
   <script>
     window.STUDY_APP_CONFIG = {
-      storageKey: "311-predict-paper-progress-v3",
-      appId: "311-predict-paper",
-      syncNamespace: "311:predict-paper-v3:",
+      storageKey: "311-predict-exam-progress-v4",
+      appId: "311-predict-exam",
+      syncNamespace: "311:predict-exam-v4:",
       defaultMode: "order",
       roundOnly: false,
       singlePool: false,
       paperOnly: true,
-      keepRoundPool: true,
+      examPaper: true,
+      keepRoundPool: false,
       defaultCategory: "预测卷一",
       categoryOrder: ["预测卷一", "预测卷二", "预测卷三", "预测卷四", "预测卷五", "预测卷六"]
     };
   </script>
-  <script defer src="../study-list.js?v=predict-papers-20261110"></script>
-  <script defer src="../politics/app.js?v=predict-papers-20261110"></script>
+  <script defer src="../study-list.js?v=predict-exam-20261110"></script>
+  <script defer src="../politics/app.js?v=predict-exam-20261110"></script>
 </head>
 <body>
   <header class="topbar">
     <a class="brand" href="./" aria-label="311预测卷">
       <span class="brand-mark">预</span>
-      <span class="brand-copy"><strong>311预测卷</strong><small>一套卷一套卷刷</small></span>
+      <span class="brand-copy"><strong>311预测卷</strong><small>套卷作答 · 交卷核对</small></span>
     </a>
     <div class="topbar-right"><span class="offline-dot"></span><span>离线可用 · 云端进度同步</span></div>
   </header>
@@ -37,13 +38,13 @@
     <section class="intro-row">
       <div>
         <p class="eyebrow">STUDY DESK <span>·</span> 311预测卷</p>
-        <h1>套卷模式：选一卷，按卷内顺序刷完再换下一套。</h1>
-        <p class="intro-copy">六套预测卷，每套 <strong>57</strong> 题（单选 45＋辨析 3＋简答 5＋论述 4）。左侧选「预测卷一…卷六」，卷内按题号顺序过，不随机。答对不剔除；点「我会了 · 删除」才离开本卷题池。主观题先想骨架，再点「看解析」。</p>
+        <h1>套卷模考：整卷答完再核对，可只看错题。</h1>
+        <p class="intro-copy">左侧选一套卷，按题号顺序作答；答题过程中<strong>不提前揭晓答案</strong>。整卷交卷后统一核对客观题（单选＋辨析），再可点「只看错题」回看。主观题交卷后才展开骨架。</p>
       </div>
       <div class="stats" aria-label="学习统计">
-        <div class="stat"><span id="stat-done">0</span><small>本卷已作答</small></div>
-        <div class="stat"><span id="stat-accuracy">—</span><small>正确率</small></div>
-        <div class="stat"><span id="stat-wrong">0</span><small>本卷剩余</small></div>
+        <div class="stat"><span id="stat-done">0</span><small>本卷已答</small></div>
+        <div class="stat"><span id="stat-accuracy">—</span><small>核对正确率</small></div>
+        <div class="stat"><span id="stat-wrong">0</span><small id="stat-wrong-label">未答题数</small></div>
       </div>
     </section>
 
@@ -52,14 +53,20 @@
         <div class="sidebar-heading"><span class="section-kicker">套卷</span><span class="tiny-rule"></span></div>
         <label class="field-label" for="category-select">选择试卷</label>
         <select id="category-select" class="select-control" aria-label="选择预测卷"></select>
+        <button id="grade-paper-btn" class="btn btn-primary grade-paper-btn" type="button">交卷核对</button>
+        <button id="wrong-filter" class="wrong-filter" type="button" disabled>
+          <span class="bookmark-icon">◇</span>
+          <span>只看错题</span>
+          <span id="wrong-count" class="count-pill">0</span>
+        </button>
         <section class="sync-card" aria-label="跨设备进度同步">
           <div class="sync-heading"><span>跨设备记忆</span><span class="sync-cloud">↗</span></div>
           <input id="sync-code" class="sync-code" type="password" autocomplete="off" placeholder="设置你的同步码">
           <div class="sync-actions"><button id="sync-upload" type="button">上传</button><button id="sync-download" type="button">拉取</button></div>
-          <p class="sync-help">换设备：旧机先「上传」，新机「拉取」。各套卷进度与已删除题目单独保存。</p>
+          <p class="sync-help">换设备：旧机先「上传」，新机「拉取」。各套卷作答与核对进度单独保存。</p>
           <p id="sync-status" class="sync-status" role="status"></p>
         </section>
-        <div class="sidebar-note"><span class="note-mark">✳</span><p>今天刷卷一就只选卷一；刷完再换卷二。单选／辨析直接作答，简答／论述点「看解析」。</p></div>
+        <div class="sidebar-note"><span class="note-mark">✳</span><p>先整卷答完再交卷。客观题当场判对错；主观题交卷后回看骨架。核对后可只刷错题，或重新开考本卷。</p></div>
         <button id="reset-progress" class="text-button" type="button">清空本机学习记录</button>
       </aside>
 
@@ -67,11 +74,8 @@
         <div id="question-view"></div>
       </section>
     </section>
-    <footer class="footer"><span>专注当下这一套。</span><span>311预测卷 <i>·</i> 套卷模式</span></footer>
+    <footer class="footer"><span>答完再核对。</span><span>311预测卷 <i>·</i> 套卷模考</span></footer>
   </main>
   <div id="toast" class="toast" role="status"></div>
-  <script>
-    document.getElementById("bank-total") && (document.getElementById("bank-total").textContent = "57");
-  </script>
 </body>
 </html>

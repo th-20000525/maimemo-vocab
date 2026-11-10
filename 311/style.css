@@ -74,6 +74,11 @@ h1 { margin:0; color:var(--navy); font-family:Georgia,"Microsoft YaHei UI",serif
 .question-meta { margin:0 0 11px; color:#aaa49a; font-size:10px; letter-spacing:.09em; }
 .question-stem { margin:0; color:#26333d; font-family:"Microsoft YaHei UI","PingFang SC",sans-serif; font-size:17px; font-weight:600; line-height:1.9; }
 .open-hint { margin:18px 0 4px; padding:12px 14px; border:1px dashed #ddd4c4; border-radius:8px; background:#faf7f1; color:#7a756c; font-size:12px; line-height:1.7; }
+.grade-paper-btn { width:100%; margin:0 0 12px; min-height:42px; border-radius:8px; font-size:12px; font-weight:700; }
+.grade-paper-btn:disabled { opacity:.45; cursor:not-allowed; }
+.wrong-filter:disabled { opacity:.45; cursor:not-allowed; }
+.exam-report-actions { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:14px; }
+.exam-report-actions .btn { min-width:132px; }
 .options { margin:23px 0 18px; display:grid; gap:10px; }
 .option { width:100%; min-height:49px; display:flex; gap:13px; align-items:center; padding:12px 15px; border:1px solid #e9e5dd; border-radius:8px; background:#fffefa; color:#4a545d; text-align:left; transition:background .15s,border-color .15s,transform .15s; }
 .option:hover:not(:disabled) { border-color:#bcc8cc; background:#fbfcfa; transform:translateY(-1px); }
