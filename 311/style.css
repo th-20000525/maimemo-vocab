@@ -106,6 +106,8 @@ h1 { margin:0; color:var(--navy); font-family:Georgia,"Microsoft YaHei UI",serif
 .btn-ghost { border-color:transparent; background:transparent; }
 .btn-save { color:#8d7859; }
 .btn-save.saved { border-color:#e8d9bb; background:#f8f1e4; color:#876638; }
+.btn-master { color:#6b5a3e; border-color:#dcc9a4; background:#f7f0e4; }
+.btn-master:hover { border-color:#c9ae7d; background:#f1e6d2; color:#5a4a31; }
 .empty-state { min-height:455px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
 .empty-symbol { width:54px; height:54px; display:grid; place-items:center; border:1px solid #e5ddce; border-radius:50%; color:var(--gold); font-size:24px; }
 .empty-state h2 { margin:18px 0 7px; color:var(--navy); font-family:Georgia,serif; font-size:22px; font-weight:500; }

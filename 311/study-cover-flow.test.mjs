@@ -216,9 +216,13 @@ for (const html of [eduHtml, politicsHtml]) {
   assert.equal(html.includes("完全随机"), false);
   assert.equal(html.includes("按题库顺序"), false);
 }
-assert.equal(politicsApp.includes("advanceRound(rec, shuffle)"), true);
+assert.equal(politicsApp.includes("advanceRound(rec, shuffle"), true);
 assert.equal(politicsApp.includes("shuffle(scopeQuestionIds())"), true);
 assert.equal(politicsApp.includes("roundsByScope"), true);
+assert.equal(politicsApp.includes("keepRoundPool"), true);
+assert.equal(politicsApp.includes("markMasteredAndRemove"), true);
+assert.equal(eduHtml.includes("keepRoundPool: true"), true);
+assert.equal(politicsHtml.includes("keepRoundPool"), false);
 
 const kept = Q.recordRoundAnswer(
   { round: 1, set: ["a", "b", "c"], answered: [], wrong: [], done: false, shuffled: true },
@@ -234,5 +238,24 @@ assert.deepEqual(plain(reshuffled.set), ["c", "a"]);
 assert.equal(reshuffled.shuffled, true);
 assert.equal(Q.normalizeRoundRecord({ round: 2, set: ["a", "b"], answered: [], wrong: [], done: false }).shuffled, false);
 assert.equal(Q.normalizeRoundRecord({ round: 2, set: ["a", "b"], answered: [], wrong: [], done: false, shuffled: true }).shuffled, true);
+
+const keepAdvance = Q.advanceRound(
+  { round: 2, set: ["a", "b", "c"], answered: ["a", "b", "c"], wrong: ["a"], done: false, shuffled: true },
+  ids => ids.slice().sort(),
+  { keepSet: true },
+);
+assert.equal(keepAdvance.round, 3);
+assert.deepEqual(plain(keepAdvance.set), ["a", "b", "c"]);
+assert.deepEqual(plain(keepAdvance.answered), []);
+
+const keepInit = Q.createInitialRound({
+  scopeIds: ["a", "b", "c"],
+  attempted: ["a", "b", "c"],
+  wrong: ["b"],
+  correct: ["a", "c"],
+  keepSet: true,
+});
+assert.equal(keepInit.round, 2);
+assert.deepEqual(plain(keepInit.set), ["a", "b", "c"]);
 
 console.log("study-cover-flow.test.mjs OK");
