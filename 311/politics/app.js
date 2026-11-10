@@ -36,7 +36,17 @@
   }
 
   const state = loadState();
-  let currentCategory = singlePool ? "全部题目" : (categories.includes(state.lastCategory) ? state.lastCategory : "全部题目");
+  const defaultCategory = appConfig.defaultCategory
+    || (categories.includes("预测卷一") ? "预测卷一" : (categories[0] || "全部题目"));
+  const paperOnly = appConfig.paperOnly === true;
+  function resolveCategory(value) {
+    if (singlePool) return "全部题目";
+    if (paperOnly && value === "全部题目") return defaultCategory;
+    if (categories.includes(value)) return value;
+    if (!paperOnly && value === "全部题目") return "全部题目";
+    return defaultCategory;
+  }
+  let currentCategory = resolveCategory(state.lastCategory);
   let wrongOnly = false;
   let pendingOnly = false;
   let query = "";
@@ -105,15 +115,19 @@
   }
 
   function updateStats() {
-    setText("stat-done", state.attempted.size);
-    setText("stat-accuracy", state.attempted.size ? `${Math.round(state.correct.size / state.attempted.size * 100)}%` : "—");
-    const poolLeft = keepRoundPool ? activeBank().length : state.wrong.size;
+    const currentScope = bank.filter(matchesCategory);
+    const attemptedInScope = currentScope.filter(q => state.attempted.has(q.id));
+    const correctInScope = attemptedInScope.filter(q => state.correct.has(q.id));
+    setText("stat-done", paperOnly || !singlePool ? attemptedInScope.length : state.attempted.size);
+    setText("stat-accuracy", attemptedInScope.length
+      ? `${Math.round(correctInScope.length / attemptedInScope.length * 100)}%`
+      : (state.attempted.size ? `${Math.round(state.correct.size / state.attempted.size * 100)}%` : "—"));
+    const poolLeft = keepRoundPool ? currentScope.length : state.wrong.size;
     setText("stat-wrong", poolLeft);
     setText("wrong-count", state.wrong.size);
-    setText("bank-total", keepRoundPool ? String(activeBank().length) : String(bank.length));
+    setText("bank-total", keepRoundPool ? String(currentScope.length) : String(bank.length));
     $("wrong-filter")?.classList.toggle("active", wrongOnly);
     $("pending-filter")?.classList.toggle("active", pendingOnly);
-    const currentScope = bank.filter(matchesCategory);
     setText("pending-count", currentScope.filter(q => !state.attempted.has(q.id)).length);
   }
 
@@ -142,7 +156,10 @@
       return;
     }
     const counts = Object.fromEntries(categories.map(c => [c, bank.filter(q => q.category === c).length]));
-    let html = `<option value="全部题目">${subjectOrder.length ? "五科全部" : "全部题目"} · ${bank.length}</option>`;
+    let html = "";
+    if (!paperOnly) {
+      html += `<option value="全部题目">${subjectOrder.length ? "五科全部" : "全部题目"} · ${bank.length}</option>`;
+    }
     if (subjectOrder.length) {
       html += subjectOrder.map(s => {
         const n = bank.filter(q => q.subjectLabel === s).length;
@@ -151,6 +168,9 @@
     }
     html += categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)} · ${counts[c]}</option>`).join("");
     categorySelect.innerHTML = html;
+    categorySelect.hidden = false;
+    const field = document.querySelector('label[for="category-select"]');
+    if (field) field.hidden = false;
   }
 
   const Q = window.StudyListQueue;
@@ -807,7 +827,14 @@
     toastTimer = setTimeout(() => toast.classList.remove("show"), 1700);
   }
 
-  categorySelect?.addEventListener("change", () => { currentCategory = categorySelect.value; buildList(); });
+  categorySelect?.addEventListener("change", () => {
+    currentCategory = resolveCategory(categorySelect.value);
+    const stillHere = bank.some(q => q.id === state.lastQuestionId && matchesCategory(q));
+    restorePosition = stillHere;
+    if (!stillHere) state.listIndex = 0;
+    buildList(true);
+    updateStats();
+  });
   modeSelect?.addEventListener("change", () => {
     mode = modeSelect.value;
     if (mode === "random-cover") {
@@ -917,7 +944,7 @@
         const incoming = Q.sanitizeRounds(data.roundsByScope);
         if (Object.keys(incoming).length || !automatic) state.roundsByScope = incoming;
       }
-      currentCategory = singlePool ? "全部题目" : (categories.includes(state.lastCategory) ? state.lastCategory : "全部题目");
+      currentCategory = resolveCategory(state.lastCategory);
       mode = state.mode;
       if (categorySelect) categorySelect.value = currentCategory;
       if (modeSelect) modeSelect.value = mode;
