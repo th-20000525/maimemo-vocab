@@ -22,7 +22,6 @@
   const subjectOrder = appConfig.subjectOrder || [];
   const singlePool = appConfig.singlePool === true;
   const keepRoundPool = appConfig.keepRoundPool === true;
-  const examPaper = appConfig.examPaper === true;
   const categories = [...new Set(bank.map(q => q.category))].sort((a, b) => {
     const aIndex = categoryOrder.indexOf(a);
     const bIndex = categoryOrder.indexOf(b);
@@ -37,17 +36,7 @@
   }
 
   const state = loadState();
-  const defaultCategory = appConfig.defaultCategory
-    || (categories.includes("预测卷一") ? "预测卷一" : (categories[0] || "全部题目"));
-  const paperOnly = appConfig.paperOnly === true;
-  function resolveCategory(value) {
-    if (singlePool) return "全部题目";
-    if (paperOnly && value === "全部题目") return defaultCategory;
-    if (categories.includes(value)) return value;
-    if (!paperOnly && value === "全部题目") return "全部题目";
-    return defaultCategory;
-  }
-  let currentCategory = resolveCategory(state.lastCategory);
+  let currentCategory = singlePool ? "全部题目" : (categories.includes(state.lastCategory) ? state.lastCategory : "全部题目");
   let wrongOnly = false;
   let pendingOnly = false;
   let query = "";
@@ -83,12 +72,10 @@
         removed: new Set(saved.removed || []),
         wrongCounts: saved.wrongCounts && typeof saved.wrongCounts === "object" ? saved.wrongCounts : {},
         roundsByScope: saved.roundsByScope && typeof saved.roundsByScope === "object" ? saved.roundsByScope : {},
-        gradedPapers: saved.gradedPapers && typeof saved.gradedPapers === "object" ? saved.gradedPapers : {},
-        markedOpen: new Set(saved.markedOpen || []),
         syncCode: defaultSyncCode
       };
     } catch {
-      return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastQuestionId: "", mode: resolveMode(appConfig.defaultMode), shuffleKey: "", shuffleOrder: [], listIndex: 0, coverPhase: "unanswered", reviewMastered: new Set(), removed: new Set(), wrongCounts: {}, roundsByScope: {}, gradedPapers: {}, markedOpen: new Set(), syncCode: defaultSyncCode };
+      return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastQuestionId: "", mode: resolveMode(appConfig.defaultMode), shuffleKey: "", shuffleOrder: [], listIndex: 0, coverPhase: "unanswered", reviewMastered: new Set(), removed: new Set(), wrongCounts: {}, roundsByScope: {}, syncCode: defaultSyncCode };
     }
   }
 
@@ -107,29 +94,9 @@
       removed: [...state.removed],
       wrongCounts: state.wrongCounts,
       roundsByScope: state.roundsByScope || {},
-      gradedPapers: state.gradedPapers || {},
-      markedOpen: [...(state.markedOpen || [])],
       syncCode: $("sync-code")?.value.trim() || state.syncCode
     }));
     updateStats();
-  }
-
-  function isPaperGraded(scope = currentCategory) {
-    return !!(examPaper && state.gradedPapers && state.gradedPapers[scope]);
-  }
-
-  function paperScopeQuestions() {
-    return bank.filter(q => matchesCategory(q));
-  }
-
-  function isObjectiveQuestion(q) {
-    return !!q && !isOpenQuestion(q);
-  }
-
-  function hasExamAnswer(q) {
-    if (!q) return false;
-    if (isOpenQuestion(q)) return state.markedOpen.has(q.id) || !!state.choices[q.id];
-    return !!state.choices[q.id];
   }
 
   function setText(id, value) {
@@ -138,49 +105,15 @@
   }
 
   function updateStats() {
-    const currentScope = bank.filter(matchesCategory);
-    if (examPaper) {
-      const objective = currentScope.filter(isObjectiveQuestion);
-      const answered = currentScope.filter(hasExamAnswer).length;
-      const graded = isPaperGraded();
-      const wrongInScope = objective.filter(q => state.wrong.has(q.id)).length;
-      const correctObj = objective.filter(q => state.correct.has(q.id)).length;
-      setText("stat-done", String(answered));
-      setText("stat-accuracy", graded && objective.length
-        ? `${Math.round(correctObj / objective.length * 100)}%`
-        : "—");
-      setText("stat-wrong", graded ? String(wrongInScope) : String(Math.max(0, currentScope.length - answered)));
-      setText("stat-wrong-label", graded ? "客观错题" : "未答题数");
-      setText("wrong-count", String(wrongInScope));
-      setText("bank-total", String(currentScope.length));
-      const gradeBtn = $("grade-paper-btn");
-      if (gradeBtn) {
-        gradeBtn.hidden = graded;
-        gradeBtn.disabled = answered === 0;
-        gradeBtn.textContent = answered >= currentScope.length ? "交卷核对" : `交卷核对（已答 ${answered}/${currentScope.length}）`;
-      }
-      const wrongFilter = $("wrong-filter");
-      if (wrongFilter) {
-        wrongFilter.disabled = !graded;
-        wrongFilter.classList.toggle("active", wrongOnly);
-        wrongFilter.title = graded ? "" : "先交卷核对后才能只看错题";
-      }
-      $("pending-filter")?.classList.toggle("active", pendingOnly);
-      setText("pending-count", currentScope.filter(q => !hasExamAnswer(q)).length);
-      return;
-    }
-    const attemptedInScope = currentScope.filter(q => state.attempted.has(q.id));
-    const correctInScope = attemptedInScope.filter(q => state.correct.has(q.id));
-    setText("stat-done", paperOnly || !singlePool ? attemptedInScope.length : state.attempted.size);
-    setText("stat-accuracy", attemptedInScope.length
-      ? `${Math.round(correctInScope.length / attemptedInScope.length * 100)}%`
-      : (state.attempted.size ? `${Math.round(state.correct.size / state.attempted.size * 100)}%` : "—"));
-    const poolLeft = keepRoundPool ? currentScope.length : state.wrong.size;
+    setText("stat-done", state.attempted.size);
+    setText("stat-accuracy", state.attempted.size ? `${Math.round(state.correct.size / state.attempted.size * 100)}%` : "—");
+    const poolLeft = keepRoundPool ? activeBank().length : state.wrong.size;
     setText("stat-wrong", poolLeft);
     setText("wrong-count", state.wrong.size);
-    setText("bank-total", keepRoundPool ? String(currentScope.length) : String(bank.length));
+    setText("bank-total", keepRoundPool ? String(activeBank().length) : String(bank.length));
     $("wrong-filter")?.classList.toggle("active", wrongOnly);
     $("pending-filter")?.classList.toggle("active", pendingOnly);
+    const currentScope = bank.filter(matchesCategory);
     setText("pending-count", currentScope.filter(q => !state.attempted.has(q.id)).length);
   }
 
@@ -209,10 +142,7 @@
       return;
     }
     const counts = Object.fromEntries(categories.map(c => [c, bank.filter(q => q.category === c).length]));
-    let html = "";
-    if (!paperOnly) {
-      html += `<option value="全部题目">${subjectOrder.length ? "五科全部" : "全部题目"} · ${bank.length}</option>`;
-    }
+    let html = `<option value="全部题目">${subjectOrder.length ? "五科全部" : "全部题目"} · ${bank.length}</option>`;
     if (subjectOrder.length) {
       html += subjectOrder.map(s => {
         const n = bank.filter(q => q.subjectLabel === s).length;
@@ -221,9 +151,6 @@
     }
     html += categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)} · ${counts[c]}</option>`).join("");
     categorySelect.innerHTML = html;
-    categorySelect.hidden = false;
-    const field = document.querySelector('label[for="category-select"]');
-    if (field) field.hidden = false;
   }
 
   const Q = window.StudyListQueue;
@@ -249,24 +176,8 @@
 
   function matchesScopeBase(q, needle) {
     if (!matchesCategory(q)) return false;
-    if (needle && !`${q.stem} ${Object.values(q.options || {}).join(" ")} ${q.analysis || ""}`.toLowerCase().includes(needle)) return false;
+    if (needle && !`${q.stem} ${Object.values(q.options).join(" ")}`.toLowerCase().includes(needle)) return false;
     return true;
-  }
-
-  function isOpenQuestion(q) {
-    return !!q && (q.type === "open" || q.type === "essay" || q.type === "short");
-  }
-
-  function optionLettersFor(q) {
-    if (isOpenQuestion(q)) return [];
-    const keys = Object.keys(q.options || {}).filter(letter => letters.includes(letter));
-    return keys.length ? keys.sort() : letters;
-  }
-
-  function typeBadge(q) {
-    if (q.kind) return q.kind === "单选" ? "单选题" : `${q.kind}题`;
-    if (isOpenQuestion(q)) return "主观题";
-    return q.type === "multiple" ? "多选题" : "单选题";
   }
 
   function pendingCountInScope(needle) {
@@ -453,7 +364,7 @@
       } else if (!matchesCategory(q)) {
         return false;
       }
-      if (needle && !`${q.stem} ${Object.values(q.options || {}).join(" ")} ${q.analysis || ""}`.toLowerCase().includes(needle)) return false;
+      if (needle && !`${q.stem} ${Object.values(q.options).join(" ")}`.toLowerCase().includes(needle)) return false;
       return true;
     });
     const poolLeft = keepRoundPool ? activeBank().length : reportScope.length;
@@ -592,17 +503,11 @@
       host.innerHTML = `<div class="empty-state"><span class="empty-symbol">${isWrong || coverDone ? "◇" : isPending ? "✓" : "✳"}</span><h2>${isWrong ? "错题本还是空的" : isPending || coverDone ? "这一范围已经练完了" : "没有找到这道题"}</h2><p>${isWrong ? "答错的题会自动加入错题本，你也可以在答案揭晓后手动收藏。" : isPending || coverDone ? (coverDone && !state.wrong.size ? "当前范围题目都已作答且没有错题，将自动进入第二轮随机。" : "错题会自动进入下一轮；若侧边「只练错题」未亮，刷新一下或点一次出题顺序。") : "试试更短的关键词，或切换到其他题库继续练习。"}</p></div>`;
       return;
     }
-    if (examPaper && state._showGradeReport) {
-      host.innerHTML = renderExamGradeReport();
-      wireExamReportButtons();
-      return;
-    }
     const q = questions[currentIndex];
-    const openQ = isOpenQuestion(q);
     const selected = String(state.choices[q.id] || "");
-    const answerLetters = String(q.answer || "").split("").filter(Boolean).sort();
-    const graded = isPaperGraded();
-    const submitted = examPaper ? graded : state.submitted.has(q.id);
+    const answerLetters = String(q.answer || "").split("").sort();
+    const normalizedAnswer = answerLetters.join("");
+    const submitted = state.submitted.has(q.id);
     const correct = state.correct.has(q.id);
     const coverPhase = getCoverPhase(needle);
     const roundRec = isRoundCover() ? state.roundsByScope[scopeKey()] : null;
@@ -616,84 +521,26 @@
       : ((currentIndex + 1) / questions.length) * 100;
     const reviewMisses = state.wrongCounts[q.id] || 0;
     const inReview = !inRound && coverPhase === "review";
-    const nextDisabled = examPaper
-      ? currentIndex === questions.length - 1
-      : (!submitted || (!(inRound || inReview) && currentIndex === questions.length - 1));
+    const nextDisabled = !submitted || (!(inRound || inReview) && currentIndex === questions.length - 1);
     const label = q.subjectLabel
       ? (currentCategory === "全部题目" || currentCategory.startsWith("subject:") ? `${q.subjectLabel} · ${q.category}` : q.category)
       : (currentCategory === "全部题目" ? q.category : currentCategory);
-    const optionLetters = optionLettersFor(q);
-    const optionsLocked = examPaper ? graded : submitted;
-    const optionsHtml = openQ ? "" : optionLetters.map(letter => {
+    const optionsHtml = letters.map(letter => {
       let classes = "option";
       const isSelected = selected.includes(letter);
       if (isSelected) classes += " selected";
-      if (optionsLocked && answerLetters.includes(letter)) classes += " correct";
-      if (optionsLocked && isSelected && !answerLetters.includes(letter)) classes += " incorrect";
-      const why = optionsLocked && !answerLetters.includes(letter) ? optionWhy(q.analysis, letter) : "";
-      return `<button class="${classes}" type="button" data-choice="${letter}" ${optionsLocked ? "disabled" : ""}>
+      if (submitted && answerLetters.includes(letter)) classes += " correct";
+      if (submitted && isSelected && !answerLetters.includes(letter)) classes += " incorrect";
+      const why = submitted && !answerLetters.includes(letter) ? optionWhy(q.analysis, letter) : "";
+      return `<button class="${classes}" type="button" data-choice="${letter}" ${submitted ? "disabled" : ""}>
         <span class="option-key">${letter}</span><span class="option-main"><span class="option-text">${escapeHtml(q.options[letter] || "")}</span>${why ? `<span class="option-why">${escapeHtml(why)}</span>` : ""}</span></button>`;
     }).join("");
-    const showAnswerBox = examPaper ? graded : submitted;
-    const answerResult = openQ
-      ? (showAnswerBox ? `<p class="answer-result good">参考骨架已展开 · 对照钩子自己复述一遍。</p>` : "")
-      : (showAnswerBox ? `<p class="answer-result ${correct ? "good" : "bad"}">${correct ? "回答正确" : `正确答案：${answerLetters.join("、")}`} · ${correct ? "记得很好，继续保持。" : "看看解析，下一次就能答对。"}</p>` : "");
-    const answerBox = showAnswerBox ? `<div class="answer-box">
-      ${answerResult}
+    const answerBox = submitted ? `<div class="answer-box">
+      <p class="answer-result ${correct ? "good" : "bad"}">${correct ? "回答正确" : `正确答案：${answerLetters.join("、")}`} · ${correct ? "记得很好，继续保持。" : "看看解析，下一次就能答对。"}</p>
       <p class="answer-text">${renderAnalysis(q.analysis || "这道题暂无解析。")}</p>
     </div>` : "";
-    const metaHint = examPaper
-      ? (graded
-        ? (openQ ? "交卷后回看骨架" : (correct ? "本卷已核对 · 回答正确" : "本卷已核对 · 对照解析"))
-        : (openQ ? "先自己想骨架，点「已想过」记下，整卷交卷后再看解析" : "先选题，整卷答完再交卷核对"))
-      : inRound
-      ? (keepRoundPool
-        ? (mode === "order" ? `第 ${roundRec.round} 轮 · 固定题池按顺序过一遍` : `第 ${roundRec.round} 轮 · 固定题池随机过一遍`)
-        : (roundRec.round <= 1 ? "第 1 轮 · 打乱后每题做一次" : `第 ${roundRec.round} 轮 · 上一轮错题，重新打乱`))
-      : inReview
-      ? `复习轮 · 随机抽取${reviewMisses ? ` · 本题已错 ${reviewMisses} 次` : ""}`
-      : openQ
-      ? "先自己想骨架，再点看解析"
-      : q.type === "multiple"
-      ? "请选择所有正确选项"
-      : (q.kind === "辨析" ? "判断正确或错误" : "请选择一个最合适的答案");
-    let submitEnabled, submitLabel, showSubmit;
-    if (examPaper) {
-      if (graded) {
-        showSubmit = false;
-        submitEnabled = false;
-        submitLabel = "";
-      } else if (openQ) {
-        showSubmit = true;
-        const marked = hasExamAnswer(q);
-        submitEnabled = !marked;
-        submitLabel = marked ? "已想过" : "已想过";
-        // when marked, disable button but keep label
-        submitEnabled = true; // allow toggle remake - actually just mark
-        submitLabel = marked ? "已想过 ✓" : "标记已想过";
-      } else {
-        showSubmit = false;
-        submitEnabled = false;
-        submitLabel = "";
-      }
-    } else {
-      showSubmit = true;
-      submitEnabled = openQ ? !submitted : (!submitted && !!selected);
-      submitLabel = openQ ? (submitted ? "已看解析" : "看解析") : "确认答案";
-    }
-    const onLast = currentIndex === questions.length - 1;
-    const nextLabel = examPaper
-      ? (onLast ? (graded ? "已是最后一题" : "最后一题 · 去交卷") : "下一题 →")
-      : (inRound ? "下一题 →" : inReview ? "随机下一题 →" : "下一题 →");
-    const leftExtra = examPaper
-      ? (graded
-        ? `<button id="exam-report-btn" class="btn btn-ghost" type="button">本卷成绩单</button>`
-        : `<button id="grade-inline-btn" class="btn btn-master" type="button">交卷核对</button>`)
-      : (keepRoundPool
-        ? `<button id="master-btn" class="btn btn-master" type="button">我会了 · 删除</button>`
-        : `<button id="save-btn" class="btn btn-save ${state.wrong.has(q.id) ? "saved" : ""}" type="button">${state.wrong.has(q.id) ? "◇ 已在错题本" : "◇ 加入错题本"}</button>`);
     host.innerHTML = `<div class="question-topline">
-        <div class="badges"><span class="category-badge">${escapeHtml(label)}</span>${q.subjectLabel ? `<span class="paper-badge subject-badge">${escapeHtml(q.subjectLabel)}</span>` : ""}<span class="paper-badge">${escapeHtml(typeBadge(q))}</span>${examPaper && !graded ? `<span class="paper-badge">答题中</span>` : ""}${examPaper && graded ? `<span class="paper-badge">已核对</span>` : ""}</div>
+        <div class="badges"><span class="category-badge">${escapeHtml(label)}</span>${q.subjectLabel ? `<span class="paper-badge subject-badge">${escapeHtml(q.subjectLabel)}</span>` : ""}<span class="paper-badge">${q.type === "multiple" ? "多选题" : "单选题"}</span></div>
         <div class="question-count">${inRound
           ? `<strong>第 ${roundRec.round} 轮</strong> · 已答 ${roundRec.answered.length} / ${roundRec.set.length}`
           : inReview
@@ -702,22 +549,29 @@
       </div>
       <div class="progress-track"><div class="progress-fill" style="width:${percent}%"></div></div>
       <div class="question-content">
-        <p class="question-meta">第 ${q.number} 题 <span>·</span> ${metaHint}</p>
-        <h2 class="question-stem">${escapeHtml(q.stem).replace(/\n/g, "<br>")}</h2>
-        ${optionsHtml ? `<div class="options">${optionsHtml}</div>` : (openQ && !showAnswerBox ? `<p class="open-hint">${examPaper ? "主观题先自己过骨架，点「标记已想过」；整卷交卷后才展开解析。" : "主观题不设选项：先在脑子里过一遍骨架，再点「看解析」对照。"}</p>` : "")}
+        <p class="question-meta">第 ${q.number} 题 <span>·</span> ${inRound
+          ? (keepRoundPool
+            ? `第 ${roundRec.round} 轮 · 固定题池随机过一遍`
+            : (roundRec.round <= 1 ? "第 1 轮 · 打乱后每题做一次" : `第 ${roundRec.round} 轮 · 上一轮错题，重新打乱`))
+          : inReview
+          ? `复习轮 · 随机抽取${reviewMisses ? ` · 本题已错 ${reviewMisses} 次` : ""}`
+          : q.type === "multiple" ? "请选择所有正确选项" : "请选择一个最合适的答案"}</p>
+        <h2 class="question-stem">${escapeHtml(q.stem)}</h2>
+        <div class="options">${optionsHtml}</div>
       </div>
       <div class="controls">
         <div class="control-left">
           <button id="prev-btn" class="btn btn-ghost" type="button" ${currentIndex === 0 ? "disabled" : ""}>← 上一题</button>
-          ${leftExtra}
+          ${keepRoundPool
+            ? `<button id="master-btn" class="btn btn-master" type="button">我会了 · 删除</button>`
+            : `<button id="save-btn" class="btn btn-save ${state.wrong.has(q.id) ? "saved" : ""}" type="button">${state.wrong.has(q.id) ? "◇ 已在错题本" : "◇ 加入错题本"}</button>`}
         </div>
         <div class="control-right">
-          ${showSubmit ? `<button id="submit-btn" class="btn btn-primary" type="button" ${submitEnabled ? "" : "disabled"}>${submitLabel}</button>` : ""}
-          <button id="next-btn" class="btn ${(examPaper ? (selected || hasExamAnswer(q)) : submitted) ? "btn-primary" : ""}" type="button" ${nextDisabled ? "disabled" : ""}>${nextLabel}</button>
+          <button id="submit-btn" class="btn btn-primary" type="button" ${submitted || !selected ? "disabled" : ""}>确认答案</button>
+          <button id="next-btn" class="btn ${submitted ? "btn-primary" : ""}" type="button" ${nextDisabled ? "disabled" : ""}>${inRound ? "下一题 →" : inReview ? "随机下一题 →" : "下一题 →"}</button>
         </div>
       </div>${answerBox}`;
     host.querySelectorAll("[data-choice]").forEach(button => button.addEventListener("click", () => {
-      if (examPaper && graded) return;
       if (q.type === "multiple") {
         const chosen = new Set(String(state.choices[q.id] || "").split("").filter(Boolean));
         if (chosen.has(button.dataset.choice)) chosen.delete(button.dataset.choice);
@@ -726,162 +580,22 @@
       } else {
         state.choices[q.id] = button.dataset.choice;
       }
-      if (examPaper) state.attempted.add(q.id);
       saveState();
       queueAutoUpload();
       render();
     }));
     $("prev-btn").addEventListener("click", () => go(-1));
-    $("next-btn").addEventListener("click", () => {
-      if (examPaper && onLast && !graded) {
-        gradeCurrentPaper();
-        return;
-      }
-      go(1);
-    });
-    if (examPaper) {
-      $("grade-inline-btn")?.addEventListener("click", gradeCurrentPaper);
-      $("exam-report-btn")?.addEventListener("click", () => {
-        state._showGradeReport = true;
-        render();
-      });
-    } else if (keepRoundPool) {
-      $("master-btn")?.addEventListener("click", markMasteredAndRemove);
-    } else {
-      $("save-btn")?.addEventListener("click", toggleWrong);
-    }
+    $("next-btn").addEventListener("click", () => go(1));
+    if (keepRoundPool) $("master-btn")?.addEventListener("click", markMasteredAndRemove);
+    else $("save-btn")?.addEventListener("click", toggleWrong);
     const submitButton = $("submit-btn");
-    if (submitButton) {
-      submitButton.addEventListener("click", () => {
-        if (examPaper && openQ && !graded) {
-          state.markedOpen.add(q.id);
-          state.choices[q.id] = state.choices[q.id] || "想";
-          state.attempted.add(q.id);
-          saveState();
-          queueAutoUpload();
-          showToast("已记下 · 交卷后可看骨架");
-          render();
-          return;
-        }
-        submitAnswer();
-      });
-    }
-  }
-
-  function renderExamGradeReport() {
-    const scope = paperScopeQuestions();
-    const objective = scope.filter(isObjectiveQuestion);
-    const openQs = scope.filter(isOpenQuestion);
-    const correctN = objective.filter(q => state.correct.has(q.id)).length;
-    const wrongList = objective.filter(q => state.wrong.has(q.id));
-    const blankN = objective.filter(q => !state.choices[q.id]).length;
-    const listHtml = wrongList.length
-      ? `<ul class="miss-list">${wrongList.map(q => {
-          const yours = state.choices[q.id] || "未选";
-          return `<li class="miss-row"><span class="miss-count">你的 ${escapeHtml(yours)}</span><span class="miss-stem">${escapeHtml(q.stem)}</span></li>`;
-        }).join("")}</ul>`
-      : `<p class="report-empty">客观题全对，没有错题。</p>`;
-    return `<div class="empty-state review-report">
-      <span class="empty-symbol">✓</span>
-      <h2>${escapeHtml(currentCategory)} · 核对完成</h2>
-      <p class="report-summary">客观题（单选＋辨析）<strong>${correctN}</strong> / ${objective.length} 正确${blankN ? `，其中未作答 ${blankN} 题记为错` : ""}。主观题 ${openQs.length} 道不计入正确率，交卷后可回看骨架。下面列出客观错题，可点「只看错题」逐题过。</p>
-      ${listHtml}
-      <div class="exam-report-actions">
-        <button id="exam-wrong-only-btn" class="btn btn-primary" type="button" ${wrongList.length ? "" : "disabled"}>只看错题（${wrongList.length}）</button>
-        <button id="exam-all-btn" class="btn" type="button">回看全部题目</button>
-        <button id="exam-retake-btn" class="btn btn-ghost" type="button">重新开考本卷</button>
-      </div>
-    </div>`;
-  }
-
-  function wireExamReportButtons() {
-    $("exam-wrong-only-btn")?.addEventListener("click", () => {
-      state._showGradeReport = false;
-      wrongOnly = true;
-      restorePosition = false;
-      buildList(true);
-      updateStats();
-      showToast("只看本卷错题");
-    });
-    $("exam-all-btn")?.addEventListener("click", () => {
-      state._showGradeReport = false;
-      wrongOnly = false;
-      restorePosition = false;
-      buildList(true);
-      updateStats();
-    });
-    $("exam-retake-btn")?.addEventListener("click", retakeCurrentPaper);
-  }
-
-  function gradeCurrentPaper() {
-    const scope = paperScopeQuestions();
-    const answered = scope.filter(hasExamAnswer).length;
-    if (!answered) {
-      showToast("先答几道再交卷");
-      return;
-    }
-    if (answered < scope.length) {
-      if (!confirm(`还有 ${scope.length - answered} 题未作答，未选的客观题将记为错误。确定交卷核对吗？`)) return;
-    }
-    scope.forEach(q => {
-      state.attempted.add(q.id);
-      state.submitted.add(q.id);
-      if (isOpenQuestion(q)) {
-        state.markedOpen.add(q.id);
-        state.choices[q.id] = state.choices[q.id] || "想";
-        state.correct.add(q.id);
-        state.wrong.delete(q.id);
-        return;
-      }
-      const chosen = String(state.choices[q.id] || "");
-      const ok = !!chosen && chosen.split("").sort().join("") === String(q.answer || "").split("").filter(Boolean).sort().join("");
-      if (ok) {
-        state.correct.add(q.id);
-        state.wrong.delete(q.id);
-      } else {
-        state.correct.delete(q.id);
-        state.wrong.add(q.id);
-        state.wrongCounts[q.id] = (state.wrongCounts[q.id] || 0) + 1;
-      }
-    });
-    state.gradedPapers[currentCategory] = true;
-    state._showGradeReport = true;
-    wrongOnly = false;
-    saveState();
-    queueAutoUpload();
-    render();
-    updateStats();
-    showToast("本卷已核对");
-  }
-
-  function retakeCurrentPaper() {
-    if (!confirm(`确定清空「${currentCategory}」的作答并重新开考吗？`)) return;
-    const scope = paperScopeQuestions();
-    scope.forEach(q => {
-      state.attempted.delete(q.id);
-      state.submitted.delete(q.id);
-      state.correct.delete(q.id);
-      state.wrong.delete(q.id);
-      state.markedOpen.delete(q.id);
-      delete state.choices[q.id];
-      delete state.wrongCounts[q.id];
-    });
-    delete state.gradedPapers[currentCategory];
-    state._showGradeReport = false;
-    wrongOnly = false;
-    restorePosition = false;
-    state.listIndex = 0;
-    saveState();
-    buildList(true);
-    queueAutoUpload();
-    showToast("已重新开考");
+    if (submitButton) submitButton.addEventListener("click", submitAnswer);
   }
 
   function markMasteredAndRemove() {
     if (!keepRoundPool) return;
     const q = questions[currentIndex];
     if (!q) return;
-    const nextFocusId = questions[currentIndex + 1]?.id || questions[currentIndex - 1]?.id || "";
     state.removed.add(q.id);
     state.wrong.delete(q.id);
     state.reviewMastered.add(q.id);
@@ -900,20 +614,14 @@
     }
     showToast(`已删除 · 题池还剩 ${activeBank().length} 题`);
     restorePosition = false;
-    if (isRoundCover()) buildRoundSession(nextFocusId || undefined);
-    else buildList(true, nextFocusId || undefined);
+    buildRoundSession();
     queueAutoUpload();
   }
 
   function submitAnswer() {
     const q = questions[currentIndex];
-    if (!q) return;
-    const openQ = isOpenQuestion(q);
-    if (!openQ && !state.choices[q.id]) return;
-    if (openQ) state.choices[q.id] = state.choices[q.id] || "看";
-    const isCorrect = openQ
-      ? true
-      : String(state.choices[q.id]).split("").sort().join("") === String(q.answer || "").split("").filter(Boolean).sort().join("");
+    if (!q || !state.choices[q.id]) return;
+    const isCorrect = String(state.choices[q.id]).split("").sort().join("") === String(q.answer).split("").sort().join("");
     if (isRoundCover()) {
       const key = scopeKey();
       const rec = state.roundsByScope[key];
@@ -1065,17 +773,7 @@
     toastTimer = setTimeout(() => toast.classList.remove("show"), 1700);
   }
 
-  categorySelect?.addEventListener("change", () => {
-    currentCategory = resolveCategory(categorySelect.value);
-    const stillHere = bank.some(q => q.id === state.lastQuestionId && matchesCategory(q));
-    restorePosition = stillHere;
-    if (!stillHere) state.listIndex = 0;
-    wrongOnly = false;
-    pendingOnly = false;
-    state._showGradeReport = false;
-    buildList(true);
-    updateStats();
-  });
+  categorySelect?.addEventListener("change", () => { currentCategory = categorySelect.value; buildList(); });
   modeSelect?.addEventListener("change", () => {
     mode = modeSelect.value;
     if (mode === "random-cover") {
@@ -1088,34 +786,16 @@
     buildList();
   });
   searchInput?.addEventListener("input", () => { query = searchInput.value; buildList(); });
-  $("wrong-filter")?.addEventListener("click", () => {
-    if (examPaper && !isPaperGraded()) {
-      showToast("先交卷核对，再看错题");
-      return;
-    }
-    wrongOnly = !wrongOnly;
-    if (wrongOnly) pendingOnly = false;
-    state._showGradeReport = false;
-    buildList();
-    updateStats();
-  });
+  $("wrong-filter")?.addEventListener("click", () => { wrongOnly = !wrongOnly; if (wrongOnly) pendingOnly = false; buildList(); updateStats(); });
   $("pending-filter")?.addEventListener("click", () => { pendingOnly = !pendingOnly; if (pendingOnly) wrongOnly = false; buildList(); updateStats(); });
-  $("grade-paper-btn")?.addEventListener("click", () => {
-    if (!examPaper) return;
-    gradeCurrentPaper();
-  });
   $("reset-progress")?.addEventListener("click", () => {
-    if (!confirm(examPaper ? "要清空各套卷的作答与核对记录吗？" : (keepRoundPool ? "要清空这台设备上的答题记录，并恢复已删除的题目吗？" : "要清空这台设备上的全部答题记录和错题本吗？"))) return;
+    if (!confirm(keepRoundPool ? "要清空这台设备上的答题记录，并恢复已删除的题目吗？" : "要清空这台设备上的全部答题记录和错题本吗？")) return;
     state.attempted.clear(); state.correct.clear(); state.wrong.clear(); state.submitted.clear(); state.choices = {};
     state.coverPhase = "unanswered";
     state.reviewMastered = new Set();
     state.removed = new Set();
     state.wrongCounts = {};
     state.roundsByScope = {};
-    state.gradedPapers = {};
-    state.markedOpen = new Set();
-    state._showGradeReport = false;
-    wrongOnly = false;
     Q.clearQueue(state);
     saveState(); buildList(); queueAutoUpload(); showToast("学习记录已清空");
   });
@@ -1146,14 +826,12 @@
     if (!code) return;
     setSyncStatus("正在上传…");
     const payload = {
-      app: appId, version: 4, attempted: [...state.attempted], correct: [...state.correct],
+      app: appId, version: 3, attempted: [...state.attempted], correct: [...state.correct],
       wrong: [...state.wrong], choices: state.choices, submitted: [...state.submitted],
       lastCategory: state.lastCategory, lastQuestionId: state.lastQuestionId, mode: state.mode,
       ...Q.queuePayloadSlice(state, currentIndex),
       roundsByScope: state.roundsByScope || {},
       removed: [...state.removed],
-      gradedPapers: state.gradedPapers || {},
-      markedOpen: [...(state.markedOpen || [])],
     };
     try {
       const response = await fetch(`${SB_URL}/rest/v1/vocab_progress?on_conflict=sync_code`, {
@@ -1205,16 +883,7 @@
         const incoming = Q.sanitizeRounds(data.roundsByScope);
         if (Object.keys(incoming).length || !automatic) state.roundsByScope = incoming;
       }
-      if (data.gradedPapers && typeof data.gradedPapers === "object") {
-        state.gradedPapers = automatic
-          ? { ...(state.gradedPapers || {}), ...data.gradedPapers }
-          : { ...data.gradedPapers };
-      }
-      if (Array.isArray(data.markedOpen)) {
-        if (!automatic) state.markedOpen = new Set(data.markedOpen);
-        else data.markedOpen.forEach(id => state.markedOpen.add(id));
-      }
-      currentCategory = resolveCategory(state.lastCategory);
+      currentCategory = singlePool ? "全部题目" : (categories.includes(state.lastCategory) ? state.lastCategory : "全部题目");
       mode = state.mode;
       if (categorySelect) categorySelect.value = currentCategory;
       if (modeSelect) modeSelect.value = mode;

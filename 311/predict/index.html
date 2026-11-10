@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f6f3ed">
   <title>311预测卷</title>
-  <link rel="stylesheet" href="../style.css?v=predict-exam-20261110">
+  <link rel="stylesheet" href="../style.css?v=wrong-untouched-20261110">
+  <link rel="stylesheet" href="./exam.css?v=sheet-isolated-20261110">
   <script src="questions.js?v=predict-399-oct-20261110"></script>
   <script>
     window.STUDY_APP_CONFIG = {
@@ -22,8 +23,8 @@
       categoryOrder: ["预测卷一", "预测卷二", "预测卷三", "预测卷四", "预测卷五", "预测卷六", "十月全真卷"]
     };
   </script>
-  <script defer src="../study-list.js?v=predict-exam-20261110"></script>
-  <script defer src="../politics/app.js?v=predict-exam-20261110"></script>
+  <script defer src="../study-list.js?v=wrong-untouched-20261110"></script>
+  <script defer src="./app.js?v=sheet-isolated-20261110"></script>
 </head>
 <body>
   <header class="topbar">
@@ -39,7 +40,7 @@
       <div>
         <p class="eyebrow">STUDY DESK <span>·</span> 311预测卷</p>
         <h1>套卷模考：整卷答完再核对，可只看错题。</h1>
-        <p class="intro-copy">左侧可选六套预测卷或<strong>十月全真卷</strong>，每套 57 题按题号顺序作答；答题过程中<strong>不提前揭晓答案</strong>。整卷交卷后统一核对客观题（单选＋辨析），再可点「只看错题」回看。主观题交卷后才展开骨架。</p>
+        <p class="intro-copy">左侧可选六套预测卷或<strong>十月全真卷</strong>，每套 57 题按题号顺序作答；答题过程中<strong>不提前揭晓答案</strong>。整卷交卷后统一核对客观题（单选＋辨析），再可点「题卡 / 只看错题」回看。主观题交卷后才展开骨架。本页与 <a href="../wrong/">311错题</a> 完全独立。</p>
       </div>
       <div class="stats" aria-label="学习统计">
         <div class="stat"><span id="stat-done">0</span><small>本卷已答</small></div>
@@ -63,10 +64,10 @@
           <div class="sync-heading"><span>跨设备记忆</span><span class="sync-cloud">↗</span></div>
           <input id="sync-code" class="sync-code" type="password" autocomplete="off" placeholder="设置你的同步码">
           <div class="sync-actions"><button id="sync-upload" type="button">上传</button><button id="sync-download" type="button">拉取</button></div>
-          <p class="sync-help">换设备：旧机先「上传」，新机「拉取」。各套卷作答与核对进度单独保存。</p>
+          <p class="sync-help">换设备：旧机先「上传」，新机「拉取」。各套卷作答与核对进度单独保存，不改错题池。</p>
           <p id="sync-status" class="sync-status" role="status"></p>
         </section>
-        <div class="sidebar-note"><span class="note-mark">✳</span><p>先整卷答完再交卷。客观题当场判对错；主观题交卷后回看骨架。核对后可只刷错题，或重新开考本卷。</p></div>
+        <div class="sidebar-note"><span class="note-mark">✳</span><p>先整卷答完再交卷。右下角「题卡」可跳题；核对后绿对红错。本页不改动 311 错题逻辑。</p></div>
         <button id="reset-progress" class="text-button" type="button">清空本机学习记录</button>
       </aside>
 
