@@ -1,4 +1,4 @@
-/** 311 / 政治刷题共用：随机队列、过一遍→错题→复习轮（答对剔除、答错随机再抽） */
+/** 311 / 政治刷题共用：随机队列、过一遍→错题→复习轮；311 错题可配置固定题池+手动删除 */
 (() => {
   function applyShuffleOrder(filtered, orderedIds) {
     const map = new Map(filtered.map(q => [q.id, q]));
@@ -150,10 +150,10 @@
   }
 
   /**
-   * 没有存过轮次时：还有未答题就停在第 1 轮；第 1 轮已全部作答则用错题本作为第 2 轮。
-   * 答对的题不会因为曾经出现过就留在下一轮。
+   * 没有存过轮次时：还有未答题就停在第 1 轮；第 1 轮已全部作答则进入第 2 轮。
+   * 默认：第 2 轮只用错题本（答对剔除）。keepSet 时：下一轮仍用当前整池，不因答对缩小。
    */
-  function createInitialRound({ scopeIds, attempted, wrong, correct }) {
+  function createInitialRound({ scopeIds, attempted, wrong, correct, keepSet }) {
     const ids = uniqueIds(scopeIds);
     if (!ids.length) return { round: 1, set: [], answered: [], wrong: [], done: false };
     const attemptedSet = new Set(attempted || []);
@@ -168,6 +168,9 @@
         wrong: ids.filter(id => attemptedSet.has(id) && wrongSet.has(id) && !correctSet.has(id)),
         done: false,
       };
+    }
+    if (keepSet) {
+      return { round: 2, set: ids, answered: [], wrong: [], done: false };
     }
     const misses = ids.filter(id => wrongSet.has(id) && !correctSet.has(id));
     if (!misses.length) return { round: 2, set: [], answered: [], wrong: [], done: true };
@@ -189,12 +192,13 @@
     return { round: current.round, set: current.set, answered, wrong: [...wrong], done: false, shuffled: current.shuffled === true };
   }
 
-  function advanceRound(record, shuffle) {
+  function advanceRound(record, shuffle, options = {}) {
+    const keepSet = options && options.keepSet === true;
     const current = normalizeRoundRecord(record) || { round: 1, set: [], answered: [], wrong: [], done: false };
     if (current.done) return current;
-    const wrong = uniqueIds(current.wrong);
-    if (!wrong.length) return { round: current.round, set: [], answered: [], wrong: [], done: true, shuffled: current.shuffled === true };
-    const order = typeof shuffle === "function" ? uniqueIds(shuffle(wrong.slice())) : wrong;
+    const nextIds = keepSet ? uniqueIds(current.set) : uniqueIds(current.wrong);
+    if (!nextIds.length) return { round: current.round, set: [], answered: [], wrong: [], done: true, shuffled: current.shuffled === true };
+    const order = typeof shuffle === "function" ? uniqueIds(shuffle(nextIds.slice())) : nextIds;
     return { round: current.round + 1, set: order, answered: [], wrong: [], done: false, shuffled: typeof shuffle === "function" };
   }
 

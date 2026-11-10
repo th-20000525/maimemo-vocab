@@ -21,6 +21,7 @@
   const categoryOrder = appConfig.categoryOrder || [];
   const subjectOrder = appConfig.subjectOrder || [];
   const singlePool = appConfig.singlePool === true;
+  const keepRoundPool = appConfig.keepRoundPool === true;
   const categories = [...new Set(bank.map(q => q.category))].sort((a, b) => {
     const aIndex = categoryOrder.indexOf(a);
     const bIndex = categoryOrder.indexOf(b);
@@ -68,12 +69,13 @@
         listIndex: Number.isFinite(saved.listIndex) ? saved.listIndex : 0,
         coverPhase: saved.coverPhase === "wrong" ? "wrong" : saved.coverPhase === "review" ? "review" : "unanswered",
         reviewMastered: new Set(saved.reviewMastered || []),
+        removed: new Set(saved.removed || []),
         wrongCounts: saved.wrongCounts && typeof saved.wrongCounts === "object" ? saved.wrongCounts : {},
         roundsByScope: saved.roundsByScope && typeof saved.roundsByScope === "object" ? saved.roundsByScope : {},
         syncCode: defaultSyncCode
       };
     } catch {
-      return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastQuestionId: "", mode: resolveMode(appConfig.defaultMode), shuffleKey: "", shuffleOrder: [], listIndex: 0, coverPhase: "unanswered", reviewMastered: new Set(), wrongCounts: {}, roundsByScope: {}, syncCode: defaultSyncCode };
+      return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastQuestionId: "", mode: resolveMode(appConfig.defaultMode), shuffleKey: "", shuffleOrder: [], listIndex: 0, coverPhase: "unanswered", reviewMastered: new Set(), removed: new Set(), wrongCounts: {}, roundsByScope: {}, syncCode: defaultSyncCode };
     }
   }
 
@@ -89,6 +91,7 @@
       shuffleKey: state.shuffleKey || "", shuffleOrder: state.shuffleOrder || [], listIndex: currentIndex,
       coverPhase: state.coverPhase || "unanswered",
       reviewMastered: [...state.reviewMastered],
+      removed: [...state.removed],
       wrongCounts: state.wrongCounts,
       roundsByScope: state.roundsByScope || {},
       syncCode: $("sync-code")?.value.trim() || state.syncCode
@@ -104,15 +107,26 @@
   function updateStats() {
     setText("stat-done", state.attempted.size);
     setText("stat-accuracy", state.attempted.size ? `${Math.round(state.correct.size / state.attempted.size * 100)}%` : "—");
-    setText("stat-wrong", state.wrong.size);
+    const poolLeft = keepRoundPool ? activeBank().length : state.wrong.size;
+    setText("stat-wrong", poolLeft);
     setText("wrong-count", state.wrong.size);
+    setText("bank-total", keepRoundPool ? String(activeBank().length) : String(bank.length));
     $("wrong-filter")?.classList.toggle("active", wrongOnly);
     $("pending-filter")?.classList.toggle("active", pendingOnly);
     const currentScope = bank.filter(matchesCategory);
     setText("pending-count", currentScope.filter(q => !state.attempted.has(q.id)).length);
   }
 
+  function isRemoved(id) {
+    return keepRoundPool && state.removed.has(id);
+  }
+
+  function activeBank() {
+    return keepRoundPool ? bank.filter(q => !state.removed.has(q.id)) : bank;
+  }
+
   function matchesCategory(q) {
+    if (isRemoved(q.id)) return false;
     if (singlePool || currentCategory === "全部题目") return true;
     if (currentCategory.startsWith("subject:")) return q.subjectLabel === currentCategory.slice(8);
     return q.category === currentCategory;
@@ -229,6 +243,7 @@
         attempted: [...state.attempted],
         wrong: [...state.wrong],
         correct: [...state.correct],
+        keepSet: keepRoundPool,
       });
       if (!rec.done) rec = { ...rec, set: shuffle(rec.set), shuffled: true };
       else rec = { ...rec, shuffled: true };
@@ -243,8 +258,21 @@
       restorePosition = false;
     }
     const known = new Set(scopeQuestionIds());
+    if (rec && !rec.done) {
+      const pruned = uniqueRoundIds((rec.set || []).filter(id => known.has(id)));
+      if (pruned.length !== (rec.set || []).length) {
+        rec = {
+          ...rec,
+          set: pruned,
+          answered: uniqueRoundIds((rec.answered || []).filter(id => known.has(id))),
+          wrong: uniqueRoundIds((rec.wrong || []).filter(id => known.has(id))),
+          done: pruned.length === 0,
+        };
+        state.roundsByScope[key] = rec;
+      }
+    }
     if (!rec.done && rec.set.length > 0 && Q.roundRemainingIds(rec, known).length === 0) {
-      const next = Q.advanceRound(rec, shuffle);
+      const next = Q.advanceRound(rec, shuffle, { keepSet: keepRoundPool });
       next.set = next.set.filter(id => known.has(id));
       if (!next.done && next.set.length === 0) next.done = true;
       if (!next.done) clearRoundAnswers(next.set);
@@ -257,7 +285,7 @@
     const remaining = rec.done ? [] : Q.roundRemainingIds(rec, known);
     questions = remaining.map(id => byId.get(id)).filter(q => {
       if (!q || !matchesScopeBase(q, needle)) return false;
-      if (wrongOnly && !state.wrong.has(q.id)) return false;
+      if (!keepRoundPool && wrongOnly && !state.wrong.has(q.id)) return false;
       return true;
     });
     if (focusQuestionId) {
@@ -273,9 +301,17 @@
     } else {
       currentIndex = Math.min(currentIndex, Math.max(0, questions.length - 1));
     }
-    if (enteredRound) showToast(`进入第 ${enteredRound} 轮：只练上一轮答错的 ${rec.set.length} 题`);
+    if (enteredRound) {
+      showToast(keepRoundPool
+        ? `进入第 ${enteredRound} 轮：固定题池 ${rec.set.length} 题，已重新打乱`
+        : `进入第 ${enteredRound} 轮：只练上一轮答错的 ${rec.set.length} 题`);
+    }
     render();
     saveState();
+  }
+
+  function uniqueRoundIds(ids) {
+    return Q.normalizeRoundRecord({ round: 1, set: ids, answered: [], wrong: [], done: false }).set;
   }
 
   function restartRoundCycle() {
@@ -319,21 +355,36 @@
   }
 
   function renderReviewCompleteReport(needle) {
-    const scope = bank.filter(q => matchesScopeBase(q, needle));
-    const troubled = scope
+    const reportScope = bank.filter(q => {
+      if (keepRoundPool) {
+        // 已删题也计入统计范围，因此不能走 matchesCategory（它会过滤 removed）
+        if (!(singlePool || currentCategory === "全部题目")) {
+          if (currentCategory.startsWith("subject:") ? q.subjectLabel !== currentCategory.slice(8) : q.category !== currentCategory) return false;
+        }
+      } else if (!matchesCategory(q)) {
+        return false;
+      }
+      if (needle && !`${q.stem} ${Object.values(q.options).join(" ")}`.toLowerCase().includes(needle)) return false;
+      return true;
+    });
+    const poolLeft = keepRoundPool ? activeBank().length : reportScope.length;
+    const troubled = reportScope
       .map(q => ({ q, misses: state.wrongCounts[q.id] || 0 }))
       .filter(x => x.misses > 0)
       .sort((a, b) => b.misses - a.misses || (a.q.number || 0) - (b.q.number || 0));
     const listHtml = troubled.length
       ? `<ul class="miss-list">${troubled.map(({ q, misses }) =>
         `<li class="miss-row"><span class="miss-count">错 ${misses} 次</span><span class="miss-stem">${escapeHtml(q.stem)}</span></li>`).join("")}</ul>`
-      : `<p class="report-empty">这一轮每题都一次答对，没有反复错的题。</p>`;
+      : `<p class="report-empty">${keepRoundPool ? "没有留下反复错的题。" : "这一轮每题都一次答对，没有反复错的题。"}</p>`;
+    const summary = keepRoundPool
+      ? `原题库 ${reportScope.length} 题，题池还剩 ${poolLeft} 题（已手动删除 ${state.removed.size}）。每一轮固定随机过一遍，答对不剔除；点「我会了」才会删掉。${troubled.length ? `下面 ${troubled.length} 道题曾答错，可按错次回看。` : ""}`
+      : `共 ${reportScope.length} 题。第 1 轮过后，每一轮只出现上一轮答错的题；最后一轮没有答错。${troubled.length ? `下面 ${troubled.length} 道题曾答错，按错次从高到低排列，建议重点回看。` : ""}`;
     return `<div class="empty-state review-report">
       <span class="empty-symbol">✓</span>
-      <h2>本范围各轮已完成</h2>
-      <p class="report-summary">共 ${scope.length} 题。第 1 轮过后，每一轮只出现上一轮答错的题；最后一轮没有答错。${troubled.length ? `下面 ${troubled.length} 道题曾答错，按错次从高到低排列，建议重点回看。` : ""}</p>
+      <h2>${keepRoundPool ? (poolLeft ? "本轮已刷完" : "题池已清空") : "本范围各轮已完成"}</h2>
+      <p class="report-summary">${summary}</p>
       ${listHtml}
-      <button id="review-restart-btn" class="btn btn-primary" type="button">从第 1 轮再来</button>
+      <button id="review-restart-btn" class="btn btn-primary" type="button">${keepRoundPool ? "用当前题池从第 1 轮再来" : "从第 1 轮再来"}</button>
     </div>`;
   }
 
@@ -499,7 +550,9 @@
       <div class="progress-track"><div class="progress-fill" style="width:${percent}%"></div></div>
       <div class="question-content">
         <p class="question-meta">第 ${q.number} 题 <span>·</span> ${inRound
-          ? (roundRec.round <= 1 ? "第 1 轮 · 打乱后每题做一次" : `第 ${roundRec.round} 轮 · 上一轮错题，重新打乱`)
+          ? (keepRoundPool
+            ? `第 ${roundRec.round} 轮 · 固定题池随机过一遍`
+            : (roundRec.round <= 1 ? "第 1 轮 · 打乱后每题做一次" : `第 ${roundRec.round} 轮 · 上一轮错题，重新打乱`))
           : inReview
           ? `复习轮 · 随机抽取${reviewMisses ? ` · 本题已错 ${reviewMisses} 次` : ""}`
           : q.type === "multiple" ? "请选择所有正确选项" : "请选择一个最合适的答案"}</p>
@@ -509,7 +562,9 @@
       <div class="controls">
         <div class="control-left">
           <button id="prev-btn" class="btn btn-ghost" type="button" ${currentIndex === 0 ? "disabled" : ""}>← 上一题</button>
-          <button id="save-btn" class="btn btn-save ${state.wrong.has(q.id) ? "saved" : ""}" type="button">${state.wrong.has(q.id) ? "◇ 已在错题本" : "◇ 加入错题本"}</button>
+          ${keepRoundPool
+            ? `<button id="master-btn" class="btn btn-master" type="button">我会了 · 删除</button>`
+            : `<button id="save-btn" class="btn btn-save ${state.wrong.has(q.id) ? "saved" : ""}" type="button">${state.wrong.has(q.id) ? "◇ 已在错题本" : "◇ 加入错题本"}</button>`}
         </div>
         <div class="control-right">
           <button id="submit-btn" class="btn btn-primary" type="button" ${submitted || !selected ? "disabled" : ""}>确认答案</button>
@@ -531,9 +586,36 @@
     }));
     $("prev-btn").addEventListener("click", () => go(-1));
     $("next-btn").addEventListener("click", () => go(1));
-    $("save-btn").addEventListener("click", toggleWrong);
+    if (keepRoundPool) $("master-btn")?.addEventListener("click", markMasteredAndRemove);
+    else $("save-btn")?.addEventListener("click", toggleWrong);
     const submitButton = $("submit-btn");
     if (submitButton) submitButton.addEventListener("click", submitAnswer);
+  }
+
+  function markMasteredAndRemove() {
+    if (!keepRoundPool) return;
+    const q = questions[currentIndex];
+    if (!q) return;
+    state.removed.add(q.id);
+    state.wrong.delete(q.id);
+    state.reviewMastered.add(q.id);
+    const key = scopeKey();
+    const rec = state.roundsByScope[key];
+    if (rec && !rec.done) {
+      const known = new Set(scopeQuestionIds());
+      const nextSet = uniqueRoundIds((rec.set || []).filter(id => id !== q.id && known.has(id)));
+      state.roundsByScope[key] = {
+        ...rec,
+        set: nextSet,
+        answered: uniqueRoundIds((rec.answered || []).filter(id => id !== q.id && known.has(id))),
+        wrong: uniqueRoundIds((rec.wrong || []).filter(id => id !== q.id && known.has(id))),
+        done: nextSet.length === 0,
+      };
+    }
+    showToast(`已删除 · 题池还剩 ${activeBank().length} 题`);
+    restorePosition = false;
+    buildRoundSession();
+    queueAutoUpload();
   }
 
   function submitAnswer() {
@@ -707,10 +789,11 @@
   $("wrong-filter")?.addEventListener("click", () => { wrongOnly = !wrongOnly; if (wrongOnly) pendingOnly = false; buildList(); updateStats(); });
   $("pending-filter")?.addEventListener("click", () => { pendingOnly = !pendingOnly; if (pendingOnly) wrongOnly = false; buildList(); updateStats(); });
   $("reset-progress")?.addEventListener("click", () => {
-    if (!confirm("要清空这台设备上的全部答题记录和错题本吗？")) return;
+    if (!confirm(keepRoundPool ? "要清空这台设备上的答题记录，并恢复已删除的题目吗？" : "要清空这台设备上的全部答题记录和错题本吗？")) return;
     state.attempted.clear(); state.correct.clear(); state.wrong.clear(); state.submitted.clear(); state.choices = {};
     state.coverPhase = "unanswered";
     state.reviewMastered = new Set();
+    state.removed = new Set();
     state.wrongCounts = {};
     state.roundsByScope = {};
     Q.clearQueue(state);
@@ -748,6 +831,7 @@
       lastCategory: state.lastCategory, lastQuestionId: state.lastQuestionId, mode: state.mode,
       ...Q.queuePayloadSlice(state, currentIndex),
       roundsByScope: state.roundsByScope || {},
+      removed: [...state.removed],
     };
     try {
       const response = await fetch(`${SB_URL}/rest/v1/vocab_progress?on_conflict=sync_code`, {
@@ -790,6 +874,10 @@
       state.mode = resolveMode(data.mode);
       Q.applyQueuePayload(state, data);
       if (Array.isArray(data.reviewMastered)) state.reviewMastered = new Set(data.reviewMastered);
+      if (Array.isArray(data.removed)) {
+        if (!automatic) state.removed = new Set(data.removed);
+        else data.removed.forEach(id => state.removed.add(id));
+      }
       if (data.wrongCounts && typeof data.wrongCounts === "object") Object.assign(state.wrongCounts, data.wrongCounts);
       if (data.roundsByScope && typeof data.roundsByScope === "object" && !Array.isArray(data.roundsByScope)) {
         const incoming = Q.sanitizeRounds(data.roundsByScope);
