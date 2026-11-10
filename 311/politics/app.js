@@ -176,8 +176,24 @@
 
   function matchesScopeBase(q, needle) {
     if (!matchesCategory(q)) return false;
-    if (needle && !`${q.stem} ${Object.values(q.options).join(" ")}`.toLowerCase().includes(needle)) return false;
+    if (needle && !`${q.stem} ${Object.values(q.options || {}).join(" ")} ${q.analysis || ""}`.toLowerCase().includes(needle)) return false;
     return true;
+  }
+
+  function isOpenQuestion(q) {
+    return !!q && (q.type === "open" || q.type === "essay" || q.type === "short");
+  }
+
+  function optionLettersFor(q) {
+    if (isOpenQuestion(q)) return [];
+    const keys = Object.keys(q.options || {}).filter(letter => letters.includes(letter));
+    return keys.length ? keys.sort() : letters;
+  }
+
+  function typeBadge(q) {
+    if (q.kind) return q.kind === "单选" ? "单选题" : `${q.kind}题`;
+    if (isOpenQuestion(q)) return "主观题";
+    return q.type === "multiple" ? "多选题" : "单选题";
   }
 
   function pendingCountInScope(needle) {
@@ -364,7 +380,7 @@
       } else if (!matchesCategory(q)) {
         return false;
       }
-      if (needle && !`${q.stem} ${Object.values(q.options).join(" ")}`.toLowerCase().includes(needle)) return false;
+      if (needle && !`${q.stem} ${Object.values(q.options || {}).join(" ")} ${q.analysis || ""}`.toLowerCase().includes(needle)) return false;
       return true;
     });
     const poolLeft = keepRoundPool ? activeBank().length : reportScope.length;
@@ -504,9 +520,9 @@
       return;
     }
     const q = questions[currentIndex];
+    const openQ = isOpenQuestion(q);
     const selected = String(state.choices[q.id] || "");
-    const answerLetters = String(q.answer || "").split("").sort();
-    const normalizedAnswer = answerLetters.join("");
+    const answerLetters = String(q.answer || "").split("").filter(Boolean).sort();
     const submitted = state.submitted.has(q.id);
     const correct = state.correct.has(q.id);
     const coverPhase = getCoverPhase(needle);
@@ -525,7 +541,8 @@
     const label = q.subjectLabel
       ? (currentCategory === "全部题目" || currentCategory.startsWith("subject:") ? `${q.subjectLabel} · ${q.category}` : q.category)
       : (currentCategory === "全部题目" ? q.category : currentCategory);
-    const optionsHtml = letters.map(letter => {
+    const optionLetters = optionLettersFor(q);
+    const optionsHtml = openQ ? "" : optionLetters.map(letter => {
       let classes = "option";
       const isSelected = selected.includes(letter);
       if (isSelected) classes += " selected";
@@ -535,12 +552,28 @@
       return `<button class="${classes}" type="button" data-choice="${letter}" ${submitted ? "disabled" : ""}>
         <span class="option-key">${letter}</span><span class="option-main"><span class="option-text">${escapeHtml(q.options[letter] || "")}</span>${why ? `<span class="option-why">${escapeHtml(why)}</span>` : ""}</span></button>`;
     }).join("");
+    const answerResult = openQ
+      ? (submitted ? `<p class="answer-result good">参考骨架已展开 · 对照钩子自己复述一遍。</p>` : "")
+      : (submitted ? `<p class="answer-result ${correct ? "good" : "bad"}">${correct ? "回答正确" : `正确答案：${answerLetters.join("、")}`} · ${correct ? "记得很好，继续保持。" : "看看解析，下一次就能答对。"}</p>` : "");
     const answerBox = submitted ? `<div class="answer-box">
-      <p class="answer-result ${correct ? "good" : "bad"}">${correct ? "回答正确" : `正确答案：${answerLetters.join("、")}`} · ${correct ? "记得很好，继续保持。" : "看看解析，下一次就能答对。"}</p>
+      ${answerResult}
       <p class="answer-text">${renderAnalysis(q.analysis || "这道题暂无解析。")}</p>
     </div>` : "";
+    const metaHint = inRound
+      ? (keepRoundPool
+        ? (mode === "order" ? `第 ${roundRec.round} 轮 · 固定题池按顺序过一遍` : `第 ${roundRec.round} 轮 · 固定题池随机过一遍`)
+        : (roundRec.round <= 1 ? "第 1 轮 · 打乱后每题做一次" : `第 ${roundRec.round} 轮 · 上一轮错题，重新打乱`))
+      : inReview
+      ? `复习轮 · 随机抽取${reviewMisses ? ` · 本题已错 ${reviewMisses} 次` : ""}`
+      : openQ
+      ? "先自己想骨架，再点看解析"
+      : q.type === "multiple"
+      ? "请选择所有正确选项"
+      : (q.kind === "辨析" ? "判断正确或错误" : "请选择一个最合适的答案");
+    const submitEnabled = openQ ? !submitted : (!submitted && !!selected);
+    const submitLabel = openQ ? (submitted ? "已看解析" : "看解析") : "确认答案";
     host.innerHTML = `<div class="question-topline">
-        <div class="badges"><span class="category-badge">${escapeHtml(label)}</span>${q.subjectLabel ? `<span class="paper-badge subject-badge">${escapeHtml(q.subjectLabel)}</span>` : ""}<span class="paper-badge">${q.type === "multiple" ? "多选题" : "单选题"}</span></div>
+        <div class="badges"><span class="category-badge">${escapeHtml(label)}</span>${q.subjectLabel ? `<span class="paper-badge subject-badge">${escapeHtml(q.subjectLabel)}</span>` : ""}<span class="paper-badge">${escapeHtml(typeBadge(q))}</span></div>
         <div class="question-count">${inRound
           ? `<strong>第 ${roundRec.round} 轮</strong> · 已答 ${roundRec.answered.length} / ${roundRec.set.length}`
           : inReview
@@ -549,15 +582,9 @@
       </div>
       <div class="progress-track"><div class="progress-fill" style="width:${percent}%"></div></div>
       <div class="question-content">
-        <p class="question-meta">第 ${q.number} 题 <span>·</span> ${inRound
-          ? (keepRoundPool
-            ? `第 ${roundRec.round} 轮 · 固定题池随机过一遍`
-            : (roundRec.round <= 1 ? "第 1 轮 · 打乱后每题做一次" : `第 ${roundRec.round} 轮 · 上一轮错题，重新打乱`))
-          : inReview
-          ? `复习轮 · 随机抽取${reviewMisses ? ` · 本题已错 ${reviewMisses} 次` : ""}`
-          : q.type === "multiple" ? "请选择所有正确选项" : "请选择一个最合适的答案"}</p>
-        <h2 class="question-stem">${escapeHtml(q.stem)}</h2>
-        <div class="options">${optionsHtml}</div>
+        <p class="question-meta">第 ${q.number} 题 <span>·</span> ${metaHint}</p>
+        <h2 class="question-stem">${escapeHtml(q.stem).replace(/\n/g, "<br>")}</h2>
+        ${optionsHtml ? `<div class="options">${optionsHtml}</div>` : (openQ && !submitted ? `<p class="open-hint">主观题不设选项：先在脑子里过一遍骨架，再点「看解析」对照。</p>` : "")}
       </div>
       <div class="controls">
         <div class="control-left">
@@ -567,7 +594,7 @@
             : `<button id="save-btn" class="btn btn-save ${state.wrong.has(q.id) ? "saved" : ""}" type="button">${state.wrong.has(q.id) ? "◇ 已在错题本" : "◇ 加入错题本"}</button>`}
         </div>
         <div class="control-right">
-          <button id="submit-btn" class="btn btn-primary" type="button" ${submitted || !selected ? "disabled" : ""}>确认答案</button>
+          <button id="submit-btn" class="btn btn-primary" type="button" ${submitEnabled ? "" : "disabled"}>${submitLabel}</button>
           <button id="next-btn" class="btn ${submitted ? "btn-primary" : ""}" type="button" ${nextDisabled ? "disabled" : ""}>${inRound ? "下一题 →" : inReview ? "随机下一题 →" : "下一题 →"}</button>
         </div>
       </div>${answerBox}`;
@@ -596,6 +623,7 @@
     if (!keepRoundPool) return;
     const q = questions[currentIndex];
     if (!q) return;
+    const nextFocusId = questions[currentIndex + 1]?.id || questions[currentIndex - 1]?.id || "";
     state.removed.add(q.id);
     state.wrong.delete(q.id);
     state.reviewMastered.add(q.id);
@@ -614,14 +642,20 @@
     }
     showToast(`已删除 · 题池还剩 ${activeBank().length} 题`);
     restorePosition = false;
-    buildRoundSession();
+    if (isRoundCover()) buildRoundSession(nextFocusId || undefined);
+    else buildList(true, nextFocusId || undefined);
     queueAutoUpload();
   }
 
   function submitAnswer() {
     const q = questions[currentIndex];
-    if (!q || !state.choices[q.id]) return;
-    const isCorrect = String(state.choices[q.id]).split("").sort().join("") === String(q.answer).split("").sort().join("");
+    if (!q) return;
+    const openQ = isOpenQuestion(q);
+    if (!openQ && !state.choices[q.id]) return;
+    if (openQ) state.choices[q.id] = state.choices[q.id] || "看";
+    const isCorrect = openQ
+      ? true
+      : String(state.choices[q.id]).split("").sort().join("") === String(q.answer || "").split("").filter(Boolean).sort().join("");
     if (isRoundCover()) {
       const key = scopeKey();
       const rec = state.roundsByScope[key];

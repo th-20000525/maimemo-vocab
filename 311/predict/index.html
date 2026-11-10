@@ -5,28 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f6f3ed">
   <title>311预测卷</title>
-  <link rel="stylesheet" href="../style.css?v=predict-six-20261110">
-  <script src="questions.js?v=predict-270-20261110"></script>
+  <link rel="stylesheet" href="../style.css?v=predict-order-20261110">
+  <script src="questions.js?v=predict-342-order-20261110"></script>
   <script>
     window.STUDY_APP_CONFIG = {
-      storageKey: "311-predict-pool-progress-v1",
+      storageKey: "311-predict-pool-progress-v2-order",
       appId: "311-predict-pool",
-      syncNamespace: "311:predict-pool:",
-      defaultMode: "random-cover",
-      roundOnly: true,
+      syncNamespace: "311:predict-pool-v2:",
+      defaultMode: "order",
+      roundOnly: false,
       singlePool: true,
       keepRoundPool: true,
       categoryOrder: ["预测卷一", "预测卷二", "预测卷三", "预测卷四", "预测卷五", "预测卷六"]
     };
   </script>
-  <script defer src="../study-list.js?v=predict-six-20261110"></script>
-  <script defer src="../politics/app.js?v=predict-six-20261110"></script>
+  <script defer src="../study-list.js?v=predict-order-20261110"></script>
+  <script defer src="../politics/app.js?v=predict-order-20261110"></script>
 </head>
 <body>
   <header class="topbar">
     <a class="brand" href="./" aria-label="311预测卷">
       <span class="brand-mark">预</span>
-      <span class="brand-copy"><strong>311预测卷</strong><small>六套卷单选，固定题池按轮刷</small></span>
+      <span class="brand-copy"><strong>311预测卷</strong><small>六套卷按顺序刷，含主客观</small></span>
     </a>
     <div class="topbar-right"><span class="offline-dot"></span><span>离线可用 · 云端进度同步</span></div>
   </header>
@@ -35,8 +35,8 @@
     <section class="intro-row">
       <div>
         <p class="eyebrow">STUDY DESK <span>·</span> 311预测卷</p>
-        <h1>六套预测卷单选：答对不剔除，会了就自己删。</h1>
-        <p class="intro-copy">题池一共 <strong id="bank-total">—</strong> 题，来自 2027 考研 311 六套预测卷客观题，带通俗解析。每一轮把<strong>当前题池</strong>打乱后逐题过一遍；本轮全部作答后进入下一轮，再重新打乱同一批题。答对<strong>不会</strong>自动消失。只有你点「我会了 · 删除」，这道题才离开题池。刷新后仍停在这一轮的这个顺序。</p>
+        <h1>六套预测卷按卷序刷：单选＋辨析＋简答＋论述。</h1>
+        <p class="intro-copy">题池一共 <strong id="bank-total">—</strong> 题，来自 2027 考研 311 六套预测卷（含客观与主观）。按<strong>卷一→卷六、卷内题号顺序</strong>逐题过，不随机打乱。答对<strong>不会</strong>自动消失；只有你点「我会了 · 删除」，这道题才离开题池。主观题先想骨架，再点「看解析」对照人话与钩子。</p>
       </div>
       <div class="stats" aria-label="学习统计">
         <div class="stat"><span id="stat-done">0</span><small>已作答</small></div>
@@ -52,10 +52,10 @@
           <div class="sync-heading"><span>跨设备记忆</span><span class="sync-cloud">↗</span></div>
           <input id="sync-code" class="sync-code" type="password" autocomplete="off" placeholder="设置你的同步码">
           <div class="sync-actions"><button id="sync-upload" type="button">上传</button><button id="sync-download" type="button">拉取</button></div>
-          <p class="sync-help">换设备：旧机先「上传」，新机「拉取」。311 预测卷的进度、轮次和已删除题目单独保存，不改错题池记录。</p>
+          <p class="sync-help">换设备：旧机先「上传」，新机「拉取」。311 预测卷进度与已删除题目单独保存，不改错题池记录。</p>
           <p id="sync-status" class="sync-status" role="status"></p>
         </section>
-        <div class="sidebar-note"><span class="note-mark">✳</span><p>交卷后错选项会标短原因；解析里有人话、坑和钩子。觉得会了就点「我会了 · 删除」，下一轮不会再出现。</p></div>
+        <div class="sidebar-note"><span class="note-mark">✳</span><p>单选／辨析可直接作答；简答／论述点「看解析」展开骨架。觉得会了就删，下一轮不会再出现。</p></div>
         <button id="reset-progress" class="text-button" type="button">清空本机学习记录</button>
       </aside>
 
@@ -63,7 +63,7 @@
         <div id="question-view"></div>
       </section>
     </section>
-    <footer class="footer"><span>专注当下这一题。</span><span>311预测卷 <i>·</i> 六套单选</span></footer>
+    <footer class="footer"><span>专注当下这一题。</span><span>311预测卷 <i>·</i> 按序全卷</span></footer>
   </main>
   <div id="toast" class="toast" role="status"></div>
   <script>
