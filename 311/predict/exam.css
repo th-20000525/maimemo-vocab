@@ -22,6 +22,15 @@
   font-weight: 700;
 }
 .grade-paper-btn:disabled { opacity: .45; cursor: not-allowed; }
+.retake-paper-btn {
+  background: #fffefa;
+  border: 1px solid #d7d0c3;
+  color: var(--navy);
+}
+.retake-paper-btn:hover:not(:disabled) {
+  background: #f3efe7;
+  border-color: #c9c0b0;
+}
 .wrong-filter:disabled { opacity: .45; cursor: not-allowed; }
 
 .exam-report-actions {
