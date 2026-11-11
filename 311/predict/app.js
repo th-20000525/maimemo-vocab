@@ -132,6 +132,15 @@
     return !!state.choices[q.id];
   }
 
+  function hasObjectiveAnswer(q) {
+    return isObjectiveQuestion(q) && !!state.choices[q.id];
+  }
+
+  function paperHasProgress(scope = paperScopeQuestions()) {
+    return scope.some(q => hasExamAnswer(q) || state.attempted.has(q.id) || state.wrong.has(q.id) || state.correct.has(q.id))
+      || isPaperGraded();
+  }
+
   function setText(id, value) {
     const el = $(id);
     if (el) el.textContent = value;
@@ -141,32 +150,40 @@
     const currentScope = bank.filter(matchesCategory);
     if (examPaper) {
       const objective = currentScope.filter(isObjectiveQuestion);
-      const answered = currentScope.filter(hasExamAnswer).length;
+      const answeredObj = objective.filter(hasObjectiveAnswer).length;
       const graded = isPaperGraded();
       const wrongInScope = objective.filter(q => state.wrong.has(q.id)).length;
       const correctObj = objective.filter(q => state.correct.has(q.id)).length;
-      setText("stat-done", String(answered));
+      const blankObj = Math.max(0, objective.length - answeredObj);
+      setText("stat-done", graded ? String(correctObj + wrongInScope) : String(answeredObj));
       setText("stat-accuracy", graded && objective.length
         ? `${Math.round(correctObj / objective.length * 100)}%`
         : "—");
-      setText("stat-wrong", graded ? String(wrongInScope) : String(Math.max(0, currentScope.length - answered)));
-      setText("stat-wrong-label", graded ? "客观错题" : "未答题数");
+      setText("stat-wrong", graded ? String(wrongInScope) : String(blankObj));
+      setText("stat-wrong-label", graded ? "客观错题" : "未选题数");
       setText("wrong-count", String(wrongInScope));
       setText("bank-total", String(currentScope.length));
       const gradeBtn = $("grade-paper-btn");
       if (gradeBtn) {
         gradeBtn.hidden = graded;
-        gradeBtn.disabled = answered === 0;
-        gradeBtn.textContent = answered >= currentScope.length ? "交卷核对" : `交卷核对（已答 ${answered}/${currentScope.length}）`;
+        gradeBtn.disabled = answeredObj === 0;
+        gradeBtn.textContent = answeredObj >= objective.length && objective.length
+          ? "交卷看答案"
+          : `交卷看答案（选择题 ${answeredObj}/${objective.length}）`;
+      }
+      const retakeBtn = $("retake-paper-btn");
+      if (retakeBtn) {
+        retakeBtn.disabled = !paperHasProgress(currentScope);
+        retakeBtn.title = retakeBtn.disabled ? "本卷还没有作答记录" : "清空本卷作答，重新开刷";
       }
       const wrongFilter = $("wrong-filter");
       if (wrongFilter) {
         wrongFilter.disabled = !graded;
         wrongFilter.classList.toggle("active", wrongOnly);
-        wrongFilter.title = graded ? "" : "先交卷核对后才能只看错题";
+        wrongFilter.title = graded ? "" : "先交卷看答案后才能只看错题";
       }
       $("pending-filter")?.classList.toggle("active", pendingOnly);
-      setText("pending-count", currentScope.filter(q => !hasExamAnswer(q)).length);
+      setText("pending-count", blankObj);
       return;
     }
     const attemptedInScope = currentScope.filter(q => state.attempted.has(q.id));
@@ -643,10 +660,15 @@
       ${answerResult}
       <p class="answer-text">${renderAnalysis(q.analysis || "这道题暂无解析。")}</p>
     </div>` : "";
+    const objectiveScope = examPaper ? paperScopeQuestions().filter(isObjectiveQuestion) : [];
+    const answeredObj = objectiveScope.filter(hasObjectiveAnswer).length;
+    const objectiveReady = examPaper && objectiveScope.length > 0 && answeredObj >= objectiveScope.length;
     const metaHint = examPaper
       ? (graded
         ? (openQ ? "交卷后回看骨架" : (correct ? "本卷已核对 · 回答正确" : "本卷已核对 · 对照解析"))
-        : (openQ ? "先自己想骨架，点「已想过」记下，整卷交卷后再看解析" : "先选题，整卷答完再交卷核对"))
+        : (openQ
+          ? (objectiveReady ? "选择题已齐，可直接交卷看答案；主观题可顺带过骨架" : "主观题可跳过；选择题答完即可交卷看答案")
+          : (objectiveReady ? "选择题已齐，可交卷看答案" : "先选题；选择题答完就能交卷对思路")))
       : inRound
       ? (keepRoundPool
         ? (mode === "order" ? `第 ${roundRec.round} 轮 · 固定题池按顺序过一遍` : `第 ${roundRec.round} 轮 · 固定题池随机过一遍`)
@@ -684,31 +706,40 @@
     }
     const onLast = currentIndex === questions.length - 1;
     const nextLabel = examPaper
-      ? (onLast ? (graded ? "已是最后一题" : "最后一题 · 去交卷") : "下一题 →")
+      ? (onLast
+        ? (graded ? "已是最后一题" : (objectiveReady ? "去交卷看答案" : "最后一题 · 去交卷"))
+        : (objectiveReady && !openQ && isOpenQuestion(questions[currentIndex + 1])
+          ? "下一题（或交卷） →"
+          : "下一题 →"))
       : (inRound ? "下一题 →" : inReview ? "随机下一题 →" : "下一题 →");
     const leftExtra = examPaper
       ? (graded
         ? `<button id="exam-report-btn" class="btn btn-ghost" type="button">本卷成绩单</button>`
-        : `<button id="grade-inline-btn" class="btn btn-master" type="button">交卷核对</button>`)
+        : `<button id="grade-inline-btn" class="btn btn-master" type="button">交卷看答案</button>`)
       : (keepRoundPool
         ? `<button id="master-btn" class="btn btn-master" type="button">我会了 · 删除</button>`
         : `<button id="save-btn" class="btn btn-save ${state.wrong.has(q.id) ? "saved" : ""}" type="button">${state.wrong.has(q.id) ? "◇ 已在错题本" : "◇ 加入错题本"}</button>`);
     const sheetFab = examPaper
       ? `<button id="answer-sheet-fab" class="answer-sheet-fab" type="button" aria-label="打开答题卡"><span>题卡</span></button>${renderAnswerSheetOverlay(q.id)}`
       : "";
+    const progressPercent = examPaper && !graded && objectiveScope.length
+      ? (answeredObj / objectiveScope.length) * 100
+      : percent;
     host.innerHTML = `${sheetFab}<div class="question-topline">
         <div class="badges"><span class="category-badge">${escapeHtml(label)}</span>${q.subjectLabel ? `<span class="paper-badge subject-badge">${escapeHtml(q.subjectLabel)}</span>` : ""}<span class="paper-badge">${escapeHtml(typeBadge(q))}</span>${examPaper && !graded ? `<span class="paper-badge">答题中</span>` : ""}${examPaper && graded ? `<span class="paper-badge">已核对</span>` : ""}</div>
         <div class="question-count">${inRound
           ? `<strong>第 ${roundRec.round} 轮</strong> · 已答 ${roundRec.answered.length} / ${roundRec.set.length}`
           : inReview
           ? `<strong>错题剩余 ${reviewPoolInScope(needle).length}</strong> · 已掌握 ${masteredInScope}/${scopeTotal}`
+          : examPaper && !graded
+          ? `<strong>选择题 ${answeredObj}</strong> / ${objectiveScope.length}`
           : `<strong>${currentIndex + 1}</strong> / ${questions.length}`}</div>
       </div>
-      <div class="progress-track"><div class="progress-fill" style="width:${percent}%"></div></div>
+      <div class="progress-track"><div class="progress-fill" style="width:${progressPercent}%"></div></div>
       <div class="question-content">
         <p class="question-meta">第 ${q.number} 题 <span>·</span> ${metaHint}</p>
         <h2 class="question-stem">${escapeHtml(q.stem).replace(/\n/g, "<br>")}</h2>
-        ${optionsHtml ? `<div class="options">${optionsHtml}</div>` : (openQ && !showAnswerBox ? `<p class="open-hint">${examPaper ? "主观题先自己过骨架，点「标记已想过」；整卷交卷后才展开解析。" : "主观题不设选项：先在脑子里过一遍骨架，再点「看解析」对照。"}</p>` : "")}
+        ${optionsHtml ? `<div class="options">${optionsHtml}</div>` : (openQ && !showAnswerBox ? `<p class="open-hint">${examPaper ? "主观题可不做。想对一下骨架就点「标记已想过」，再交卷展开解析。" : "主观题不设选项：先在脑子里过一遍骨架，再点「看解析」对照。"}</p>` : "")}
       </div>
       <div class="controls">
         <div class="control-left">
@@ -763,7 +794,7 @@
           state.attempted.add(q.id);
           saveState();
           queueAutoUpload();
-          showToast("已记下 · 交卷后可看骨架");
+          showToast("已记下 · 交卷后可看骨架对思路");
           render();
           return;
         }
@@ -868,7 +899,7 @@
     return `<div class="empty-state review-report exam-grade-with-sheet">
       <span class="empty-symbol">✓</span>
       <h2>${escapeHtml(currentCategory)} · 核对完成</h2>
-      <p class="report-summary">客观题（单选＋辨析）<strong>${correctN}</strong> / ${objective.length} 正确${blankN ? `，未作答 ${blankN} 题记为错` : ""}。主观题 ${openQs.length} 道不计入正确率。点答题卡绿/红题号可跳转回看；也可只看错题。</p>
+      <p class="report-summary">选择题（单选＋辨析）<strong>${correctN}</strong> / ${objective.length} 正确${blankN ? `，未作答 ${blankN} 题记为错` : ""}。主观题 ${openQs.length} 道不计入正确率，可回看骨架对思路。点答题卡绿/红题号可跳转；也可只看错题或重刷。</p>
       <div class="answer-sheet-inline">
         <div class="answer-sheet-head"><strong>答题卡</strong></div>
         <div class="answer-sheet-body">${renderAnswerSheetBody("")}</div>
@@ -876,7 +907,7 @@
       <div class="exam-report-actions">
         <button id="exam-wrong-only-btn" class="btn btn-primary" type="button" ${wrongList.length ? "" : "disabled"}>只看错题（${wrongList.length}）</button>
         <button id="exam-all-btn" class="btn" type="button">回看全部题目</button>
-        <button id="exam-retake-btn" class="btn btn-ghost" type="button">重新开考本卷</button>
+        <button id="exam-retake-btn" class="btn btn-ghost" type="button">重刷本卷</button>
       </div>
     </div>`;
   }
@@ -902,13 +933,14 @@
 
   function gradeCurrentPaper() {
     const scope = paperScopeQuestions();
-    const answered = scope.filter(hasExamAnswer).length;
-    if (!answered) {
-      showToast("先答几道再交卷");
+    const objective = scope.filter(isObjectiveQuestion);
+    const answeredObj = objective.filter(hasObjectiveAnswer).length;
+    if (!answeredObj) {
+      showToast("先做几道选择题再交卷");
       return;
     }
-    if (answered < scope.length) {
-      if (!confirm(`还有 ${scope.length - answered} 题未作答，未选的客观题将记为错误。确定交卷核对吗？`)) return;
+    if (answeredObj < objective.length) {
+      if (!confirm(`还有 ${objective.length - answeredObj} 道选择题未作答，将记为错误。确定交卷看答案吗？`)) return;
     }
     scope.forEach(q => {
       state.attempted.add(q.id);
@@ -938,11 +970,15 @@
     queueAutoUpload();
     render();
     updateStats();
-    showToast("本卷已核对");
+    showToast(answeredObj >= objective.length ? "选择题已核对，可回看解析" : "本卷已核对");
   }
 
   function retakeCurrentPaper() {
-    if (!confirm(`确定清空「${currentCategory}」的作答并重新开考吗？`)) return;
+    if (!paperHasProgress()) {
+      showToast("本卷还没有作答记录");
+      return;
+    }
+    if (!confirm(`确定清空「${currentCategory}」的作答并重刷吗？`)) return;
     const scope = paperScopeQuestions();
     scope.forEach(q => {
       state.attempted.delete(q.id);
@@ -961,7 +997,7 @@
     saveState();
     buildList(true);
     queueAutoUpload();
-    showToast("已重新开考");
+    showToast("已重刷本卷");
   }
 
   function markMasteredAndRemove() {
@@ -1177,7 +1213,7 @@
   searchInput?.addEventListener("input", () => { query = searchInput.value; buildList(); });
   $("wrong-filter")?.addEventListener("click", () => {
     if (examPaper && !isPaperGraded()) {
-      showToast("先交卷核对，再看错题");
+      showToast("先交卷看答案，再看错题");
       return;
     }
     wrongOnly = !wrongOnly;
@@ -1190,6 +1226,10 @@
   $("grade-paper-btn")?.addEventListener("click", () => {
     if (!examPaper) return;
     gradeCurrentPaper();
+  });
+  $("retake-paper-btn")?.addEventListener("click", () => {
+    if (!examPaper) return;
+    retakeCurrentPaper();
   });
   $("reset-progress")?.addEventListener("click", () => {
     if (!confirm(examPaper ? "要清空各套卷的作答与核对记录吗？" : (keepRoundPool ? "要清空这台设备上的答题记录，并恢复已删除的题目吗？" : "要清空这台设备上的全部答题记录和错题本吗？"))) return;
