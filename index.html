@@ -1362,7 +1362,7 @@ function paintCardFace(p) {
     sourceEl.innerHTML = "";
   } else {
     sourceEl.hidden = false;
-    sourceEl.innerHTML = sourceSentenceHtml(p, cardRevealed);
+    sourceEl.innerHTML = sourceSentenceHtml(p, true);
   }
   const tipWrap = $("cardPhraseTipWrap");
   const tip = String(($("cardPhraseTip") && $("cardPhraseTip").textContent) || "").trim();
