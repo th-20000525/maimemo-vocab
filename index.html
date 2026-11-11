@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-layout-rev="blank-visible-v1">
+<html lang="zh-CN" data-layout-rev="tip-multiline-blank-v2">
 <head>
 <meta charset="UTF-8" />
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 <meta http-equiv="Pragma" content="no-cache" />
-<meta name="app-layout" content="blank-visible-v1" />
+<meta name="app-layout" content="tip-multiline-blank-v2" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>背短语 · 墨墨卡片</title>
 <style>
@@ -226,6 +226,23 @@
     display: block; margin-bottom: 4px; font-size: 0.72rem; font-weight: 700;
     letter-spacing: 0.04em; color: var(--muted);
   }
+  .card-phrase-tip .tip-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4em;
+  }
+  .card-phrase-tip .tip-line {
+    display: block;
+    margin: 0;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  .card-phrase-tip .tip-k {
+    font-weight: 750;
+    color: var(--teal-dark);
+  }
   .card-phrase-sub { margin-top: 2px; font-size: 0.78rem; color: var(--muted); text-align: center; }
   .card-phrase-source {
     font-size: 0.95rem; line-height: 1.55; color: var(--text);
@@ -241,17 +258,20 @@
     }
   }
   .recall-blank {
-    display: inline-block;
-    margin: 0 3px;
-    padding: 0 1px 1px;
-    min-width: 4.5em;
+    display: inline;
+    margin: 0 1px;
+    padding: 1px 5px 2px;
     border-bottom: 2px solid var(--teal-dark);
+    border-radius: 4px;
+    background: #d8efe8;
     color: var(--teal-dark);
     font-weight: 700;
-    letter-spacing: 0.12em;
-    line-height: 1.2;
+    letter-spacing: 0.04em;
+    line-height: 1.25;
     vertical-align: baseline;
-    white-space: nowrap;
+    white-space: pre-wrap;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
   }
   .recall-phrase { color: #d64545; font-weight: 750; }
   .card-recall-mask { color: var(--muted); letter-spacing: 0.08em; font-weight: 700; }
@@ -900,6 +920,31 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;");
 }
 
+/** Keep 中心词 / 拆解 / 旁义 / 真题标头 on separate lines for A/B/C tips. */
+function normalizeTipText(tip) {
+  let text = String(tip || "").replace(/\r\n?/g, "\n");
+  text = text.replace(/[ \t]+\n/g, "\n").replace(/\n[ \t]+/g, "\n");
+  // Split glued labels even if source forgot newlines.
+  text = text.replace(/(?<!^|\n)(〔[^〕]*〕)/g, "\n$1");
+  text = text.replace(/(?<!^|\n)((?:中心词|拆解|旁义|本意|记法)[：:])/g, "\n$1");
+  text = text.replace(/(?<!^|\n)(分支\d*[：:])/g, "\n$1");
+  return text.replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function formatTipHtml(tip) {
+  const text = normalizeTipText(tip);
+  if (!text) return "";
+  const lines = text.split("\n").map((line) => line.trim()).filter(Boolean);
+  const body = lines.map((line) => {
+    const m = line.match(/^(〔[^〕]*〕|(?:中心词|拆解|旁义|本意|记法)[：:]|分支\d*[：:])(.*)$/);
+    if (m) {
+      return `<span class="tip-line"><span class="tip-k">${escapeHtml(m[1])}</span>${escapeHtml(m[2])}</span>`;
+    }
+    return `<span class="tip-line">${escapeHtml(line)}</span>`;
+  }).join("");
+  return `<span class="tip-body">${body}</span>`;
+}
+
 function meaningPosClass(tag) {
   const t = (tag || "").trim();
   if (t === "动" || /^v/i.test(t)) return "pos-v";
@@ -1025,7 +1070,7 @@ $("list").addEventListener("click", (e) => {
   toggleRowMeaning(item, id, w, true);
 });
 
-const PHRASE_DECK_BUILD = 15;
+const PHRASE_DECK_BUILD = 16;
 /** 短语牌组来自《短语三档手册》2462 条（A可推/B多义/C不可拆）；无独立例句时不展示原句行。 */
 const SOURCE_SENTENCES = {
   "abandon hope": {
@@ -1059,10 +1104,11 @@ function sourceSentenceFor(phrase, pos, word) {
   if (guide && guide.sentence) {
     const start = Number.isInteger(guide.blankStart) ? guide.blankStart : guide.sentence.toLowerCase().indexOf(raw.toLowerCase());
     const end = Number.isInteger(guide.blankEnd) ? guide.blankEnd : (start >= 0 ? start + raw.length : -1);
+    const repaired = resolveBlankSpan(guide.sentence, raw, start, end);
     return {
       sentence: guide.sentence,
-      index: start,
-      blankEnd: end,
+      index: repaired ? repaired.start : start,
+      blankEnd: repaired ? repaired.end : end,
       kind: "guide",
       zh: guide.sentenceZh || guide.zh || "",
       tip: guide.tip || "",
@@ -1337,6 +1383,37 @@ function hiddenPhraseHtml() {
   return `<p class="phrase-line"><span class="card-recall-mask">______</span></p>`;
 }
 
+function resolveBlankSpan(sentence, phrase, idx, end) {
+  const sent = String(sentence || "");
+  const raw = String(phrase || "");
+  let start = Number.isInteger(idx) ? idx : -1;
+  let stop = Number.isInteger(end) ? end : -1;
+  if (start >= 0 && stop > start && stop <= sent.length) {
+    const surface = sent.slice(start, stop);
+    if (surface.trim()) return { start, end: stop, surface };
+  }
+  // Fallback: locate phrase (or a trailing particle) so the covered blank never collapses.
+  if (raw) {
+    const lower = sent.toLowerCase();
+    const needle = raw.toLowerCase();
+    let found = lower.indexOf(needle);
+    if (found < 0) {
+      const parts = needle.trim().split(/\s+/).filter(Boolean);
+      if (parts.length > 1) {
+        const rest = parts.slice(1).join(" ");
+        const re = new RegExp(`\\b[\\w'-]+\\s+${rest.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+        const m = sent.match(re);
+        if (m) found = m.index;
+        if (m) return { start: m.index, end: m.index + m[0].length, surface: m[0] };
+      }
+    }
+    if (found >= 0) {
+      return { start: found, end: found + raw.length, surface: sent.slice(found, found + raw.length) };
+    }
+  }
+  return null;
+}
+
 function sourceSentenceHtml(p, reveal) {
   const sentence = String(p.source || "");
   const phrase = String(p.phrase || "");
@@ -1346,19 +1423,17 @@ function sourceSentenceHtml(p, reveal) {
     const exact = idx >= 0 && sentence.slice(idx, idx + phrase.length).toLowerCase() === phrase.toLowerCase();
     end = exact ? idx + phrase.length : -1;
   }
-  const matches = idx >= 0 && end > idx && end <= sentence.length;
-  if (!matches) {
+  const span = resolveBlankSpan(sentence, phrase, idx, end);
+  if (!span) {
     return sentence ? `<span class="label">原句</span><p>${escapeHtml(sentence)}</p>` : "";
   }
-  const rawSurface = sentence.slice(idx, end);
-  const surface = escapeHtml(rawSurface);
-  // Visible blank: underscores sized to the hidden span — never a zero-width gap.
-  const blankChars = Math.max(4, Array.from(rawSurface.replace(/\s+/g, " ").trim()).length || phrase.length || 6);
-  const blankPad = "_".repeat(blankChars);
+  const surface = escapeHtml(span.surface);
+  // Covered blank: same width as the phrase, visible underscore glyphs + tinted chip (never a hollow gap).
+  const blankVisual = escapeHtml(span.surface.replace(/[^\s]/g, "_"));
   const marked = reveal
     ? `<span class="recall-phrase">${surface}</span>`
-    : `<span class="recall-blank" aria-label="搭配空出">${blankPad}</span>`;
-  const body = escapeHtml(sentence.slice(0, idx)) + marked + escapeHtml(sentence.slice(end));
+    : `<span class="recall-blank" aria-label="搭配空出">${blankVisual || "____"}</span>`;
+  const body = escapeHtml(sentence.slice(0, span.start)) + marked + escapeHtml(sentence.slice(span.end));
   return `<span class="label">原句</span><p>${body}</p>`;
 }
 
@@ -1456,7 +1531,7 @@ function renderCard(options) {
   if (tipLabel) {
     tipLabel.textContent = p.tier === "A" ? "推法" : p.tier === "B" ? "分支" : p.star ? "★高频" : "记法";
   }
-  if (tipWrap) $("cardPhraseTip").textContent = tip;
+  if (tipWrap) $("cardPhraseTip").innerHTML = formatTipHtml(tip);
   const tierTag = p.tier === "A" ? "A可推" : p.tier === "B" ? "B多义" : p.star ? "C★" : "C整记";
   $("cardPhraseSub").textContent = `#${p.id + 1} · ${tierTag} · 第 ${phraseRound} 轮${p.wordOnly ? " · 单词" : ""}`;
   paintCardFace(p);
