@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-layout-rev="phrase-in-sentence-v1">
+<html lang="zh-CN" data-layout-rev="phrase-on-top-v1">
 <head>
 <meta charset="UTF-8" />
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 <meta http-equiv="Pragma" content="no-cache" />
-<meta name="app-layout" content="phrase-in-sentence-v1" />
+<meta name="app-layout" content="phrase-on-top-v1" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>背短语 · 墨墨卡片</title>
 <style>
@@ -1070,7 +1070,7 @@ $("list").addEventListener("click", (e) => {
   toggleRowMeaning(item, id, w, true);
 });
 
-const PHRASE_DECK_BUILD = 17;
+const PHRASE_DECK_BUILD = 18;
 /** 短语牌组来自《短语三档手册》2462 条（A可推/B多义/C不可拆）；无独立例句时不展示原句行。 */
 const SOURCE_SENTENCES = {
   "abandon hope": {
@@ -1445,18 +1445,12 @@ function paintCardFace(p) {
   const phrase = String(p.phrase || "").trim();
   const selfSource = !!src && src.toLowerCase() === phrase.toLowerCase();
   const hasSentence = !!src && !selfSource;
+  // Always show the phrase in the top 短语 box; when 原句 exists, also fill it there (no blank).
+  $("cardPhraseEn").innerHTML = formatPhraseEnHtml(p);
   if (!hasSentence) {
-    // No usable 原句: keep the phrase in the top box.
-    $("cardPhraseEn").innerHTML = formatPhraseEnHtml(p);
     sourceEl.hidden = true;
     sourceEl.innerHTML = "";
-  } else if (cardRevealed) {
-    $("cardPhraseEn").innerHTML = formatPhraseEnHtml(p);
-    sourceEl.hidden = false;
-    sourceEl.innerHTML = sourceSentenceHtml(p, true);
   } else {
-    // Covered: hide top 短语; put the phrase into 原句 instead of a blank.
-    $("cardPhraseEn").innerHTML = hiddenPhraseHtml();
     sourceEl.hidden = false;
     sourceEl.innerHTML = sourceSentenceHtml(p, true);
   }
