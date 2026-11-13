@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-layout-rev="phrase-on-top-v1">
+<html lang="zh-CN" data-layout-rev="sentence-only-covered-v1">
 <head>
 <meta charset="UTF-8" />
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 <meta http-equiv="Pragma" content="no-cache" />
-<meta name="app-layout" content="phrase-on-top-v1" />
+<meta name="app-layout" content="sentence-only-covered-v1" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>背短语 · 墨墨卡片</title>
 <style>
@@ -186,6 +186,8 @@
   .card-pair-sentence .card-pair-en {
     background: #f4f8ff; border: 1px solid #d5e2f5;
   }
+  /* Covered + has 原句: only the sentence is shown (短语 row hidden). */
+  .flash-card.sentence-only .card-pair-phrase { display: none; }
   .card-pair-en .label, .card-pair-zh .label {
     display: block; margin-bottom: 4px; font-size: 0.72rem; font-weight: 700;
     letter-spacing: 0.04em; color: var(--muted);
@@ -1070,7 +1072,7 @@ $("list").addEventListener("click", (e) => {
   toggleRowMeaning(item, id, w, true);
 });
 
-const PHRASE_DECK_BUILD = 18;
+const PHRASE_DECK_BUILD = 19;
 /** 短语牌组来自《短语三档手册》2462 条（A可推/B多义/C不可拆）；无独立例句时不展示原句行。 */
 const SOURCE_SENTENCES = {
   "abandon hope": {
@@ -1440,18 +1442,19 @@ function sourceSentenceHtml(p, reveal) {
 function paintCardFace(p) {
   const card = $("cardTap");
   const sourceEl = $("cardPhraseSource");
-  card.classList.remove("recall-say", "recall-sentence", "revealed");
+  card.classList.remove("recall-say", "recall-sentence", "revealed", "sentence-only");
   const src = String(p.source || "").trim();
   const phrase = String(p.phrase || "").trim();
   const selfSource = !!src && src.toLowerCase() === phrase.toLowerCase();
   const hasSentence = !!src && !selfSource;
-  // Always show the phrase in the top 短语 box; when 原句 exists, also fill it there (no blank).
+  // Phrase text stays in the DOM for reveal; covered + 原句 hides the whole 短语 row.
   $("cardPhraseEn").innerHTML = formatPhraseEnHtml(p);
   if (!hasSentence) {
     sourceEl.hidden = true;
     sourceEl.innerHTML = "";
   } else {
     sourceEl.hidden = false;
+    // Fill the phrase into 原句 (no cloze blank).
     sourceEl.innerHTML = sourceSentenceHtml(p, true);
   }
   const tipWrap = $("cardPhraseTipWrap");
@@ -1464,6 +1467,7 @@ function paintCardFace(p) {
     return;
   }
   card.classList.add("recall-say");
+  if (hasSentence) card.classList.add("sentence-only");
   if (tipWrap) tipWrap.hidden = true;
   $("cardHint").hidden = false;
   $("cardActions").hidden = true;
