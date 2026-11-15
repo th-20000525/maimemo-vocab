@@ -73,10 +73,11 @@
         removed: new Set(saved.removed || []),
         wrongCounts: saved.wrongCounts && typeof saved.wrongCounts === "object" ? saved.wrongCounts : {},
         roundsByScope: saved.roundsByScope && typeof saved.roundsByScope === "object" ? saved.roundsByScope : {},
+        poolLocked: saved.poolLocked === true,
         syncCode: defaultSyncCode
       };
     } catch {
-      return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastQuestionId: "", mode: resolveMode(appConfig.defaultMode), shuffleKey: "", shuffleOrder: [], listIndex: 0, coverPhase: "unanswered", reviewMastered: new Set(), removed: new Set(), wrongCounts: {}, roundsByScope: {}, syncCode: defaultSyncCode };
+      return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastQuestionId: "", mode: resolveMode(appConfig.defaultMode), shuffleKey: "", shuffleOrder: [], listIndex: 0, coverPhase: "unanswered", reviewMastered: new Set(), removed: new Set(), wrongCounts: {}, roundsByScope: {}, poolLocked: false, syncCode: defaultSyncCode };
     }
   }
 
@@ -95,6 +96,7 @@
       removed: [...state.removed],
       wrongCounts: state.wrongCounts,
       roundsByScope: state.roundsByScope || {},
+      poolLocked: state.poolLocked === true,
       syncCode: $("sync-code")?.value.trim() || state.syncCode
     }));
     updateStats();
@@ -261,6 +263,45 @@
     });
   }
 
+  /**
+   * 政治错题切到「固定题池、答对不剔除」时：用当前轮 set（并入错题本）锁定题池，
+   * 其余原库题目标为已删除；然后从第 1 轮随机重开。
+   */
+  function lockKeepPoolFromProgress() {
+    if (!keepRoundPool || state.poolLocked) return;
+    const bankIds = bank.map(q => q.id);
+    const bankSet = new Set(bankIds);
+    const key = scopeKey();
+    const rec = state.roundsByScope[key];
+    const fromRound = uniqueRoundIds((rec?.set || []).filter(id => bankSet.has(id)));
+    const fromWrong = uniqueRoundIds([...state.wrong].filter(id => bankSet.has(id)));
+    let keepIds = uniqueRoundIds([...fromRound, ...fromWrong]);
+    if (!keepIds.length) {
+      // 没有可锁定的缩圈结果时，整库作为固定池
+      keepIds = bankIds.slice();
+    }
+    const keepSet = new Set(keepIds);
+    bankIds.forEach(id => {
+      if (!keepSet.has(id)) state.removed.add(id);
+      else state.removed.delete(id);
+    });
+    const ordered = roundOrderIds(keepIds);
+    clearRoundAnswers(ordered);
+    state.roundsByScope[key] = {
+      round: 1,
+      set: ordered,
+      answered: [],
+      wrong: [],
+      done: false,
+      shuffled: true,
+    };
+    state.coverPhase = "unanswered";
+    state.poolLocked = true;
+    restorePosition = false;
+    state.lastQuestionId = "";
+    showToast(`已锁定题池 ${ordered.length} 题：答对不剔除，按轮随机刷`);
+  }
+
   /** 刷新后回到上次那题：未答则停原题；已答则仍停在该题（可看解析），再点下一题才继续。 */
   function resolveRoundResumeId(rec, lastId, remainingIds) {
     if (!lastId || typeof lastId !== "string") return remainingIds[0] || "";
@@ -272,6 +313,7 @@
   }
 
   function buildRoundSession(focusQuestionId) {
+    lockKeepPoolFromProgress();
     const needle = query.trim().toLowerCase();
     const key = scopeKey();
     let rec = state.roundsByScope[key];
@@ -300,14 +342,16 @@
     if (rec && !rec.done) {
       let pruned = uniqueRoundIds((rec.set || []).filter(id => known.has(id)));
       if (isOrderRound()) pruned = sortIdsByNumber(pruned);
-      // 以实际交卷记录为准：attempted/submitted/choices 里有的题，必须算进本轮已答
-      // （修复轮次 answered 丢记录后，已答题又冒回「未答」队列的问题）
-      const answeredFromRecords = pruned.filter(id =>
-        state.attempted.has(id) || state.submitted.has(id) || !!state.choices[id]
-      );
-      const answered = uniqueRoundIds([...(rec.answered || []).filter(id => known.has(id)), ...answeredFromRecords]);
-      const wrongFromRecords = answered.filter(id => state.wrong.has(id) && !state.correct.has(id));
-      const wrong = uniqueRoundIds([...(rec.wrong || []).filter(id => known.has(id) && answered.includes(id)), ...wrongFromRecords]);
+      // 仅修补第 1 轮「有交卷记录却不在 answered」的漂移；不能用 attempted 跨轮回填，
+      // 否则进入第 2 轮 / 固定题池新一轮时会把旧作答全算已答。
+      let answered = uniqueRoundIds((rec.answered || []).filter(id => known.has(id)));
+      let wrong = uniqueRoundIds((rec.wrong || []).filter(id => known.has(id) && answered.includes(id)));
+      if (!keepRoundPool && rec.round <= 1) {
+        const answeredFromRecords = pruned.filter(id => state.submitted.has(id) || !!state.choices[id]);
+        answered = uniqueRoundIds([...answered, ...answeredFromRecords]);
+        const wrongFromRecords = answered.filter(id => state.wrong.has(id) && !state.correct.has(id));
+        wrong = uniqueRoundIds([...wrong, ...wrongFromRecords]);
+      }
       const setChanged = pruned.join("\0") !== (rec.set || []).join("\0");
       const ansChanged = answered.join("\0") !== (rec.answered || []).join("\0");
       const wrongChanged = wrong.join("\0") !== (rec.wrong || []).join("\0");
@@ -874,6 +918,7 @@
     state.removed = new Set();
     state.wrongCounts = {};
     state.roundsByScope = {};
+    state.poolLocked = false;
     Q.clearQueue(state);
     saveState(); buildList(); queueAutoUpload(); showToast("学习记录已清空");
   });
@@ -910,6 +955,7 @@
       ...Q.queuePayloadSlice(state, currentIndex),
       roundsByScope: state.roundsByScope || {},
       removed: [...state.removed],
+      poolLocked: state.poolLocked === true,
     };
     try {
       const response = await fetch(`${SB_URL}/rest/v1/vocab_progress?on_conflict=sync_code`, {
@@ -959,8 +1005,12 @@
       if (data.wrongCounts && typeof data.wrongCounts === "object") Object.assign(state.wrongCounts, data.wrongCounts);
       if (data.roundsByScope && typeof data.roundsByScope === "object" && !Array.isArray(data.roundsByScope)) {
         const incoming = Q.sanitizeRounds(data.roundsByScope);
-        if (Object.keys(incoming).length || !automatic) state.roundsByScope = incoming;
+        // 题池已锁定后，自动拉取不再用云端旧轮次覆盖本地固定池进度
+        if ((!state.poolLocked || !automatic) && (Object.keys(incoming).length || !automatic)) {
+          state.roundsByScope = incoming;
+        }
       }
+      if (data.poolLocked === true) state.poolLocked = true;
       currentCategory = singlePool ? "全部题目" : (categories.includes(state.lastCategory) ? state.lastCategory : "全部题目");
       mode = state.mode;
       if (categorySelect) categorySelect.value = currentCategory;
