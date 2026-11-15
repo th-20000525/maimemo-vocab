@@ -13,6 +13,10 @@
   line-height: 1.7;
 }
 
+#check-mode-select {
+  margin-bottom: 12px;
+}
+
 .grade-paper-btn {
   width: 100%;
   margin: 0 0 12px;
