@@ -261,6 +261,16 @@
     });
   }
 
+  /** 刷新后回到上次那题：未答则停原题；已答则仍停在该题（可看解析），再点下一题才继续。 */
+  function resolveRoundResumeId(rec, lastId, remainingIds) {
+    if (!lastId || typeof lastId !== "string") return remainingIds[0] || "";
+    const remaining = new Set(remainingIds || []);
+    if (remaining.has(lastId)) return lastId;
+    const set = rec?.set || [];
+    if (set.includes(lastId)) return lastId;
+    return remainingIds[0] || "";
+  }
+
   function buildRoundSession(focusQuestionId) {
     const needle = query.trim().toLowerCase();
     const key = scopeKey();
@@ -305,8 +315,6 @@
           shuffled: true,
         };
         state.roundsByScope[key] = rec;
-        // 从打乱切到题号顺序时，从第一道未答题接着刷，避免停在旧的乱序位置
-        if (setChanged && isOrderRound()) restorePosition = false;
       }
     }
     if (!rec.done && rec.set.length > 0 && Q.roundRemainingIds(rec, known).length === 0) {
@@ -321,11 +329,28 @@
     state.coverPhase = !rec.done && rec.round <= 1 ? "unanswered" : "review";
     const byId = new Map(bank.map(q => [q.id, q]));
     const remaining = rec.done ? [] : Q.roundRemainingIds(rec, known);
-    questions = remaining.map(id => byId.get(id)).filter(q => {
+    const matchesRoundQuestion = q => {
       if (!q || !matchesScopeBase(q, needle)) return false;
       if (!keepRoundPool && wrongOnly && !state.wrong.has(q.id)) return false;
       return true;
-    });
+    };
+    questions = remaining.map(id => byId.get(id)).filter(matchesRoundQuestion);
+    const resumeId = (!focusQuestionId && !enteredRound && restorePosition)
+      ? resolveRoundResumeId(rec, state.lastQuestionId, remaining)
+      : "";
+    // 刷新时若停在已答那题，把它临时插回队列，才能继续显示解析/原位
+    if (resumeId && !questions.some(q => q.id === resumeId)) {
+      const resumeQ = byId.get(resumeId);
+      if (matchesRoundQuestion(resumeQ)) {
+        const set = rec.set || [];
+        const resumeAt = set.indexOf(resumeId);
+        let insertAt = questions.findIndex(q => set.indexOf(q.id) > resumeAt);
+        if (insertAt < 0) insertAt = questions.length;
+        questions = [...questions.slice(0, insertAt), resumeQ, ...questions.slice(insertAt)];
+        // 已答过的题刷新后仍要能看到对错与解析
+        if ((rec.answered || []).includes(resumeId)) state.submitted.add(resumeId);
+      }
+    }
     if (focusQuestionId) {
       const idx = questions.findIndex(q => q.id === focusQuestionId);
       currentIndex = idx >= 0 ? idx : 0;
@@ -333,7 +358,8 @@
       currentIndex = 0;
       restorePosition = false;
     } else if (restorePosition) {
-      const idx = questions.findIndex(q => q.id === state.lastQuestionId);
+      const target = resumeId || state.lastQuestionId;
+      const idx = questions.findIndex(q => q.id === target);
       currentIndex = idx >= 0 ? idx : 0;
       restorePosition = false;
     } else {
