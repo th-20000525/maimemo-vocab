@@ -22,6 +22,7 @@
   const subjectOrder = appConfig.subjectOrder || [];
   const singlePool = appConfig.singlePool === true;
   const keepRoundPool = appConfig.keepRoundPool === true;
+  const orderRound = appConfig.orderRound === true;
   const categories = [...new Set(bank.map(q => q.category))].sort((a, b) => {
     const aIndex = categoryOrder.indexOf(a);
     const bIndex = categoryOrder.indexOf(b);
@@ -31,7 +32,7 @@
   const defaultSyncCode = "1234";
 
   function resolveMode(value) {
-    if (appConfig.roundOnly) return "random-cover";
+    if (appConfig.roundOnly) return orderRound ? "order" : "random-cover";
     return ["random", "random-cover", "order"].includes(value) ? value : (appConfig.defaultMode || "order");
   }
 
@@ -105,8 +106,16 @@
   }
 
   function updateStats() {
-    setText("stat-done", state.attempted.size);
-    setText("stat-accuracy", state.attempted.size ? `${Math.round(state.correct.size / state.attempted.size * 100)}%` : "—");
+    const rec = isRoundCover() ? state.roundsByScope[scopeKey()] : null;
+    if (rec && !rec.done) {
+      const answered = rec.answered || [];
+      const correctInRound = answered.filter(id => state.correct.has(id)).length;
+      setText("stat-done", answered.length);
+      setText("stat-accuracy", answered.length ? `${Math.round(correctInRound / answered.length * 100)}%` : "—");
+    } else {
+      setText("stat-done", state.attempted.size);
+      setText("stat-accuracy", state.attempted.size ? `${Math.round(state.correct.size / state.attempted.size * 100)}%` : "—");
+    }
     const poolLeft = keepRoundPool ? activeBank().length : state.wrong.size;
     setText("stat-wrong", poolLeft);
     setText("wrong-count", state.wrong.size);
@@ -217,12 +226,32 @@
   }
 
   function isRoundCover() {
-    if (appConfig.roundOnly) return mode === "random-cover";
+    if (appConfig.roundOnly) return mode === "random-cover" || mode === "order";
     return mode === "random-cover" && !wrongOnly && !pendingOnly;
+  }
+
+  function isOrderRound() {
+    return orderRound || mode === "order";
   }
 
   function scopeQuestionIds() {
     return bank.filter(q => matchesScopeBase(q, "")).map(q => q.id);
+  }
+
+  function sortIdsByNumber(ids) {
+    const byId = new Map(bank.map(q => [q.id, q]));
+    return uniqueRoundIds(ids).slice().sort((a, b) => {
+      const qa = byId.get(a);
+      const qb = byId.get(b);
+      const na = qa && Number.isFinite(qa.number) ? qa.number : Number.POSITIVE_INFINITY;
+      const nb = qb && Number.isFinite(qb.number) ? qb.number : Number.POSITIVE_INFINITY;
+      if (na !== nb) return na - nb;
+      return String(a).localeCompare(String(b));
+    });
+  }
+
+  function roundOrderIds(ids) {
+    return isOrderRound() ? sortIdsByNumber(ids) : shuffle(ids);
   }
 
   function clearRoundAnswers(ids) {
@@ -239,13 +268,13 @@
     let enteredRound = 0;
     if (!rec) {
       rec = Q.createInitialRound({
-        scopeIds: shuffle(scopeQuestionIds()),
+        scopeIds: roundOrderIds(scopeQuestionIds()),
         attempted: [...state.attempted],
         wrong: [...state.wrong],
         correct: [...state.correct],
         keepSet: keepRoundPool,
       });
-      if (!rec.done) rec = { ...rec, set: shuffle(rec.set), shuffled: true };
+      if (!rec.done) rec = { ...rec, set: roundOrderIds(rec.set), shuffled: true };
       else rec = { ...rec, shuffled: true };
       if (!rec.done && rec.round > 1) {
         clearRoundAnswers(rec.set);
@@ -253,27 +282,36 @@
       }
       state.roundsByScope[key] = rec;
     } else if (!rec.done && !rec.shuffled) {
-      rec = { ...rec, set: shuffle(rec.set), shuffled: true };
+      rec = { ...rec, set: roundOrderIds(rec.set), shuffled: true };
       state.roundsByScope[key] = rec;
       restorePosition = false;
     }
     const known = new Set(scopeQuestionIds());
     if (rec && !rec.done) {
-      const pruned = uniqueRoundIds((rec.set || []).filter(id => known.has(id)));
-      if (pruned.length !== (rec.set || []).length) {
+      let pruned = uniqueRoundIds((rec.set || []).filter(id => known.has(id)));
+      if (isOrderRound()) pruned = sortIdsByNumber(pruned);
+      const answered = uniqueRoundIds((rec.answered || []).filter(id => known.has(id)));
+      const wrong = uniqueRoundIds((rec.wrong || []).filter(id => known.has(id)));
+      const setChanged = pruned.join("\0") !== (rec.set || []).join("\0");
+      const ansChanged = answered.join("\0") !== (rec.answered || []).join("\0");
+      const wrongChanged = wrong.join("\0") !== (rec.wrong || []).join("\0");
+      if (setChanged || ansChanged || wrongChanged || pruned.length === 0 && !rec.done) {
         rec = {
           ...rec,
           set: pruned,
-          answered: uniqueRoundIds((rec.answered || []).filter(id => known.has(id))),
-          wrong: uniqueRoundIds((rec.wrong || []).filter(id => known.has(id))),
+          answered,
+          wrong,
           done: pruned.length === 0,
+          shuffled: true,
         };
         state.roundsByScope[key] = rec;
+        // 从打乱切到题号顺序时，从第一道未答题接着刷，避免停在旧的乱序位置
+        if (setChanged && isOrderRound()) restorePosition = false;
       }
     }
     if (!rec.done && rec.set.length > 0 && Q.roundRemainingIds(rec, known).length === 0) {
-      const next = Q.advanceRound(rec, shuffle, { keepSet: keepRoundPool });
-      next.set = next.set.filter(id => known.has(id));
+      const next = Q.advanceRound(rec, isOrderRound() ? sortIdsByNumber : shuffle, { keepSet: keepRoundPool });
+      next.set = (isOrderRound() ? sortIdsByNumber(next.set) : next.set).filter(id => known.has(id));
       if (!next.done && next.set.length === 0) next.done = true;
       if (!next.done) clearRoundAnswers(next.set);
       state.roundsByScope[key] = next;
@@ -303,8 +341,12 @@
     }
     if (enteredRound) {
       showToast(keepRoundPool
-        ? `进入第 ${enteredRound} 轮：固定题池 ${rec.set.length} 题，已重新打乱`
-        : `进入第 ${enteredRound} 轮：只练上一轮答错的 ${rec.set.length} 题`);
+        ? (isOrderRound()
+          ? `进入第 ${enteredRound} 轮：固定题池 ${rec.set.length} 题，按题号顺序`
+          : `进入第 ${enteredRound} 轮：固定题池 ${rec.set.length} 题，已重新打乱`)
+        : (isOrderRound()
+          ? `进入第 ${enteredRound} 轮：只练上一轮答错的 ${rec.set.length} 题，按题号顺序`
+          : `进入第 ${enteredRound} 轮：只练上一轮答错的 ${rec.set.length} 题`));
     }
     render();
     saveState();
@@ -315,14 +357,14 @@
   }
 
   function restartRoundCycle() {
-    const ids = shuffle(scopeQuestionIds());
+    const ids = roundOrderIds(scopeQuestionIds());
     ids.forEach(id => { delete state.wrongCounts[id]; });
     clearRoundAnswers(ids);
     state.roundsByScope[scopeKey()] = { round: 1, set: ids, answered: [], wrong: [], done: false, shuffled: true };
     state.coverPhase = "unanswered";
     restorePosition = false;
     buildRoundSession();
-    showToast("从第 1 轮重新开始");
+    showToast(isOrderRound() ? "从第 1 轮按题号顺序重新开始" : "从第 1 轮重新开始");
   }
 
   function resetReviewSessionForScope(needle) {
@@ -551,8 +593,12 @@
       <div class="question-content">
         <p class="question-meta">第 ${q.number} 题 <span>·</span> ${inRound
           ? (keepRoundPool
-            ? `第 ${roundRec.round} 轮 · 固定题池随机过一遍`
-            : (roundRec.round <= 1 ? "第 1 轮 · 打乱后每题做一次" : `第 ${roundRec.round} 轮 · 上一轮错题，重新打乱`))
+            ? (isOrderRound()
+              ? `第 ${roundRec.round} 轮 · 固定题池按题号顺序`
+              : `第 ${roundRec.round} 轮 · 固定题池随机过一遍`)
+            : (isOrderRound()
+              ? (roundRec.round <= 1 ? "第 1 轮 · 按题号顺序每题做一次" : `第 ${roundRec.round} 轮 · 上一轮错题，按题号顺序`)
+              : (roundRec.round <= 1 ? "第 1 轮 · 打乱后每题做一次" : `第 ${roundRec.round} 轮 · 上一轮错题，重新打乱`)))
           : inReview
           ? `复习轮 · 随机抽取${reviewMisses ? ` · 本题已错 ${reviewMisses} 次` : ""}`
           : q.type === "multiple" ? "请选择所有正确选项" : "请选择一个最合适的答案"}</p>
