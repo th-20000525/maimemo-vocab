@@ -359,12 +359,15 @@
         if (missing.length) pruned = uniqueRoundIds([...pruned, ...missing]);
       }
       if (isOrderRound()) pruned = sortIdsByNumber(pruned);
-      // 回填 answered：只用 submitted（换轮时 clearRoundAnswers 会清掉），绝不用 attempted 跨轮回填。
-      // 固定题池也必须回填，否则同步合并出「已 submitted 却不在 answered」会卡死本轮。
+      // 回填 answered：只用本轮 submitted（换轮时 clearRoundAnswers 会清掉），绝不用 attempted 跨轮回填。
+      // 固定题池：仅把「已在 answered，或本轮已有选项的 submitted」算已答，避免云端旧轮 submitted 把整轮标完。
       let answered = uniqueRoundIds((rec.answered || []).filter(id => known.has(id)));
       let wrong = uniqueRoundIds((rec.wrong || []).filter(id => known.has(id) && answered.includes(id)));
       if (keepRoundPool) {
-        const fromSubmitted = pruned.filter(id => state.submitted.has(id));
+        const answeredSet = new Set(answered);
+        const fromSubmitted = pruned.filter(id => (
+          state.submitted.has(id) && (answeredSet.has(id) || !!state.choices[id])
+        ));
         answered = uniqueRoundIds([...answered, ...fromSubmitted]);
         wrong = uniqueRoundIds([...wrong, ...answered.filter(id => state.wrong.has(id) && !state.correct.has(id))]);
       } else if (rec.round <= 1) {
@@ -404,12 +407,16 @@
       if (!keepRoundPool && wrongOnly && !state.wrong.has(q.id)) return false;
       return true;
     };
-    questions = remaining.map(id => byId.get(id)).filter(matchesRoundQuestion);
+    // 固定题池：队列用本轮完整 set，可上一题回看已答解析；缩圈模式仍只排未答题。
+    const queueIds = keepRoundPool
+      ? (rec.done ? [] : (rec.set || []).filter(id => known.has(id)))
+      : remaining;
+    questions = queueIds.map(id => byId.get(id)).filter(matchesRoundQuestion);
     const resumeId = (!focusQuestionId && !enteredRound && restorePosition)
-      ? resolveRoundResumeId(rec, state.lastQuestionId, remaining)
+      ? resolveRoundResumeId(rec, state.lastQuestionId, keepRoundPool ? queueIds : remaining)
       : "";
-    // 刷新时若停在已答那题，把它临时插回队列，才能继续显示解析/原位
-    if (resumeId && !questions.some(q => q.id === resumeId)) {
+    // 非固定池：刷新时若停在已答那题，临时插回队列以便看解析
+    if (!keepRoundPool && resumeId && !questions.some(q => q.id === resumeId)) {
       const resumeQ = byId.get(resumeId);
       if (matchesRoundQuestion(resumeQ)) {
         const set = rec.set || [];
@@ -417,9 +424,10 @@
         let insertAt = questions.findIndex(q => set.indexOf(q.id) > resumeAt);
         if (insertAt < 0) insertAt = questions.length;
         questions = [...questions.slice(0, insertAt), resumeQ, ...questions.slice(insertAt)];
-        // 已答过的题刷新后仍要能看到对错与解析
         if ((rec.answered || []).includes(resumeId)) state.submitted.add(resumeId);
       }
+    } else if (keepRoundPool && resumeId && (rec.answered || []).includes(resumeId)) {
+      state.submitted.add(resumeId);
     }
     if (focusQuestionId) {
       const idx = questions.findIndex(q => q.id === focusQuestionId);
@@ -430,7 +438,12 @@
     } else if (restorePosition) {
       const target = resumeId || state.lastQuestionId;
       const idx = questions.findIndex(q => q.id === target);
-      currentIndex = idx >= 0 ? idx : 0;
+      // 固定题池：若上次题已删/不在，落到第一道未答题，而不是总跳到队首已答题
+      if (idx >= 0) currentIndex = idx;
+      else if (keepRoundPool) {
+        const firstPending = questions.findIndex(q => !(rec.answered || []).includes(q.id));
+        currentIndex = firstPending >= 0 ? firstPending : 0;
+      } else currentIndex = 0;
       restorePosition = false;
     } else {
       currentIndex = Math.min(currentIndex, Math.max(0, questions.length - 1));
@@ -731,7 +744,9 @@
       </div>
       <div class="progress-track"><div class="progress-fill" style="width:${percent}%"></div></div>
       <div class="question-content">
-        <p class="question-meta">第 ${q.number} 题 <span>·</span> ${inRound
+        <p class="question-meta">${inRound && keepRoundPool
+          ? `本轮第 ${currentIndex + 1}/${questions.length} 题 · 题号 ${q.number}`
+          : `第 ${q.number} 题`} <span>·</span> ${inRound
           ? (keepRoundPool
             ? (isOrderRound()
               ? `第 ${roundRec.round} 轮 · 固定题池按题号顺序`
@@ -782,9 +797,12 @@
     if (!keepRoundPool) return;
     const q = questions[currentIndex];
     if (!q) return;
+    const nextFocusId = questions[currentIndex + 1]?.id || questions[currentIndex - 1]?.id || "";
     state.removed.add(q.id);
     state.wrong.delete(q.id);
     state.reviewMastered.add(q.id);
+    state.submitted.delete(q.id);
+    delete state.choices[q.id];
     const key = scopeKey();
     const rec = state.roundsByScope[key];
     if (rec && !rec.done) {
@@ -800,7 +818,7 @@
     }
     showToast(`已删除 · 题池还剩 ${activeBank().length} 题`);
     restorePosition = false;
-    buildRoundSession();
+    buildRoundSession(nextFocusId || undefined);
     queueAutoUpload();
   }
 
@@ -877,6 +895,15 @@
         if (!cur || !state.submitted.has(cur.id)) return;
         const nextId = questions[currentIndex + 1]?.id;
         if (nextId) {
+          // 固定题池完整队列内翻页，不必整表重建
+          if (keepRoundPool) {
+            currentIndex += 1;
+            state.lastQuestionId = nextId;
+            render();
+            saveState();
+            queueAutoUpload();
+            return;
+          }
           buildRoundSession(nextId);
           return;
         }
@@ -891,6 +918,8 @@
         return;
       }
       currentIndex = Math.max(0, Math.min(questions.length - 1, currentIndex + delta));
+      const cur = questions[currentIndex];
+      if (cur) state.lastQuestionId = cur.id;
       render();
       saveState();
       return;
@@ -1051,11 +1080,31 @@
         else buildList(false);
         return;
       }
+      const incomingRounds = (data.roundsByScope && typeof data.roundsByScope === "object" && !Array.isArray(data.roundsByScope))
+        ? Q.sanitizeRounds(data.roundsByScope)
+        : {};
+      const scope = singlePool ? "全部题目" : (categories.includes(state.lastCategory) ? state.lastCategory : "全部题目");
+      const localRec = Q.normalizeRoundRecord(state.roundsByScope[scope]);
+      const remoteRec = Q.normalizeRoundRecord(incomingRounds[scope]);
+      const localRoundAhead = !!(keepRoundPool && automatic && localRec && remoteRec && localRec.round > remoteRec.round);
+      const remoteRoundAhead = !!(keepRoundPool && remoteRec && (!localRec || remoteRec.round > localRec.round));
+
       data.attempted?.forEach(id => state.attempted.add(id));
       data.correct?.forEach(id => state.correct.add(id));
       data.wrong?.forEach(id => state.wrong.add(id));
-      data.submitted?.forEach(id => state.submitted.add(id));
-      Object.assign(state.choices, data.choices || {});
+      // 固定题池：本地轮次更新时，不要把云端旧轮的 submitted/choices 合进来，否则会误标整轮已答并跳轮
+      if (!localRoundAhead) {
+        data.submitted?.forEach(id => state.submitted.add(id));
+        Object.assign(state.choices, data.choices || {});
+      } else {
+        const allow = new Set(localRec.answered || []);
+        data.submitted?.forEach(id => { if (allow.has(id)) state.submitted.add(id); });
+        if (data.choices && typeof data.choices === "object") {
+          for (const [id, value] of Object.entries(data.choices)) {
+            if (allow.has(id)) state.choices[id] = value;
+          }
+        }
+      }
       for (const id of state.correct) state.wrong.delete(id);
       if (!singlePool && categories.includes(data.lastCategory)) state.lastCategory = data.lastCategory;
       if (data.lastQuestionId) state.lastQuestionId = data.lastQuestionId;
@@ -1069,10 +1118,27 @@
       if (data.wrongCounts && typeof data.wrongCounts === "object") {
         state.wrongCounts = mergeWrongCounts(state.wrongCounts, data.wrongCounts);
       }
-      if (data.roundsByScope && typeof data.roundsByScope === "object" && !Array.isArray(data.roundsByScope)) {
-        const incoming = Q.sanitizeRounds(data.roundsByScope);
-        if (Object.keys(incoming).length || !automatic) {
-          state.roundsByScope = mergeRoundsByScope(state.roundsByScope, incoming, { replace: !automatic });
+      if (Object.keys(incomingRounds).length || !automatic) {
+        state.roundsByScope = mergeRoundsByScope(state.roundsByScope, incomingRounds, { replace: !automatic });
+      }
+      if (remoteRoundAhead) {
+        const nextRec = state.roundsByScope[scope];
+        if (nextRec && !nextRec.done) {
+          clearRoundAnswers(nextRec.set || []);
+          (nextRec.answered || []).forEach(id => {
+            state.submitted.add(id);
+            if (data.choices && data.choices[id] != null) state.choices[id] = data.choices[id];
+          });
+        }
+      } else if (keepRoundPool && localRec && !localRoundAhead) {
+        // 同轮合并后：本轮已答必须能揭晓；未答清掉可能残留的交卷标记
+        const cur = state.roundsByScope[scope];
+        if (cur && !cur.done) {
+          const answered = new Set(cur.answered || []);
+          (cur.set || []).forEach(id => {
+            if (answered.has(id)) state.submitted.add(id);
+            else state.submitted.delete(id);
+          });
         }
       }
       if (!automatic) state.poolLocked = data.poolLocked === true;
