@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f6f3ed">
   <title>311错题</title>
-  <link rel="stylesheet" href="../style.css?v=keep-pool-20261110">
+  <link rel="stylesheet" href="../style.css?v=keep-pool-guard-20261115">
   <script src="questions.js?v=plain-memory-214-20261105"></script>
   <script>
     window.STUDY_APP_CONFIG = {
@@ -18,8 +18,8 @@
       keepRoundPool: true
     };
   </script>
-  <script defer src="../study-list.js?v=keep-pool-20261110"></script>
-  <script defer src="../politics/app.js?v=politics-keep-pool-20261115"></script>
+  <script defer src="../study-list.js?v=keep-pool-guard-20261115"></script>
+  <script defer src="../politics/app.js?v=keep-pool-guard-20261115"></script>
 </head>
 <body>
   <header class="topbar">
@@ -35,11 +35,11 @@
       <div>
         <p class="eyebrow">STUDY DESK <span>·</span> 311错题</p>
         <h1>固定题池按轮刷：答对不剔除，会了就自己删。</h1>
-        <p class="intro-copy">题池一共 <strong id="bank-total">—</strong> 题。每一轮把<strong>当前题池</strong>打乱后逐题过一遍；本轮全部作答后进入下一轮，再重新打乱同一批题。答对<strong>不会</strong>自动消失。只有你点「我会了 · 删除」，这道题才离开题池。刷新后仍停在这一轮的这个顺序。</p>
+        <p class="intro-copy">题池一共 <strong id="bank-total">—</strong> 题。每一轮把<strong>当前题池</strong>打乱后逐题过一遍；本轮全部作答后进入下一轮，再重新打乱同一批题。答对<strong>不会</strong>自动消失。只有你点「我会了 · 删除」，这道题才离开题池。<strong>刷新后停在你上次那一题</strong>。</p>
       </div>
       <div class="stats" aria-label="学习统计">
-        <div class="stat"><span id="stat-done">0</span><small>已作答</small></div>
-        <div class="stat"><span id="stat-accuracy">—</span><small>正确率</small></div>
+        <div class="stat"><span id="stat-done">0</span><small>本轮已答</small></div>
+        <div class="stat"><span id="stat-accuracy">—</span><small>本轮正确率</small></div>
         <div class="stat"><span id="stat-wrong">0</span><small>题池剩余</small></div>
       </div>
     </section>

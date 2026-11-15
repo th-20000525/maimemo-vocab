@@ -23,6 +23,7 @@
   const singlePool = appConfig.singlePool === true;
   const keepRoundPool = appConfig.keepRoundPool === true;
   const orderRound = appConfig.orderRound === true;
+  const lockPoolFromProgress = appConfig.lockPoolFromProgress === true;
   const categories = [...new Set(bank.map(q => q.category))].sort((a, b) => {
     const aIndex = categoryOrder.indexOf(a);
     const bIndex = categoryOrder.indexOf(b);
@@ -268,7 +269,8 @@
    * 其余原库题目标为已删除；然后从第 1 轮随机重开。
    */
   function lockKeepPoolFromProgress() {
-    if (!keepRoundPool || state.poolLocked) return;
+    // 仅政治错题（缩圈后锁定）开启；311 错题本身就是整库固定池，禁止误锁缩小
+    if (!keepRoundPool || !lockPoolFromProgress || state.poolLocked) return;
     const bankIds = bank.map(q => q.id);
     const bankSet = new Set(bankIds);
     const key = scopeKey();
@@ -341,6 +343,11 @@
     const known = new Set(scopeQuestionIds());
     if (rec && !rec.done) {
       let pruned = uniqueRoundIds((rec.set || []).filter(id => known.has(id)));
+      // 固定题池：题库/未删除题若比当前 set 多，补进本轮，避免只刷到一部分
+      if (keepRoundPool) {
+        const missing = scopeQuestionIds().filter(id => !pruned.includes(id));
+        if (missing.length) pruned = uniqueRoundIds([...pruned, ...missing]);
+      }
       if (isOrderRound()) pruned = sortIdsByNumber(pruned);
       // 仅修补第 1 轮「有交卷记录却不在 answered」的漂移；不能用 attempted 跨轮回填，
       // 否则进入第 2 轮 / 固定题池新一轮时会把旧作答全算已答。
