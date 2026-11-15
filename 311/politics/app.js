@@ -300,8 +300,14 @@
     if (rec && !rec.done) {
       let pruned = uniqueRoundIds((rec.set || []).filter(id => known.has(id)));
       if (isOrderRound()) pruned = sortIdsByNumber(pruned);
-      const answered = uniqueRoundIds((rec.answered || []).filter(id => known.has(id)));
-      const wrong = uniqueRoundIds((rec.wrong || []).filter(id => known.has(id)));
+      // 以实际交卷记录为准：attempted/submitted/choices 里有的题，必须算进本轮已答
+      // （修复轮次 answered 丢记录后，已答题又冒回「未答」队列的问题）
+      const answeredFromRecords = pruned.filter(id =>
+        state.attempted.has(id) || state.submitted.has(id) || !!state.choices[id]
+      );
+      const answered = uniqueRoundIds([...(rec.answered || []).filter(id => known.has(id)), ...answeredFromRecords]);
+      const wrongFromRecords = answered.filter(id => state.wrong.has(id) && !state.correct.has(id));
+      const wrong = uniqueRoundIds([...(rec.wrong || []).filter(id => known.has(id) && answered.includes(id)), ...wrongFromRecords]);
       const setChanged = pruned.join("\0") !== (rec.set || []).join("\0");
       const ansChanged = answered.join("\0") !== (rec.answered || []).join("\0");
       const wrongChanged = wrong.join("\0") !== (rec.wrong || []).join("\0");
