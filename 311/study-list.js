@@ -103,7 +103,16 @@
       state.coverPhase = data.coverPhase;
     }
     if (Array.isArray(data.reviewMastered)) state.reviewMastered = new Set(data.reviewMastered);
-    if (data.wrongCounts && typeof data.wrongCounts === "object") state.wrongCounts = { ...data.wrongCounts };
+    if (data.wrongCounts && typeof data.wrongCounts === "object") {
+      const merged = { ...(state.wrongCounts || {}) };
+      for (const [id, value] of Object.entries(data.wrongCounts)) {
+        const next = Number(value);
+        if (!Number.isFinite(next)) continue;
+        const prev = Number(merged[id]) || 0;
+        merged[id] = Math.max(prev, next);
+      }
+      state.wrongCounts = merged;
+    }
   }
 
   function clearQueue(state) {

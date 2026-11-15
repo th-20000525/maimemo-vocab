@@ -75,7 +75,9 @@
         wrongCounts: saved.wrongCounts && typeof saved.wrongCounts === "object" ? saved.wrongCounts : {},
         roundsByScope: saved.roundsByScope && typeof saved.roundsByScope === "object" ? saved.roundsByScope : {},
         poolLocked: saved.poolLocked === true,
-        syncCode: defaultSyncCode
+        syncCode: (typeof saved.syncCode === "string" && saved.syncCode.trim().length >= 4)
+          ? saved.syncCode.trim()
+          : defaultSyncCode
       };
     } catch {
       return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastQuestionId: "", mode: resolveMode(appConfig.defaultMode), shuffleKey: "", shuffleOrder: [], listIndex: 0, coverPhase: "unanswered", reviewMastered: new Set(), removed: new Set(), wrongCounts: {}, roundsByScope: {}, poolLocked: false, syncCode: defaultSyncCode };
@@ -283,10 +285,18 @@
       keepIds = bankIds.slice();
     }
     const keepSet = new Set(keepIds);
+    const currentActive = bankIds.filter(id => !state.removed.has(id));
+    const samePool = keepIds.length === currentActive.length
+      && keepIds.every(id => !state.removed.has(id));
     bankIds.forEach(id => {
       if (!keepSet.has(id)) state.removed.add(id);
       else state.removed.delete(id);
     });
+    // 题池组成未变（例如同步把 poolLocked 拉成 false）：只补锁标记，绝不清进度
+    if (samePool) {
+      state.poolLocked = true;
+      return;
+    }
     const ordered = roundOrderIds(keepIds);
     clearRoundAnswers(ordered);
     state.roundsByScope[key] = {
@@ -349,15 +359,18 @@
         if (missing.length) pruned = uniqueRoundIds([...pruned, ...missing]);
       }
       if (isOrderRound()) pruned = sortIdsByNumber(pruned);
-      // 仅修补第 1 轮「有交卷记录却不在 answered」的漂移；不能用 attempted 跨轮回填，
-      // 否则进入第 2 轮 / 固定题池新一轮时会把旧作答全算已答。
+      // 回填 answered：只用 submitted（换轮时 clearRoundAnswers 会清掉），绝不用 attempted 跨轮回填。
+      // 固定题池也必须回填，否则同步合并出「已 submitted 却不在 answered」会卡死本轮。
       let answered = uniqueRoundIds((rec.answered || []).filter(id => known.has(id)));
       let wrong = uniqueRoundIds((rec.wrong || []).filter(id => known.has(id) && answered.includes(id)));
-      if (!keepRoundPool && rec.round <= 1) {
+      if (keepRoundPool) {
+        const fromSubmitted = pruned.filter(id => state.submitted.has(id));
+        answered = uniqueRoundIds([...answered, ...fromSubmitted]);
+        wrong = uniqueRoundIds([...wrong, ...answered.filter(id => state.wrong.has(id) && !state.correct.has(id))]);
+      } else if (rec.round <= 1) {
         const answeredFromRecords = pruned.filter(id => state.submitted.has(id) || !!state.choices[id]);
         answered = uniqueRoundIds([...answered, ...answeredFromRecords]);
-        const wrongFromRecords = answered.filter(id => state.wrong.has(id) && !state.correct.has(id));
-        wrong = uniqueRoundIds([...wrong, ...wrongFromRecords]);
+        wrong = uniqueRoundIds([...wrong, ...answered.filter(id => state.wrong.has(id) && !state.correct.has(id))]);
       }
       const setChanged = pruned.join("\0") !== (rec.set || []).join("\0");
       const ansChanged = answered.join("\0") !== (rec.answered || []).join("\0");
@@ -437,6 +450,50 @@
 
   function uniqueRoundIds(ids) {
     return Q.normalizeRoundRecord({ round: 1, set: ids, answered: [], wrong: [], done: false }).set;
+  }
+
+  function mergeWrongCounts(local, incoming) {
+    const merged = { ...(local || {}) };
+    if (!incoming || typeof incoming !== "object") return merged;
+    for (const [id, value] of Object.entries(incoming)) {
+      const next = Number(value);
+      if (!Number.isFinite(next)) continue;
+      merged[id] = Math.max(Number(merged[id]) || 0, next);
+    }
+    return merged;
+  }
+
+  /** 自动同步时向前合并轮次，禁止用更旧的云端进度覆盖本地已答。 */
+  function mergeRoundsByScope(local, incoming, { replace = false } = {}) {
+    if (replace) return { ...incoming };
+    const out = { ...(local || {}) };
+    for (const [key, incRaw] of Object.entries(incoming || {})) {
+      const inc = Q.normalizeRoundRecord(incRaw);
+      if (!inc) continue;
+      const cur = Q.normalizeRoundRecord(out[key]);
+      if (!cur) {
+        out[key] = inc;
+        continue;
+      }
+      if (inc.round > cur.round) {
+        out[key] = { ...inc, shuffled: true };
+        continue;
+      }
+      if (inc.round < cur.round) continue;
+      const answered = uniqueRoundIds([...(cur.answered || []), ...(inc.answered || [])]);
+      const set = uniqueRoundIds([...(cur.set || []), ...(inc.set || [])]);
+      const wrong = uniqueRoundIds([...(cur.wrong || []), ...(inc.wrong || [])].filter(id => answered.includes(id)));
+      const preferIncSet = (inc.answered || []).length > (cur.answered || []).length;
+      out[key] = {
+        round: cur.round,
+        set: preferIncSet ? uniqueRoundIds([...(inc.set || []), ...(cur.set || [])]) : set,
+        answered,
+        wrong,
+        done: cur.done === true || inc.done === true,
+        shuffled: true,
+      };
+    }
+    return out;
   }
 
   function restartRoundCycle() {
@@ -1009,15 +1066,17 @@
         if (!automatic) state.removed = new Set(data.removed);
         else data.removed.forEach(id => state.removed.add(id));
       }
-      if (data.wrongCounts && typeof data.wrongCounts === "object") Object.assign(state.wrongCounts, data.wrongCounts);
+      if (data.wrongCounts && typeof data.wrongCounts === "object") {
+        state.wrongCounts = mergeWrongCounts(state.wrongCounts, data.wrongCounts);
+      }
       if (data.roundsByScope && typeof data.roundsByScope === "object" && !Array.isArray(data.roundsByScope)) {
         const incoming = Q.sanitizeRounds(data.roundsByScope);
-        // 题池已锁定后，自动拉取不再用云端旧轮次覆盖本地固定池进度
-        if ((!state.poolLocked || !automatic) && (Object.keys(incoming).length || !automatic)) {
-          state.roundsByScope = incoming;
+        if (Object.keys(incoming).length || !automatic) {
+          state.roundsByScope = mergeRoundsByScope(state.roundsByScope, incoming, { replace: !automatic });
         }
       }
-      if (data.poolLocked === true) state.poolLocked = true;
+      if (!automatic) state.poolLocked = data.poolLocked === true;
+      else if (data.poolLocked === true) state.poolLocked = true;
       currentCategory = singlePool ? "全部题目" : (categories.includes(state.lastCategory) ? state.lastCategory : "全部题目");
       mode = state.mode;
       if (categorySelect) categorySelect.value = currentCategory;

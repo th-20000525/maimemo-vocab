@@ -89,7 +89,9 @@
         gradedPapers: saved.gradedPapers && typeof saved.gradedPapers === "object" ? saved.gradedPapers : {},
         markedOpen: new Set(saved.markedOpen || []),
         checkMode: resolveCheckMode(saved.checkMode),
-        syncCode: defaultSyncCode
+        syncCode: (typeof saved.syncCode === "string" && saved.syncCode.trim().length >= 4)
+          ? saved.syncCode.trim()
+          : defaultSyncCode
       };
     } catch {
       return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastQuestionId: "", mode: resolveMode(appConfig.defaultMode), shuffleKey: "", shuffleOrder: [], listIndex: 0, coverPhase: "unanswered", reviewMastered: new Set(), removed: new Set(), wrongCounts: {}, roundsByScope: {}, gradedPapers: {}, markedOpen: new Set(), checkMode: "grade", syncCode: defaultSyncCode };
@@ -1344,10 +1346,14 @@
     if (next === prev) return;
     state.checkMode = next;
     state._showGradeReport = false;
-    if (next === "grade" && !isPaperGraded()) {
-      // 切回「答完再核对」：保留选项，但收起即时揭晓，需重新交卷
-      paperScopeQuestions().forEach(q => {
-        if (!state.gradedPapers[currentCategory]) state.submitted.delete(q.id);
+    if (next === "grade") {
+      // 切回「答完再核对」：所有未交卷套卷清掉揭晓态与正误，避免再交卷时 wrongCounts 重复累计
+      bank.forEach(q => {
+        if (state.gradedPapers[q.category]) return;
+        state.submitted.delete(q.id);
+        state.correct.delete(q.id);
+        state.wrong.delete(q.id);
+        delete state.wrongCounts[q.id];
       });
       wrongOnly = false;
       showToast("已切换为答完再核对");
@@ -1464,10 +1470,13 @@
         if (!automatic) state.removed = new Set(data.removed);
         else data.removed.forEach(id => state.removed.add(id));
       }
-      if (data.wrongCounts && typeof data.wrongCounts === "object") Object.assign(state.wrongCounts, data.wrongCounts);
+      // wrongCounts 已在 applyQueuePayload 里按 id 取 max 合并
       if (data.roundsByScope && typeof data.roundsByScope === "object" && !Array.isArray(data.roundsByScope)) {
         const incoming = Q.sanitizeRounds(data.roundsByScope);
-        if (Object.keys(incoming).length || !automatic) state.roundsByScope = incoming;
+        if (!automatic) state.roundsByScope = incoming;
+        else if (Object.keys(incoming).length && !Object.keys(state.roundsByScope || {}).length) {
+          state.roundsByScope = incoming;
+        }
       }
       if (data.gradedPapers && typeof data.gradedPapers === "object") {
         state.gradedPapers = automatic
