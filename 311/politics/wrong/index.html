@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f6f3ed">
   <title>政治错题</title>
-  <link rel="stylesheet" href="../style.css?v=round-nav-20261115">
-  <script src="questions.js?v=itemized-926-20261105"></script>
+  <link rel="stylesheet" href="../style.css?v=knowledge-tags-20261117">
+  <script src="questions.js?v=knowledge-tags-20261117"></script>
   <script>
     window.STUDY_APP_CONFIG = {
       storageKey: "politics-wrong-pool-progress-v1",
@@ -17,11 +17,19 @@
       orderRound: false,
       keepRoundPool: true,
       lockPoolFromProgress: true,
-      singlePool: true
+      singlePool: false,
+      subjectOrder: ["马原", "新思想", "毛中特", "史纲", "思修"],
+      categoryOrder: [
+        "马克思主义基本理论", "唯物论", "唯物辩证法", "认识论", "唯物史观", "商品与货币", "资本主义经济制度", "垄断资本与经济全球化", "社会主义与共产主义", "马原·未细分",
+        "思想理论与「两个结合」", "中国式现代化与民族复兴", "高质量发展与经济建设", "改革开放与发展动力", "民主政治与全面依法治国", "文化建设与文化自信", "民生保障与共同富裕", "生态文明与绿色发展", "国家安全、国防与祖国统一", "中国特色大国外交", "党的领导与自我革命", "新思想·未细分",
+        "毛泽东思想的形成与活的灵魂", "新民主主义革命理论", "社会主义改造理论", "社会主义建设道路初步探索", "邓小平理论", "「三个代表」重要思想", "科学发展观", "中国特色社会主义理论体系与新时代", "毛中特·未细分",
+        "近代中国的开端与反侵略斗争", "洋务运动、维新变法与辛亥革命", "新文化运动、五四运动与中国共产党创建", "国民革命与土地革命战争", "全民族抗战与抗日战争胜利", "解放战争与新中国成立", "社会主义革命、建设与探索", "改革开放与中国特色社会主义", "新时代与民族复兴", "史纲·未细分",
+        "思想道德与法律关系", "人生观与人生价值", "理想信念", "中国精神与爱国主义", "社会主义核心价值观", "道德规范与修养", "法治思想与法律基础", "思修·未细分"
+      ]
     };
   </script>
   <script defer src="../../study-list.js?v=round-nav-20261115"></script>
-  <script defer src="../app.js?v=round-nav-20261115"></script>
+  <script defer src="../app.js?v=knowledge-tags-20261117"></script>
 </head>
 <body>
   <header class="topbar">
@@ -37,18 +45,20 @@
       <div>
         <p class="eyebrow">STUDY DESK <span>·</span> 政治错题</p>
         <h1>固定题池按轮随机：答对不剔除，会了再自己删。</h1>
-        <p class="intro-copy">当前题池一共 <strong id="bank-total">—</strong> 题（已从上一轮错题锁定，不再因答对变少）。每一轮把<strong>当前题池</strong>打乱后逐题过一遍；答对<strong>不会</strong>自动消失。只有你点「我会了 · 删除」，这道题才离开题池。刷新后仍停在上次那一题。</p>
+        <p class="intro-copy">当前范围一共 <strong id="bank-total">—</strong> 题（已从上一轮错题锁定；可按模块 / 知识点筛选）。每一轮把<strong>当前范围</strong>打乱后逐题过一遍；答对<strong>不会</strong>自动消失。只有你点「我会了 · 删除」，这道题才离开题池。刷新后仍停在上次那一题。</p>
       </div>
       <div class="stats" aria-label="学习统计">
         <div class="stat"><span id="stat-done">0</span><small>本轮已答</small></div>
         <div class="stat"><span id="stat-accuracy">—</span><small>本轮正确率</small></div>
-        <div class="stat"><span id="stat-wrong">0</span><small>题池剩余</small></div>
+        <div class="stat"><span id="stat-wrong">0</span><small>范围剩余</small></div>
       </div>
     </section>
 
     <section class="workspace">
       <aside class="sidebar">
         <div class="sidebar-heading"><span class="section-kicker">进度</span><span class="tiny-rule"></span></div>
+        <label class="field-label" for="category-select">知识点标签</label>
+        <select id="category-select" class="select-control" aria-label="按模块或知识点筛选"></select>
         <section class="sync-card" aria-label="跨设备进度同步">
           <div class="sync-heading"><span>跨设备记忆</span><span class="sync-cloud">↗</span></div>
           <input id="sync-code" class="sync-code" type="password" autocomplete="off" placeholder="设置你的同步码">
@@ -56,7 +66,7 @@
           <p class="sync-help">换设备：旧机先「上传」，新机「拉取」。政治错题的进度和题池单独保存，不改 311。</p>
           <p id="sync-status" class="sync-status" role="status"></p>
         </section>
-        <div class="sidebar-note"><span class="note-mark">✳</span><p>答对不剔除。只有「我会了 · 删除」才会缩小题池。每轮结束会重新打乱同一批题。</p></div>
+        <div class="sidebar-note"><span class="note-mark">✳</span><p>左侧可选模块或知识点专攻；上传批次只有科目标签的题归在「未细分」。答对不剔除，点「我会了 · 删除」才缩小题池。</p></div>
         <button id="reset-progress" class="text-button" type="button">清空本机学习记录</button>
       </aside>
 
