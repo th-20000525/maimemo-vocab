@@ -236,12 +236,16 @@
     setText("pending-count", currentScope.filter(q => !state.attempted.has(q.id)).length);
   }
 
+  function allowsManualRemove() {
+    return keepRoundPool || examPaper;
+  }
+
   function isRemoved(id) {
-    return keepRoundPool && state.removed.has(id);
+    return allowsManualRemove() && state.removed.has(id);
   }
 
   function activeBank() {
-    return keepRoundPool ? bank.filter(q => !state.removed.has(q.id)) : bank;
+    return allowsManualRemove() ? bank.filter(q => !state.removed.has(q.id)) : bank;
   }
 
   function matchesCategory(q) {
@@ -260,14 +264,15 @@
       if (field) field.hidden = true;
       return;
     }
-    const counts = Object.fromEntries(categories.map(c => [c, bank.filter(q => q.category === c).length]));
+    const pool = activeBank();
+    const counts = Object.fromEntries(categories.map(c => [c, pool.filter(q => q.category === c).length]));
     let html = "";
     if (!paperOnly) {
-      html += `<option value="全部题目">${subjectOrder.length ? "五科全部" : "全部题目"} · ${bank.length}</option>`;
+      html += `<option value="全部题目">${subjectOrder.length ? "五科全部" : "全部题目"} · ${pool.length}</option>`;
     }
     if (subjectOrder.length) {
       html += subjectOrder.map(s => {
-        const n = bank.filter(q => q.subjectLabel === s).length;
+        const n = pool.filter(q => q.subjectLabel === s).length;
         return `<option value="subject:${escapeHtml(s)}">${escapeHtml(s)} · ${n}</option>`;
       }).join("");
     }
@@ -641,6 +646,12 @@
       const isPending = pendingOnly;
       const coverDone = mode === "random-cover" && !pendingOnly && !wrongOnly
         && phaseNow === "unanswered" && pendingCountInScope(needle) === 0 && wrongCountInScope(needle) === 0;
+      if (examPaper && !isWrong && !needle) {
+        const fullPaper = bank.filter(q => q.category === currentCategory).length;
+        const removedHere = bank.filter(q => q.category === currentCategory && state.removed.has(q.id)).length;
+        host.innerHTML = `<div class="empty-state"><span class="empty-symbol">✓</span><h2>${removedHere >= fullPaper && fullPaper ? "本卷题已全部删除" : "本卷没有可刷的题"}</h2><p>${removedHere ? `已手动删除 ${removedHere} 题。清空本机学习记录可恢复；或切换其他套卷继续。` : "换一套卷，或清空筛选后再试。"}</p></div>`;
+        return;
+      }
       host.innerHTML = `<div class="empty-state"><span class="empty-symbol">${isWrong || coverDone ? "◇" : isPending ? "✓" : "✳"}</span><h2>${isWrong ? "错题本还是空的" : isPending || coverDone ? "这一范围已经练完了" : "没有找到这道题"}</h2><p>${isWrong ? "答错的题会自动加入错题本，你也可以在答案揭晓后手动收藏。" : isPending || coverDone ? (coverDone && !state.wrong.size ? "当前范围题目都已作答且没有错题，将自动进入第二轮随机。" : "错题会自动进入下一轮；若侧边「只练错题」未亮，刷新一下或点一次出题顺序。") : "试试更短的关键词，或切换到其他题库继续练习。"}</p></div>`;
       return;
     }
@@ -766,14 +777,17 @@
           ? "下一题（或交卷） →"
           : "下一题 →"))
       : (inRound ? "下一题 →" : inReview ? "随机下一题 →" : "下一题 →");
+    const removeBtn = allowsManualRemove()
+      ? `<button id="master-btn" class="btn btn-master" type="button">我会了 · 删除</button>`
+      : "";
     const leftExtra = examPaper
-      ? (graded
+      ? `${graded
         ? `<button id="exam-report-btn" class="btn btn-ghost" type="button">本卷成绩单</button>`
         : (instant
           ? ""
-          : `<button id="grade-inline-btn" class="btn btn-master" type="button">交卷看答案</button>`))
+          : `<button id="grade-inline-btn" class="btn btn-ghost" type="button">交卷看答案</button>`)}${removeBtn}`
       : (keepRoundPool
-        ? `<button id="master-btn" class="btn btn-master" type="button">我会了 · 删除</button>`
+        ? removeBtn
         : `<button id="save-btn" class="btn btn-save ${state.wrong.has(q.id) ? "saved" : ""}" type="button">${state.wrong.has(q.id) ? "◇ 已在错题本" : "◇ 加入错题本"}</button>`);
     const sheetFab = examPaper
       ? `<button id="answer-sheet-fab" class="answer-sheet-fab" type="button" aria-label="打开答题卡"><span>题卡</span></button>${renderAnswerSheetOverlay(q.id)}`
@@ -845,6 +859,7 @@
         state._showGradeReport = true;
         render();
       });
+      $("master-btn")?.addEventListener("click", markMasteredAndRemove);
     } else if (keepRoundPool) {
       $("master-btn")?.addEventListener("click", markMasteredAndRemove);
     } else {
@@ -1114,13 +1129,21 @@
   }
 
   function markMasteredAndRemove() {
-    if (!keepRoundPool) return;
+    if (!allowsManualRemove()) return;
     const q = questions[currentIndex];
     if (!q) return;
     const nextFocusId = questions[currentIndex + 1]?.id || questions[currentIndex - 1]?.id || "";
     state.removed.add(q.id);
     state.wrong.delete(q.id);
     state.reviewMastered.add(q.id);
+    if (examPaper) {
+      state.attempted.delete(q.id);
+      state.submitted.delete(q.id);
+      state.correct.delete(q.id);
+      state.markedOpen.delete(q.id);
+      delete state.choices[q.id];
+      delete state.wrongCounts[q.id];
+    }
     const key = scopeKey();
     const rec = state.roundsByScope[key];
     if (rec && !rec.done) {
@@ -1134,7 +1157,12 @@
         done: nextSet.length === 0,
       };
     }
-    showToast(`已删除 · 题池还剩 ${activeBank().length} 题`);
+    const scopedLeft = bank.filter(matchesCategory).length;
+    showToast(examPaper
+      ? `已删除 · 本卷还剩 ${scopedLeft} 题`
+      : `已删除 · 题池还剩 ${activeBank().length} 题`);
+    populateCategories();
+    categorySelect && (categorySelect.value = currentCategory);
     restorePosition = false;
     if (isRoundCover()) buildRoundSession(nextFocusId || undefined);
     else buildList(true, nextFocusId || undefined);
@@ -1374,7 +1402,7 @@
     retakeCurrentPaper();
   });
   $("reset-progress")?.addEventListener("click", () => {
-    if (!confirm(examPaper ? "要清空各套卷的作答与核对记录吗？" : (keepRoundPool ? "要清空这台设备上的答题记录，并恢复已删除的题目吗？" : "要清空这台设备上的全部答题记录和错题本吗？"))) return;
+    if (!confirm(examPaper ? "要清空各套卷的作答与核对记录，并恢复已删除的题目吗？" : (keepRoundPool ? "要清空这台设备上的答题记录，并恢复已删除的题目吗？" : "要清空这台设备上的全部答题记录和错题本吗？"))) return;
     state.attempted.clear(); state.correct.clear(); state.wrong.clear(); state.submitted.clear(); state.choices = {};
     state.coverPhase = "unanswered";
     state.reviewMastered = new Set();

@@ -7,7 +7,7 @@
   <title>311预测卷</title>
   <link rel="stylesheet" href="../style.css?v=audit-fix-20261115">
   <link rel="stylesheet" href="./exam.css?v=audit-fix-20261115">
-  <script src="questions.js?v=predict-399-oct-20261110"></script>
+  <script src="questions.js?v=predict-456-nov-delete-20261117"></script>
   <script>
     window.STUDY_APP_CONFIG = {
       storageKey: "311-predict-exam-progress-v4",
@@ -20,11 +20,11 @@
       examPaper: true,
       keepRoundPool: false,
       defaultCategory: "预测卷一",
-      categoryOrder: ["预测卷一", "预测卷二", "预测卷三", "预测卷四", "预测卷五", "预测卷六", "十月全真卷"]
+      categoryOrder: ["预测卷一", "预测卷二", "预测卷三", "预测卷四", "预测卷五", "预测卷六", "十月全真卷", "十一月全真卷"]
     };
   </script>
   <script defer src="../study-list.js?v=audit-fix-20261115"></script>
-  <script defer src="./app.js?v=audit-fix-20261115"></script>
+  <script defer src="./app.js?v=predict-delete-20261117"></script>
 </head>
 <body>
   <header class="topbar">
@@ -40,7 +40,7 @@
       <div>
         <p class="eyebrow">STUDY DESK <span>·</span> 311预测卷</p>
         <h1>套卷刷题：可即时看答案，也可答完再核对。</h1>
-        <p class="intro-copy">左侧可选六套预测卷或<strong>十月全真卷</strong>。核对方式二选一：<strong>直接显示答案</strong>（每题确认后立刻出解析），或<strong>答完再核对</strong>（整卷选择题做完再交卷）。主观题可顺带过，也可跳过。本页与 <a href="../wrong/">311错题</a> 完全独立。</p>
+        <p class="intro-copy">左侧可选六套预测卷、<strong>十月全真卷</strong>或<strong>十一月全真卷</strong>。核对方式二选一：<strong>直接显示答案</strong>（每题确认后立刻出解析），或<strong>答完再核对</strong>（整卷选择题做完再交卷）。觉得会了可点「我会了 · 删除」，本题离开本卷题池（同步码会一并记住）。主观题可顺带过，也可跳过。本页与 <a href="../wrong/">311错题</a> 完全独立。</p>
       </div>
       <div class="stats" aria-label="学习统计">
         <div class="stat"><span id="stat-done">0</span><small>选择题已答</small></div>
@@ -73,7 +73,7 @@
           <p class="sync-help">换设备：旧机先「上传」，新机「拉取」。各套卷作答与核对进度单独保存，不改错题池。</p>
           <p id="sync-status" class="sync-status" role="status"></p>
         </section>
-        <div class="sidebar-note"><span class="note-mark">✳</span><p>「答完再核对」：整卷选择题做完再交卷。「直接显示答案」：每题确认后立刻出对错与解析。右下角「题卡」可跳题。</p></div>
+        <div class="sidebar-note"><span class="note-mark">✳</span><p>「答完再核对」：整卷选择题做完再交卷。「直接显示答案」：每题确认后立刻出对错与解析。会了就点「我会了 · 删除」。右下角「题卡」可跳题。</p></div>
         <button id="reset-progress" class="text-button" type="button">清空本机学习记录</button>
       </aside>
 
