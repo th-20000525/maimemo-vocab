@@ -37,8 +37,14 @@
     return ["random", "random-cover", "order"].includes(value) ? value : (appConfig.defaultMode || "order");
   }
 
+  function isValidCategory(value) {
+    if (!value || value === "全部题目") return true;
+    if (value.startsWith("subject:")) return subjectOrder.includes(value.slice(8));
+    return categories.includes(value);
+  }
+
   const state = loadState();
-  let currentCategory = singlePool ? "全部题目" : (categories.includes(state.lastCategory) ? state.lastCategory : "全部题目");
+  let currentCategory = singlePool ? "全部题目" : (isValidCategory(state.lastCategory) ? state.lastCategory : "全部题目");
   let wrongOnly = false;
   let pendingOnly = false;
   let query = "";
@@ -121,13 +127,13 @@
       setText("stat-done", state.attempted.size);
       setText("stat-accuracy", state.attempted.size ? `${Math.round(state.correct.size / state.attempted.size * 100)}%` : "—");
     }
-    const poolLeft = keepRoundPool ? activeBank().length : state.wrong.size;
+    const currentScope = bank.filter(matchesCategory);
+    const poolLeft = keepRoundPool ? currentScope.length : state.wrong.size;
     setText("stat-wrong", poolLeft);
     setText("wrong-count", state.wrong.size);
-    setText("bank-total", keepRoundPool ? String(activeBank().length) : String(bank.length));
+    setText("bank-total", keepRoundPool ? String(currentScope.length) : String(bank.length));
     $("wrong-filter")?.classList.toggle("active", wrongOnly);
     $("pending-filter")?.classList.toggle("active", pendingOnly);
-    const currentScope = bank.filter(matchesCategory);
     setText("pending-count", currentScope.filter(q => !state.attempted.has(q.id)).length);
   }
 
@@ -148,23 +154,40 @@
 
   function populateCategories() {
     if (!categorySelect) return;
+    const pool = keepRoundPool ? activeBank() : bank;
     if (singlePool) {
-      categorySelect.innerHTML = `<option value="全部题目">全部题目 · ${bank.length}</option>`;
+      categorySelect.innerHTML = `<option value="全部题目">全部题目 · ${pool.length}</option>`;
       categorySelect.hidden = true;
       const field = document.querySelector('label[for="category-select"]');
       if (field) field.hidden = true;
       return;
     }
-    const counts = Object.fromEntries(categories.map(c => [c, bank.filter(q => q.category === c).length]));
-    let html = `<option value="全部题目">${subjectOrder.length ? "五科全部" : "全部题目"} · ${bank.length}</option>`;
+    const prev = categorySelect.value || currentCategory;
+    const counts = Object.fromEntries(categories.map(c => [c, pool.filter(q => q.category === c).length]));
+    const allLabel = subjectOrder.length ? "五科全部" : "全部题目";
+    let html = `<option value="全部题目">${escapeHtml(allLabel)} · ${pool.length}</option>`;
     if (subjectOrder.length) {
+      html += `<optgroup label="按模块">`;
       html += subjectOrder.map(s => {
-        const n = bank.filter(q => q.subjectLabel === s).length;
+        const n = pool.filter(q => q.subjectLabel === s).length;
         return `<option value="subject:${escapeHtml(s)}">${escapeHtml(s)} · ${n}</option>`;
       }).join("");
+      html += `</optgroup>`;
+      for (const subject of subjectOrder) {
+        const subjectCats = categories.filter(c => bank.some(q => q.subjectLabel === subject && q.category === c));
+        if (!subjectCats.length) continue;
+        html += `<optgroup label="${escapeHtml(subject)} · 知识点">`;
+        html += subjectCats.map(c => {
+          const short = c.startsWith(`${subject}·`) ? c.slice(subject.length + 1) : c;
+          return `<option value="${escapeHtml(c)}">${escapeHtml(short)} · ${counts[c] || 0}</option>`;
+        }).join("");
+        html += `</optgroup>`;
+      }
+    } else {
+      html += categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)} · ${counts[c] || 0}</option>`).join("");
     }
-    html += categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)} · ${counts[c]}</option>`).join("");
     categorySelect.innerHTML = html;
+    if (isValidCategory(prev)) categorySelect.value = prev;
   }
 
   const Q = window.StudyListQueue;
@@ -717,9 +740,16 @@
     const reviewMisses = state.wrongCounts[q.id] || 0;
     const inReview = !inRound && coverPhase === "review";
     const nextDisabled = !submitted || (!(inRound || inReview) && currentIndex === questions.length - 1);
-    const label = q.subjectLabel
-      ? (currentCategory === "全部题目" || currentCategory.startsWith("subject:") ? `${q.subjectLabel} · ${q.category}` : q.category)
-      : (currentCategory === "全部题目" ? q.category : currentCategory);
+    const label = (() => {
+      if (!q.subjectLabel) return currentCategory === "全部题目" ? q.category : currentCategory;
+      if (String(q.category).startsWith(`${q.subjectLabel}·`) || String(q.category).startsWith(`${q.subjectLabel} ·`)) {
+        return q.category;
+      }
+      if (currentCategory === "全部题目" || currentCategory.startsWith("subject:")) {
+        return `${q.subjectLabel} · ${q.category}`;
+      }
+      return q.category;
+    })();
     const optionsHtml = letters.map(letter => {
       let classes = "option";
       const isSelected = selected.includes(letter);
@@ -816,7 +846,9 @@
         done: nextSet.length === 0,
       };
     }
-    showToast(`已删除 · 题池还剩 ${activeBank().length} 题`);
+    const scopedLeft = bank.filter(matchesCategory).length;
+    showToast(`已删除 · 当前范围还剩 ${scopedLeft} 题`);
+    populateCategories();
     restorePosition = false;
     buildRoundSession(nextFocusId || undefined);
     queueAutoUpload();
@@ -1083,7 +1115,7 @@
       const incomingRounds = (data.roundsByScope && typeof data.roundsByScope === "object" && !Array.isArray(data.roundsByScope))
         ? Q.sanitizeRounds(data.roundsByScope)
         : {};
-      const scope = singlePool ? "全部题目" : (categories.includes(state.lastCategory) ? state.lastCategory : "全部题目");
+      const scope = singlePool ? "全部题目" : (isValidCategory(state.lastCategory) ? state.lastCategory : "全部题目");
       const localRec = Q.normalizeRoundRecord(state.roundsByScope[scope]);
       const remoteRec = Q.normalizeRoundRecord(incomingRounds[scope]);
       const localRoundAhead = !!(keepRoundPool && automatic && localRec && remoteRec && localRec.round > remoteRec.round);
@@ -1106,7 +1138,7 @@
         }
       }
       for (const id of state.correct) state.wrong.delete(id);
-      if (!singlePool && categories.includes(data.lastCategory)) state.lastCategory = data.lastCategory;
+      if (!singlePool && isValidCategory(data.lastCategory)) state.lastCategory = data.lastCategory;
       if (data.lastQuestionId) state.lastQuestionId = data.lastQuestionId;
       state.mode = resolveMode(data.mode);
       Q.applyQueuePayload(state, data);
@@ -1143,8 +1175,9 @@
       }
       if (!automatic) state.poolLocked = data.poolLocked === true;
       else if (data.poolLocked === true) state.poolLocked = true;
-      currentCategory = singlePool ? "全部题目" : (categories.includes(state.lastCategory) ? state.lastCategory : "全部题目");
+      currentCategory = singlePool ? "全部题目" : (isValidCategory(state.lastCategory) ? state.lastCategory : "全部题目");
       mode = state.mode;
+      populateCategories();
       if (categorySelect) categorySelect.value = currentCategory;
       if (modeSelect) modeSelect.value = mode;
       restorePosition = true;
