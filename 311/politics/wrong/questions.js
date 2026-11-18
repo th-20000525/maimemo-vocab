@@ -1569,7 +1569,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-001",
-    "category": "新思想·未细分",
+    "category": "中国特色大国外交",
     "subjectLabel": "新思想",
     "number": 99,
     "type": "single",
@@ -1585,7 +1585,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-002",
-    "category": "新思想·未细分",
+    "category": "党的领导与自我革命",
     "subjectLabel": "新思想",
     "number": 100,
     "type": "multiple",
@@ -1601,7 +1601,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-003",
-    "category": "新思想·未细分",
+    "category": "生态文明与绿色发展",
     "subjectLabel": "新思想",
     "number": 101,
     "type": "multiple",
@@ -1617,7 +1617,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-004",
-    "category": "新思想·未细分",
+    "category": "中国特色大国外交",
     "subjectLabel": "新思想",
     "number": 102,
     "type": "single",
@@ -1633,7 +1633,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-005",
-    "category": "新思想·未细分",
+    "category": "高质量发展与经济建设",
     "subjectLabel": "新思想",
     "number": 103,
     "type": "multiple",
@@ -1649,8 +1649,8 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-006",
-    "category": "新思想·未细分",
-    "subjectLabel": "新思想",
+    "category": "社会主义改造理论",
+    "subjectLabel": "毛中特",
     "number": 104,
     "type": "multiple",
     "stem": "习近平总书记指出:“新中国成立后，我们党团结带领人民创造性完成社会主义改造，确立社会主义基本制度，大规模开展社会主义经济文化建设，中国人民不仅站起来了，而且站住了、站稳了，实现了从社会主义革命到社会主义建设的历史性跨越。”社会主义改造的历史经验包括（）",
@@ -1665,7 +1665,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-007",
-    "category": "新思想·未细分",
+    "category": "中国式现代化与民族复兴",
     "subjectLabel": "新思想",
     "number": 105,
     "type": "multiple",
@@ -1681,7 +1681,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-008",
-    "category": "新思想·未细分",
+    "category": "中国特色大国外交",
     "subjectLabel": "新思想",
     "number": 106,
     "type": "multiple",
@@ -1697,7 +1697,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-009",
-    "category": "新思想·未细分",
+    "category": "高质量发展与经济建设",
     "subjectLabel": "新思想",
     "number": 107,
     "type": "single",
@@ -1713,7 +1713,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-010",
-    "category": "新思想·未细分",
+    "category": "中国特色大国外交",
     "subjectLabel": "新思想",
     "number": 108,
     "type": "single",
@@ -1729,7 +1729,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-011",
-    "category": "新思想·未细分",
+    "category": "改革开放与发展动力",
     "subjectLabel": "新思想",
     "number": 109,
     "type": "multiple",
@@ -1745,7 +1745,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-012",
-    "category": "新思想·未细分",
+    "category": "民主政治与全面依法治国",
     "subjectLabel": "新思想",
     "number": 110,
     "type": "multiple",
@@ -1761,8 +1761,8 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-013",
-    "category": "新思想·未细分",
-    "subjectLabel": "新思想",
+    "category": "理想信念",
+    "subjectLabel": "思修",
     "number": 111,
     "type": "multiple",
     "stem": "40多年前，在一次学术讲座中，陈火旺激情飞扬地阐述国家对信息技术的迫切需求。台下，王戟心潮澎湃，一个懵懂少年“想学计算机”的愿望，逐渐升华为对“国防”二字的坚定信念:“用计算机助力国防。”如今，已高位截肢10余年、历经700多次透析的王戟，依然在强国强军的新征程上“冲锋”。在习近平强军思想引领下，王戟以轮椅为战位，以时不我待的紧迫感，始终战斗在瞬息万变的国防科研最前沿。王戟的故事对我们的启示有（）",
@@ -1777,7 +1777,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-014",
-    "category": "新思想·未细分",
+    "category": "思想理论与「两个结合」",
     "subjectLabel": "新思想",
     "number": 112,
     "type": "single",
@@ -1793,7 +1793,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-015",
-    "category": "新思想·未细分",
+    "category": "中国特色大国外交",
     "subjectLabel": "新思想",
     "number": 113,
     "type": "single",
@@ -1809,7 +1809,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-016",
-    "category": "新思想·未细分",
+    "category": "民主政治与全面依法治国",
     "subjectLabel": "新思想",
     "number": 114,
     "type": "multiple",
@@ -1825,7 +1825,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-017",
-    "category": "新思想·未细分",
+    "category": "中国特色大国外交",
     "subjectLabel": "新思想",
     "number": 115,
     "type": "multiple",
@@ -1841,7 +1841,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-018",
-    "category": "新思想·未细分",
+    "category": "高质量发展与经济建设",
     "subjectLabel": "新思想",
     "number": 116,
     "type": "multiple",
@@ -1857,7 +1857,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-019",
-    "category": "新思想·未细分",
+    "category": "党的领导与自我革命",
     "subjectLabel": "新思想",
     "number": 117,
     "type": "single",
@@ -1873,7 +1873,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-020",
-    "category": "新思想·未细分",
+    "category": "中国特色大国外交",
     "subjectLabel": "新思想",
     "number": 118,
     "type": "single",
@@ -1889,7 +1889,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-021",
-    "category": "新思想·未细分",
+    "category": "高质量发展与经济建设",
     "subjectLabel": "新思想",
     "number": 119,
     "type": "multiple",
@@ -1905,7 +1905,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-022",
-    "category": "新思想·未细分",
+    "category": "高质量发展与经济建设",
     "subjectLabel": "新思想",
     "number": 120,
     "type": "multiple",
@@ -1921,7 +1921,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-023",
-    "category": "新思想·未细分",
+    "category": "改革开放与发展动力",
     "subjectLabel": "新思想",
     "number": 121,
     "type": "single",
@@ -1937,7 +1937,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-024",
-    "category": "新思想·未细分",
+    "category": "中国特色大国外交",
     "subjectLabel": "新思想",
     "number": 122,
     "type": "single",
@@ -1953,8 +1953,8 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-025",
-    "category": "新思想·未细分",
-    "subjectLabel": "新思想",
+    "category": "思想道德与法律关系",
+    "subjectLabel": "思修",
     "number": 123,
     "type": "multiple",
     "stem": "法律和道德是现代国家治理不可缺少的两种重要手段。习近平总书记在中央全面依法治国工作会议上指出:“要坚持依法治国和以德治国相结合，实现法治和德治相辅相成、相得益彰。”思想道德和法律虽然在调节领域、调节方式、调节目标等方面存在很大不同，但是二者都（）",
@@ -1969,7 +1969,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-026",
-    "category": "新思想·未细分",
+    "category": "思想理论与「两个结合」",
     "subjectLabel": "新思想",
     "number": 124,
     "type": "single",
@@ -1985,7 +1985,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-027",
-    "category": "新思想·未细分",
+    "category": "高质量发展与经济建设",
     "subjectLabel": "新思想",
     "number": 125,
     "type": "single",
@@ -2001,7 +2001,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-028",
-    "category": "新思想·未细分",
+    "category": "民生保障与共同富裕",
     "subjectLabel": "新思想",
     "number": 126,
     "type": "multiple",
@@ -2017,7 +2017,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-029",
-    "category": "新思想·未细分",
+    "category": "改革开放与发展动力",
     "subjectLabel": "新思想",
     "number": 127,
     "type": "single",
@@ -2033,7 +2033,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-030",
-    "category": "新思想·未细分",
+    "category": "党的领导与自我革命",
     "subjectLabel": "新思想",
     "number": 128,
     "type": "single",
@@ -2049,7 +2049,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-031",
-    "category": "新思想·未细分",
+    "category": "民生保障与共同富裕",
     "subjectLabel": "新思想",
     "number": 129,
     "type": "multiple",
@@ -2065,7 +2065,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-032",
-    "category": "新思想·未细分",
+    "category": "民主政治与全面依法治国",
     "subjectLabel": "新思想",
     "number": 130,
     "type": "single",
@@ -2081,7 +2081,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-033",
-    "category": "新思想·未细分",
+    "category": "民主政治与全面依法治国",
     "subjectLabel": "新思想",
     "number": 131,
     "type": "multiple",
@@ -2097,7 +2097,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-034",
-    "category": "新思想·未细分",
+    "category": "思想理论与「两个结合」",
     "subjectLabel": "新思想",
     "number": 132,
     "type": "multiple",
@@ -2113,7 +2113,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-035",
-    "category": "新思想·未细分",
+    "category": "思想理论与「两个结合」",
     "subjectLabel": "新思想",
     "number": 133,
     "type": "single",
@@ -2129,7 +2129,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-036",
-    "category": "新思想·未细分",
+    "category": "民生保障与共同富裕",
     "subjectLabel": "新思想",
     "number": 134,
     "type": "single",
@@ -2145,7 +2145,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-037",
-    "category": "新思想·未细分",
+    "category": "改革开放与发展动力",
     "subjectLabel": "新思想",
     "number": 135,
     "type": "multiple",
@@ -2161,7 +2161,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-038",
-    "category": "新思想·未细分",
+    "category": "改革开放与发展动力",
     "subjectLabel": "新思想",
     "number": 136,
     "type": "single",
@@ -2177,7 +2177,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-039",
-    "category": "新思想·未细分",
+    "category": "高质量发展与经济建设",
     "subjectLabel": "新思想",
     "number": 137,
     "type": "multiple",
@@ -2193,7 +2193,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-040",
-    "category": "新思想·未细分",
+    "category": "高质量发展与经济建设",
     "subjectLabel": "新思想",
     "number": 138,
     "type": "multiple",
@@ -2209,7 +2209,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-041",
-    "category": "新思想·未细分",
+    "category": "高质量发展与经济建设",
     "subjectLabel": "新思想",
     "number": 139,
     "type": "multiple",
@@ -2225,7 +2225,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-042",
-    "category": "新思想·未细分",
+    "category": "改革开放与发展动力",
     "subjectLabel": "新思想",
     "number": 140,
     "type": "single",
@@ -2241,7 +2241,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-043",
-    "category": "新思想·未细分",
+    "category": "民主政治与全面依法治国",
     "subjectLabel": "新思想",
     "number": 141,
     "type": "multiple",
@@ -2257,7 +2257,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-044",
-    "category": "新思想·未细分",
+    "category": "国家安全、国防与祖国统一",
     "subjectLabel": "新思想",
     "number": 142,
     "type": "single",
@@ -2273,7 +2273,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-045",
-    "category": "新思想·未细分",
+    "category": "国家安全、国防与祖国统一",
     "subjectLabel": "新思想",
     "number": 143,
     "type": "multiple",
@@ -2289,7 +2289,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-046",
-    "category": "新思想·未细分",
+    "category": "文化建设与文化自信",
     "subjectLabel": "新思想",
     "number": 144,
     "type": "single",
@@ -2305,7 +2305,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-047",
-    "category": "新思想·未细分",
+    "category": "思想理论与「两个结合」",
     "subjectLabel": "新思想",
     "number": 145,
     "type": "single",
@@ -2321,7 +2321,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-048",
-    "category": "新思想·未细分",
+    "category": "中国式现代化与民族复兴",
     "subjectLabel": "新思想",
     "number": 146,
     "type": "single",
@@ -2337,7 +2337,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-049",
-    "category": "新思想·未细分",
+    "category": "高质量发展与经济建设",
     "subjectLabel": "新思想",
     "number": 147,
     "type": "single",
@@ -2353,7 +2353,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-050",
-    "category": "新思想·未细分",
+    "category": "党的领导与自我革命",
     "subjectLabel": "新思想",
     "number": 148,
     "type": "single",
@@ -2369,7 +2369,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-051",
-    "category": "新思想·未细分",
+    "category": "中国特色大国外交",
     "subjectLabel": "新思想",
     "number": 149,
     "type": "single",
@@ -2385,7 +2385,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-052",
-    "category": "新思想·未细分",
+    "category": "中国式现代化与民族复兴",
     "subjectLabel": "新思想",
     "number": 150,
     "type": "single",
@@ -2401,7 +2401,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-053",
-    "category": "新思想·未细分",
+    "category": "中国特色大国外交",
     "subjectLabel": "新思想",
     "number": 151,
     "type": "single",
@@ -2417,7 +2417,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-054",
-    "category": "新思想·未细分",
+    "category": "中国特色大国外交",
     "subjectLabel": "新思想",
     "number": 152,
     "type": "multiple",
@@ -2433,7 +2433,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-055",
-    "category": "新思想·未细分",
+    "category": "高质量发展与经济建设",
     "subjectLabel": "新思想",
     "number": 153,
     "type": "single",
@@ -2449,7 +2449,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-056",
-    "category": "新思想·未细分",
+    "category": "中国特色大国外交",
     "subjectLabel": "新思想",
     "number": 154,
     "type": "single",
@@ -2465,7 +2465,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-057",
-    "category": "新思想·未细分",
+    "category": "民生保障与共同富裕",
     "subjectLabel": "新思想",
     "number": 155,
     "type": "multiple",
@@ -2481,7 +2481,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-058",
-    "category": "新思想·未细分",
+    "category": "高质量发展与经济建设",
     "subjectLabel": "新思想",
     "number": 156,
     "type": "multiple",
@@ -2497,7 +2497,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-059",
-    "category": "新思想·未细分",
+    "category": "民主政治与全面依法治国",
     "subjectLabel": "新思想",
     "number": 157,
     "type": "multiple",
@@ -2513,7 +2513,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-060",
-    "category": "新思想·未细分",
+    "category": "文化建设与文化自信",
     "subjectLabel": "新思想",
     "number": 158,
     "type": "single",
@@ -2529,7 +2529,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-061",
-    "category": "新思想·未细分",
+    "category": "中国特色大国外交",
     "subjectLabel": "新思想",
     "number": 159,
     "type": "single",
@@ -2545,7 +2545,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-062",
-    "category": "新思想·未细分",
+    "category": "中国式现代化与民族复兴",
     "subjectLabel": "新思想",
     "number": 160,
     "type": "multiple",
@@ -2561,7 +2561,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-063",
-    "category": "新思想·未细分",
+    "category": "民生保障与共同富裕",
     "subjectLabel": "新思想",
     "number": 161,
     "type": "single",
@@ -2577,7 +2577,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-064",
-    "category": "新思想·未细分",
+    "category": "中国特色大国外交",
     "subjectLabel": "新思想",
     "number": 162,
     "type": "single",
@@ -2593,7 +2593,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-065",
-    "category": "新思想·未细分",
+    "category": "思想理论与「两个结合」",
     "subjectLabel": "新思想",
     "number": 163,
     "type": "multiple",
@@ -2609,7 +2609,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-066",
-    "category": "新思想·未细分",
+    "category": "中国式现代化与民族复兴",
     "subjectLabel": "新思想",
     "number": 164,
     "type": "multiple",
@@ -2625,7 +2625,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-xs-067",
-    "category": "新思想·未细分",
+    "category": "中国特色大国外交",
     "subjectLabel": "新思想",
     "number": 165,
     "type": "single",
@@ -2641,7 +2641,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-mz-001",
-    "category": "毛中特·未细分",
+    "category": "社会主义建设道路初步探索",
     "subjectLabel": "毛中特",
     "number": 166,
     "type": "multiple",
@@ -2657,7 +2657,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-mz-002",
-    "category": "毛中特·未细分",
+    "category": "社会主义改造理论",
     "subjectLabel": "毛中特",
     "number": 167,
     "type": "multiple",
@@ -2673,7 +2673,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-mz-003",
-    "category": "毛中特·未细分",
+    "category": "邓小平理论",
     "subjectLabel": "毛中特",
     "number": 168,
     "type": "multiple",
@@ -2689,7 +2689,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-mz-004",
-    "category": "毛中特·未细分",
+    "category": "邓小平理论",
     "subjectLabel": "毛中特",
     "number": 169,
     "type": "multiple",
@@ -2705,7 +2705,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-mz-005",
-    "category": "毛中特·未细分",
+    "category": "邓小平理论",
     "subjectLabel": "毛中特",
     "number": 170,
     "type": "single",
@@ -2721,7 +2721,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-mz-006",
-    "category": "毛中特·未细分",
+    "category": "社会主义建设道路初步探索",
     "subjectLabel": "毛中特",
     "number": 171,
     "type": "multiple",
@@ -2737,7 +2737,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-mz-007",
-    "category": "毛中特·未细分",
+    "category": "邓小平理论",
     "subjectLabel": "毛中特",
     "number": 172,
     "type": "single",
@@ -2753,7 +2753,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-mz-008",
-    "category": "毛中特·未细分",
+    "category": "邓小平理论",
     "subjectLabel": "毛中特",
     "number": 173,
     "type": "single",
@@ -2769,7 +2769,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-mz-009",
-    "category": "毛中特·未细分",
+    "category": "邓小平理论",
     "subjectLabel": "毛中特",
     "number": 174,
     "type": "single",
@@ -2785,7 +2785,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-mz-010",
-    "category": "毛中特·未细分",
+    "category": "科学发展观",
     "subjectLabel": "毛中特",
     "number": 175,
     "type": "single",
@@ -2801,7 +2801,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-mz-011",
-    "category": "毛中特·未细分",
+    "category": "毛泽东思想的形成与活的灵魂",
     "subjectLabel": "毛中特",
     "number": 176,
     "type": "multiple",
@@ -2817,7 +2817,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-mz-012",
-    "category": "毛中特·未细分",
+    "category": "社会主义改造理论",
     "subjectLabel": "毛中特",
     "number": 177,
     "type": "single",
@@ -2833,7 +2833,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-mz-013",
-    "category": "毛中特·未细分",
+    "category": "「三个代表」重要思想",
     "subjectLabel": "毛中特",
     "number": 178,
     "type": "multiple",
@@ -2849,7 +2849,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-mz-014",
-    "category": "毛中特·未细分",
+    "category": "科学发展观",
     "subjectLabel": "毛中特",
     "number": 179,
     "type": "single",
@@ -2865,7 +2865,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-mz-015",
-    "category": "毛中特·未细分",
+    "category": "邓小平理论",
     "subjectLabel": "毛中特",
     "number": 180,
     "type": "multiple",
@@ -2881,7 +2881,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-mz-016",
-    "category": "毛中特·未细分",
+    "category": "邓小平理论",
     "subjectLabel": "毛中特",
     "number": 181,
     "type": "single",
@@ -2897,7 +2897,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-mz-017",
-    "category": "毛中特·未细分",
+    "category": "新民主主义革命理论",
     "subjectLabel": "毛中特",
     "number": 182,
     "type": "multiple",
@@ -2913,7 +2913,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-mz-018",
-    "category": "毛中特·未细分",
+    "category": "新民主主义革命理论",
     "subjectLabel": "毛中特",
     "number": 183,
     "type": "single",
@@ -2929,7 +2929,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-mz-019",
-    "category": "毛中特·未细分",
+    "category": "新民主主义革命理论",
     "subjectLabel": "毛中特",
     "number": 184,
     "type": "multiple",
@@ -2945,7 +2945,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-mz-020",
-    "category": "毛中特·未细分",
+    "category": "社会主义建设道路初步探索",
     "subjectLabel": "毛中特",
     "number": 185,
     "type": "multiple",
@@ -2961,7 +2961,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-mz-021",
-    "category": "毛中特·未细分",
+    "category": "「三个代表」重要思想",
     "subjectLabel": "毛中特",
     "number": 186,
     "type": "multiple",
@@ -2977,7 +2977,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-001",
-    "category": "史纲·未细分",
+    "category": "解放战争与新中国成立",
     "subjectLabel": "史纲",
     "number": 187,
     "type": "single",
@@ -2993,7 +2993,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-002",
-    "category": "史纲·未细分",
+    "category": "解放战争与新中国成立",
     "subjectLabel": "史纲",
     "number": 188,
     "type": "single",
@@ -3009,7 +3009,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-003",
-    "category": "史纲·未细分",
+    "category": "新文化运动、五四运动与中国共产党创建",
     "subjectLabel": "史纲",
     "number": 189,
     "type": "multiple",
@@ -3025,7 +3025,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-004",
-    "category": "史纲·未细分",
+    "category": "新文化运动、五四运动与中国共产党创建",
     "subjectLabel": "史纲",
     "number": 190,
     "type": "single",
@@ -3041,7 +3041,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-005",
-    "category": "史纲·未细分",
+    "category": "国民革命与土地革命战争",
     "subjectLabel": "史纲",
     "number": 191,
     "type": "single",
@@ -3057,7 +3057,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-006",
-    "category": "史纲·未细分",
+    "category": "新文化运动、五四运动与中国共产党创建",
     "subjectLabel": "史纲",
     "number": 192,
     "type": "single",
@@ -3073,7 +3073,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-007",
-    "category": "史纲·未细分",
+    "category": "解放战争与新中国成立",
     "subjectLabel": "史纲",
     "number": 193,
     "type": "single",
@@ -3089,7 +3089,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-008",
-    "category": "史纲·未细分",
+    "category": "国民革命与土地革命战争",
     "subjectLabel": "史纲",
     "number": 194,
     "type": "multiple",
@@ -3105,7 +3105,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-009",
-    "category": "史纲·未细分",
+    "category": "新时代与民族复兴",
     "subjectLabel": "史纲",
     "number": 195,
     "type": "single",
@@ -3121,7 +3121,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-010",
-    "category": "史纲·未细分",
+    "category": "全民族抗战与抗日战争胜利",
     "subjectLabel": "史纲",
     "number": 196,
     "type": "multiple",
@@ -3137,7 +3137,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-011",
-    "category": "史纲·未细分",
+    "category": "全民族抗战与抗日战争胜利",
     "subjectLabel": "史纲",
     "number": 197,
     "type": "multiple",
@@ -3153,7 +3153,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-012",
-    "category": "史纲·未细分",
+    "category": "社会主义革命、建设与探索",
     "subjectLabel": "史纲",
     "number": 198,
     "type": "multiple",
@@ -3169,7 +3169,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-013",
-    "category": "史纲·未细分",
+    "category": "全民族抗战与抗日战争胜利",
     "subjectLabel": "史纲",
     "number": 199,
     "type": "single",
@@ -3185,7 +3185,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-014",
-    "category": "史纲·未细分",
+    "category": "社会主义革命、建设与探索",
     "subjectLabel": "史纲",
     "number": 200,
     "type": "single",
@@ -3201,7 +3201,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-015",
-    "category": "史纲·未细分",
+    "category": "国民革命与土地革命战争",
     "subjectLabel": "史纲",
     "number": 201,
     "type": "single",
@@ -3217,7 +3217,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-016",
-    "category": "史纲·未细分",
+    "category": "社会主义革命、建设与探索",
     "subjectLabel": "史纲",
     "number": 202,
     "type": "single",
@@ -3233,7 +3233,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-017",
-    "category": "史纲·未细分",
+    "category": "全民族抗战与抗日战争胜利",
     "subjectLabel": "史纲",
     "number": 203,
     "type": "multiple",
@@ -3249,7 +3249,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-018",
-    "category": "史纲·未细分",
+    "category": "解放战争与新中国成立",
     "subjectLabel": "史纲",
     "number": 204,
     "type": "multiple",
@@ -3265,8 +3265,8 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-019",
-    "category": "史纲·未细分",
-    "subjectLabel": "史纲",
+    "category": "中国精神与爱国主义",
+    "subjectLabel": "思修",
     "number": 205,
     "type": "multiple",
     "stem": "(2010-30)1955年，钱学森冲破重重阻力，回到魂牵梦绕的祖国。当有人问他为什么回国时，他说:“我为什么要走回归祖国这条道路?我认为道理很简单——鸦片战争近百年来，国人强国梦不息，抗争不断。革命先烈为兴邦，为了炎黄子孙的强国梦，献出了宝贵的生命，血沃中华热土。我个人作为炎黄子孙的一员，只能追随先烈的足迹，在千万般艰险中，探索追求，不顾及其他。再看看共和国的缔造者和建设者们，在百废待兴的贫瘠土地上，顶住国内的贫穷，国外的封锁，经过多少个风风雨雨的春秋，让一个社会主义新中国屹立于世界东方。想到这些，还有什么个人利益不能丢呢?”钱学森发自肺腑的言语，对我们在新时期弘扬爱国主义精神的启示是",
@@ -3281,7 +3281,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-020",
-    "category": "史纲·未细分",
+    "category": "近代中国的开端与反侵略斗争",
     "subjectLabel": "史纲",
     "number": 206,
     "type": "multiple",
@@ -3297,7 +3297,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-021",
-    "category": "史纲·未细分",
+    "category": "近代中国的开端与反侵略斗争",
     "subjectLabel": "史纲",
     "number": 207,
     "type": "multiple",
@@ -3313,7 +3313,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-022",
-    "category": "史纲·未细分",
+    "category": "新文化运动、五四运动与中国共产党创建",
     "subjectLabel": "史纲",
     "number": 208,
     "type": "multiple",
@@ -3329,7 +3329,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-023",
-    "category": "史纲·未细分",
+    "category": "新文化运动、五四运动与中国共产党创建",
     "subjectLabel": "史纲",
     "number": 209,
     "type": "single",
@@ -3345,7 +3345,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-024",
-    "category": "史纲·未细分",
+    "category": "新文化运动、五四运动与中国共产党创建",
     "subjectLabel": "史纲",
     "number": 210,
     "type": "single",
@@ -3361,7 +3361,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-025",
-    "category": "史纲·未细分",
+    "category": "国民革命与土地革命战争",
     "subjectLabel": "史纲",
     "number": 211,
     "type": "multiple",
@@ -3377,7 +3377,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-026",
-    "category": "史纲·未细分",
+    "category": "全民族抗战与抗日战争胜利",
     "subjectLabel": "史纲",
     "number": 212,
     "type": "single",
@@ -3393,7 +3393,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-027",
-    "category": "史纲·未细分",
+    "category": "全民族抗战与抗日战争胜利",
     "subjectLabel": "史纲",
     "number": 213,
     "type": "multiple",
@@ -3409,7 +3409,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-028",
-    "category": "史纲·未细分",
+    "category": "全民族抗战与抗日战争胜利",
     "subjectLabel": "史纲",
     "number": 214,
     "type": "multiple",
@@ -3425,7 +3425,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-029",
-    "category": "史纲·未细分",
+    "category": "社会主义革命、建设与探索",
     "subjectLabel": "史纲",
     "number": 215,
     "type": "multiple",
@@ -3441,7 +3441,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-030",
-    "category": "史纲·未细分",
+    "category": "解放战争与新中国成立",
     "subjectLabel": "史纲",
     "number": 216,
     "type": "multiple",
@@ -3457,7 +3457,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-031",
-    "category": "史纲·未细分",
+    "category": "洋务运动、维新变法与辛亥革命",
     "subjectLabel": "史纲",
     "number": 217,
     "type": "multiple",
@@ -3473,7 +3473,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-032",
-    "category": "史纲·未细分",
+    "category": "新时代与民族复兴",
     "subjectLabel": "史纲",
     "number": 218,
     "type": "multiple",
@@ -3489,7 +3489,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-033",
-    "category": "史纲·未细分",
+    "category": "全民族抗战与抗日战争胜利",
     "subjectLabel": "史纲",
     "number": 219,
     "type": "multiple",
@@ -3505,7 +3505,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-034",
-    "category": "史纲·未细分",
+    "category": "近代中国的开端与反侵略斗争",
     "subjectLabel": "史纲",
     "number": 220,
     "type": "single",
@@ -3521,7 +3521,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sg-035",
-    "category": "史纲·未细分",
+    "category": "全民族抗战与抗日战争胜利",
     "subjectLabel": "史纲",
     "number": 221,
     "type": "multiple",
@@ -3537,7 +3537,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sx-001",
-    "category": "思修·未细分",
+    "category": "道德规范与修养",
     "subjectLabel": "思修",
     "number": 222,
     "type": "single",
@@ -3553,7 +3553,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sx-002",
-    "category": "思修·未细分",
+    "category": "中国精神与爱国主义",
     "subjectLabel": "思修",
     "number": 223,
     "type": "multiple",
@@ -3569,7 +3569,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sx-003",
-    "category": "思修·未细分",
+    "category": "法治思想与法律基础",
     "subjectLabel": "思修",
     "number": 224,
     "type": "multiple",
@@ -3585,7 +3585,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sx-004",
-    "category": "思修·未细分",
+    "category": "法治思想与法律基础",
     "subjectLabel": "思修",
     "number": 225,
     "type": "multiple",
@@ -3601,7 +3601,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sx-005",
-    "category": "思修·未细分",
+    "category": "法治思想与法律基础",
     "subjectLabel": "思修",
     "number": 226,
     "type": "single",
@@ -3617,7 +3617,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sx-006",
-    "category": "思修·未细分",
+    "category": "道德规范与修养",
     "subjectLabel": "思修",
     "number": 227,
     "type": "multiple",
@@ -3633,7 +3633,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sx-007",
-    "category": "思修·未细分",
+    "category": "道德规范与修养",
     "subjectLabel": "思修",
     "number": 228,
     "type": "multiple",
@@ -3649,7 +3649,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sx-008",
-    "category": "思修·未细分",
+    "category": "社会主义核心价值观",
     "subjectLabel": "思修",
     "number": 229,
     "type": "single",
@@ -3665,7 +3665,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sx-009",
-    "category": "思修·未细分",
+    "category": "法治思想与法律基础",
     "subjectLabel": "思修",
     "number": 230,
     "type": "multiple",
@@ -3681,7 +3681,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sx-010",
-    "category": "思修·未细分",
+    "category": "道德规范与修养",
     "subjectLabel": "思修",
     "number": 231,
     "type": "multiple",
@@ -3697,7 +3697,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sx-011",
-    "category": "思修·未细分",
+    "category": "道德规范与修养",
     "subjectLabel": "思修",
     "number": 232,
     "type": "multiple",
@@ -3713,7 +3713,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sx-012",
-    "category": "思修·未细分",
+    "category": "法治思想与法律基础",
     "subjectLabel": "思修",
     "number": 233,
     "type": "multiple",
@@ -3729,7 +3729,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sx-013",
-    "category": "思修·未细分",
+    "category": "法治思想与法律基础",
     "subjectLabel": "思修",
     "number": 234,
     "type": "multiple",
@@ -3745,7 +3745,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sx-014",
-    "category": "思修·未细分",
+    "category": "中国精神与爱国主义",
     "subjectLabel": "思修",
     "number": 235,
     "type": "single",
@@ -3761,7 +3761,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sx-015",
-    "category": "思修·未细分",
+    "category": "道德规范与修养",
     "subjectLabel": "思修",
     "number": 236,
     "type": "multiple",
@@ -3777,7 +3777,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sx-016",
-    "category": "思修·未细分",
+    "category": "道德规范与修养",
     "subjectLabel": "思修",
     "number": 237,
     "type": "multiple",
@@ -3793,7 +3793,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sx-017",
-    "category": "思修·未细分",
+    "category": "道德规范与修养",
     "subjectLabel": "思修",
     "number": 238,
     "type": "multiple",
@@ -3809,7 +3809,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sx-018",
-    "category": "思修·未细分",
+    "category": "道德规范与修养",
     "subjectLabel": "思修",
     "number": 239,
     "type": "single",
@@ -3825,7 +3825,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sx-019",
-    "category": "思修·未细分",
+    "category": "道德规范与修养",
     "subjectLabel": "思修",
     "number": 240,
     "type": "single",
@@ -3841,7 +3841,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sx-020",
-    "category": "思修·未细分",
+    "category": "法治思想与法律基础",
     "subjectLabel": "思修",
     "number": 241,
     "type": "multiple",
@@ -3857,7 +3857,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sx-021",
-    "category": "思修·未细分",
+    "category": "中国精神与爱国主义",
     "subjectLabel": "思修",
     "number": 242,
     "type": "single",
@@ -3873,7 +3873,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sx-022",
-    "category": "思修·未细分",
+    "category": "思想道德与法律关系",
     "subjectLabel": "思修",
     "number": 243,
     "type": "multiple",
@@ -3889,7 +3889,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sx-023",
-    "category": "思修·未细分",
+    "category": "法治思想与法律基础",
     "subjectLabel": "思修",
     "number": 244,
     "type": "multiple",
@@ -3905,7 +3905,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sx-024",
-    "category": "思修·未细分",
+    "category": "道德规范与修养",
     "subjectLabel": "思修",
     "number": 245,
     "type": "multiple",
@@ -3921,7 +3921,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sx-025",
-    "category": "思修·未细分",
+    "category": "法治思想与法律基础",
     "subjectLabel": "思修",
     "number": 246,
     "type": "multiple",
@@ -3937,7 +3937,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sx-026",
-    "category": "思修·未细分",
+    "category": "法治思想与法律基础",
     "subjectLabel": "思修",
     "number": 247,
     "type": "single",
@@ -3953,7 +3953,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sx-027",
-    "category": "思修·未细分",
+    "category": "道德规范与修养",
     "subjectLabel": "思修",
     "number": 248,
     "type": "multiple",
@@ -3969,7 +3969,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "uploaded-wrong-sx-028",
-    "category": "思修·未细分",
+    "category": "法治思想与法律基础",
     "subjectLabel": "思修",
     "number": 249,
     "type": "multiple",
@@ -8001,7 +8001,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "xin-thought-011",
-    "category": "文化建设与文化自信",
+    "category": "思想理论与「两个结合」",
     "subjectLabel": "新思想",
     "number": 501,
     "type": "multiple",
@@ -8065,7 +8065,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "xin-thought-025",
-    "category": "民生保障与共同富裕",
+    "category": "中国式现代化与民族复兴",
     "subjectLabel": "新思想",
     "number": 505,
     "type": "single",
@@ -8305,7 +8305,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "xin-thought-063",
-    "category": "改革开放与发展动力",
+    "category": "高质量发展与经济建设",
     "subjectLabel": "新思想",
     "number": 520,
     "type": "single",
@@ -8337,7 +8337,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "xin-thought-070",
-    "category": "思想理论与「两个结合」",
+    "category": "高质量发展与经济建设",
     "subjectLabel": "新思想",
     "number": 522,
     "type": "single",
@@ -11889,7 +11889,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "history-outline-033",
-    "category": "洋务运动、维新变法与辛亥革命",
+    "category": "近代中国的开端与反侵略斗争",
     "subjectLabel": "史纲",
     "number": 744,
     "type": "multiple",
@@ -11921,7 +11921,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "history-outline-035",
-    "category": "洋务运动、维新变法与辛亥革命",
+    "category": "近代中国的开端与反侵略斗争",
     "subjectLabel": "史纲",
     "number": 746,
     "type": "multiple",
@@ -11937,7 +11937,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "history-outline-036",
-    "category": "洋务运动、维新变法与辛亥革命",
+    "category": "近代中国的开端与反侵略斗争",
     "subjectLabel": "史纲",
     "number": 747,
     "type": "multiple",
@@ -11969,7 +11969,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "history-outline-038",
-    "category": "全民族抗战与抗日战争胜利",
+    "category": "近代中国的开端与反侵略斗争",
     "subjectLabel": "史纲",
     "number": 749,
     "type": "multiple",
@@ -12481,7 +12481,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "history-outline-103",
-    "category": "洋务运动、维新变法与辛亥革命",
+    "category": "近代中国的开端与反侵略斗争",
     "subjectLabel": "史纲",
     "number": 781,
     "type": "multiple",
@@ -12625,7 +12625,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "history-outline-116",
-    "category": "国民革命与土地革命战争",
+    "category": "全民族抗战与抗日战争胜利",
     "subjectLabel": "史纲",
     "number": 790,
     "type": "multiple",
@@ -12721,7 +12721,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "history-outline-122",
-    "category": "全民族抗战与抗日战争胜利",
+    "category": "社会主义革命、建设与探索",
     "subjectLabel": "史纲",
     "number": 796,
     "type": "multiple",
@@ -12849,7 +12849,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "history-outline-140",
-    "category": "国民革命与土地革命战争",
+    "category": "解放战争与新中国成立",
     "subjectLabel": "史纲",
     "number": 804,
     "type": "multiple",
@@ -12993,7 +12993,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "history-outline-153",
-    "category": "洋务运动、维新变法与辛亥革命",
+    "category": "近代中国的开端与反侵略斗争",
     "subjectLabel": "史纲",
     "number": 813,
     "type": "multiple",
@@ -13009,7 +13009,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "history-outline-155",
-    "category": "洋务运动、维新变法与辛亥革命",
+    "category": "近代中国的开端与反侵略斗争",
     "subjectLabel": "史纲",
     "number": 814,
     "type": "multiple",
@@ -13041,7 +13041,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "history-outline-157",
-    "category": "洋务运动、维新变法与辛亥革命",
+    "category": "近代中国的开端与反侵略斗争",
     "subjectLabel": "史纲",
     "number": 816,
     "type": "multiple",
@@ -13249,7 +13249,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "history-outline-181",
-    "category": "国民革命与土地革命战争",
+    "category": "解放战争与新中国成立",
     "subjectLabel": "史纲",
     "number": 829,
     "type": "multiple",
@@ -13345,7 +13345,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "history-outline-190",
-    "category": "改革开放与中国特色社会主义",
+    "category": "社会主义革命、建设与探索",
     "subjectLabel": "史纲",
     "number": 835,
     "type": "multiple",
@@ -13457,7 +13457,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "history-outline-200",
-    "category": "新时代与民族复兴",
+    "category": "全民族抗战与抗日战争胜利",
     "subjectLabel": "史纲",
     "number": 842,
     "type": "multiple",
@@ -13473,7 +13473,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "history-outline-202",
-    "category": "全民族抗战与抗日战争胜利",
+    "category": "近代中国的开端与反侵略斗争",
     "subjectLabel": "史纲",
     "number": 843,
     "type": "single",
@@ -13553,7 +13553,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "history-outline-214",
-    "category": "国民革命与土地革命战争",
+    "category": "新文化运动、五四运动与中国共产党创建",
     "subjectLabel": "史纲",
     "number": 848,
     "type": "single",
@@ -13585,7 +13585,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "history-outline-220",
-    "category": "国民革命与土地革命战争",
+    "category": "新文化运动、五四运动与中国共产党创建",
     "subjectLabel": "史纲",
     "number": 850,
     "type": "multiple",
@@ -13601,7 +13601,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "history-outline-221",
-    "category": "国民革命与土地革命战争",
+    "category": "新文化运动、五四运动与中国共产党创建",
     "subjectLabel": "史纲",
     "number": 851,
     "type": "multiple",
@@ -13633,7 +13633,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "history-outline-223",
-    "category": "国民革命与土地革命战争",
+    "category": "新文化运动、五四运动与中国共产党创建",
     "subjectLabel": "史纲",
     "number": 853,
     "type": "multiple",
@@ -13681,7 +13681,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "history-outline-234",
-    "category": "国民革命与土地革命战争",
+    "category": "全民族抗战与抗日战争胜利",
     "subjectLabel": "史纲",
     "number": 856,
     "type": "single",
@@ -13697,7 +13697,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "history-outline-235",
-    "category": "国民革命与土地革命战争",
+    "category": "全民族抗战与抗日战争胜利",
     "subjectLabel": "史纲",
     "number": 857,
     "type": "single",
@@ -14257,7 +14257,7 @@ window.QUESTION_BANK = [
   },
   {
     "id": "sixiuyang-021",
-    "category": "人生观与人生价值",
+    "category": "道德规范与修养",
     "subjectLabel": "思修",
     "number": 892,
     "type": "multiple",
