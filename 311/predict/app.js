@@ -32,7 +32,8 @@
     if (aIndex >= 0 || bIndex >= 0) return (aIndex < 0 ? Infinity : aIndex) - (bIndex < 0 ? Infinity : bIndex);
     return a.localeCompare(b, "zh-CN");
   });
-  const defaultSyncCode = "1234";
+  // 不设共享默认同步码：旧默认「1234」会让所有人拉到同一份 removed，误藏整卷首题。
+  const defaultSyncCode = "";
 
   function resolveMode(value) {
     if (appConfig.roundOnly) return "random-cover";
@@ -957,8 +958,8 @@
       ? `<div class="sheet-legend"><span><i class="sheet-ok"></i>正确</span><span><i class="sheet-bad"></i>错误</span><span><i class="sheet-open"></i>主观</span><span><i class="sheet-todo"></i>未揭晓</span></div>`
       : `<div class="sheet-legend"><span><i class="sheet-done"></i>已答</span><span><i class="sheet-todo"></i>未答</span></div>`;
     return `${legend}${groups.map(group => {
-      const cells = group.items.map((q, idx) => {
-        const n = idx + 1;
+      const cells = group.items.map(q => {
+        const n = Number(q.number) || 0;
         return `<button type="button" class="sheet-cell ${sheetCellClass(q, currentId)}" data-jump-id="${escapeHtml(q.id)}" aria-label="${group.title}第${n}题">${n}</button>`;
       }).join("");
       return `<div class="sheet-group"><h4>${group.title}</h4><div class="sheet-grid">${cells}</div></div>`;
@@ -1518,6 +1519,7 @@
       if (data.checkMode) state.checkMode = resolveCheckMode(data.checkMode);
       currentCategory = resolveCategory(state.lastCategory);
       mode = state.mode;
+      populateCategories();
       if (categorySelect) categorySelect.value = currentCategory;
       if (modeSelect) modeSelect.value = mode;
       const checkModeSelect = $("check-mode-select");
