@@ -24,6 +24,7 @@
   const keepRoundPool = appConfig.keepRoundPool === true;
   const orderRound = appConfig.orderRound === true;
   const lockPoolFromProgress = appConfig.lockPoolFromProgress === true;
+  const shuffleOptions = appConfig.shuffleOptions === true;
   const categories = [...new Set(bank.map(q => q.category))].sort((a, b) => {
     const aIndex = categoryOrder.indexOf(a);
     const bIndex = categoryOrder.indexOf(b);
@@ -81,12 +82,15 @@
         wrongCounts: saved.wrongCounts && typeof saved.wrongCounts === "object" ? saved.wrongCounts : {},
         roundsByScope: saved.roundsByScope && typeof saved.roundsByScope === "object" ? saved.roundsByScope : {},
         poolLocked: saved.poolLocked === true,
+        optionOrders: saved.optionOrders && typeof saved.optionOrders === "object" && !Array.isArray(saved.optionOrders)
+          ? saved.optionOrders
+          : {},
         syncCode: (typeof saved.syncCode === "string" && saved.syncCode.trim().length >= 4)
           ? saved.syncCode.trim()
           : defaultSyncCode
       };
     } catch {
-      return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastQuestionId: "", mode: resolveMode(appConfig.defaultMode), shuffleKey: "", shuffleOrder: [], listIndex: 0, coverPhase: "unanswered", reviewMastered: new Set(), removed: new Set(), wrongCounts: {}, roundsByScope: {}, poolLocked: false, syncCode: defaultSyncCode };
+      return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastQuestionId: "", mode: resolveMode(appConfig.defaultMode), shuffleKey: "", shuffleOrder: [], listIndex: 0, coverPhase: "unanswered", reviewMastered: new Set(), removed: new Set(), wrongCounts: {}, roundsByScope: {}, poolLocked: false, optionOrders: {}, syncCode: defaultSyncCode };
     }
   }
 
@@ -106,6 +110,7 @@
       wrongCounts: state.wrongCounts,
       roundsByScope: state.roundsByScope || {},
       poolLocked: state.poolLocked === true,
+      optionOrders: state.optionOrders || {},
       syncCode: $("sync-code")?.value.trim() || state.syncCode
     }));
     updateStats();
@@ -225,11 +230,53 @@
     return bank.filter(q => matchesScopeBase(q, needle) && state.wrong.has(q.id)).length;
   }
 
+  function isValidOptionOrder(order) {
+    return Array.isArray(order)
+      && order.length === letters.length
+      && letters.every(letter => order.includes(letter));
+  }
+
+  /** Display slot A–D → original bank letter. Persists for one attempt so mid-answer refresh stays stable. */
+  function ensureOptionOrder(q) {
+    if (!shuffleOptions || !q) return letters.slice();
+    const saved = state.optionOrders[q.id];
+    if (isValidOptionOrder(saved)) return saved.slice();
+    if (state.submitted.has(q.id)) return letters.slice();
+    const order = shuffle(letters.slice());
+    state.optionOrders[q.id] = order;
+    return order.slice();
+  }
+
+  function clearOptionOrder(id) {
+    if (!id) return;
+    delete state.optionOrders[id];
+  }
+
+  function displayLetterForOriginal(order, originalLetter) {
+    const idx = order.indexOf(originalLetter);
+    return idx >= 0 ? letters[idx] : originalLetter;
+  }
+
+  function originalLetterForDisplay(order, displayLetter) {
+    const idx = letters.indexOf(displayLetter);
+    return idx >= 0 ? (order[idx] || displayLetter) : displayLetter;
+  }
+
+  function selectedDisplayLetters(q, order) {
+    return String(state.choices[q.id] || "")
+      .split("")
+      .filter(Boolean)
+      .map(original => displayLetterForOriginal(order, original))
+      .sort()
+      .join("");
+  }
+
   function clearAttemptUiForScope(needle) {
     bank.forEach(q => {
       if (!matchesScopeBase(q, needle)) return;
       state.submitted.delete(q.id);
       delete state.choices[q.id];
+      clearOptionOrder(q.id);
     });
   }
 
@@ -286,6 +333,7 @@
     ids.forEach(id => {
       state.submitted.delete(id);
       delete state.choices[id];
+      clearOptionOrder(id);
     });
   }
 
@@ -566,6 +614,7 @@
     currentIndex = Math.max(0, questions.findIndex(q => q.id === next.id));
     state.submitted.delete(next.id);
     delete state.choices[next.id];
+    clearOptionOrder(next.id);
     state.lastQuestionId = next.id;
     render();
     saveState();
@@ -663,6 +712,7 @@
       if (cur) {
         state.submitted.delete(cur.id);
         delete state.choices[cur.id];
+        clearOptionOrder(cur.id);
       }
     }
     if (mode === "random-cover" && coverPhase === "unanswered" && !questions.length && pendingCountInScope(needle) === 0) {
@@ -722,9 +772,12 @@
       return;
     }
     const q = questions[currentIndex];
-    const selected = String(state.choices[q.id] || "");
+    const optionOrder = ensureOptionOrder(q);
+    const selected = selectedDisplayLetters(q, optionOrder);
     const answerLetters = String(q.answer || "").split("").sort();
-    const normalizedAnswer = answerLetters.join("");
+    const displayAnswerLetters = answerLetters
+      .map(original => displayLetterForOriginal(optionOrder, original))
+      .sort();
     const submitted = state.submitted.has(q.id);
     const correct = state.correct.has(q.id);
     const coverPhase = getCoverPhase(needle);
@@ -750,18 +803,19 @@
       }
       return q.category;
     })();
-    const optionsHtml = letters.map(letter => {
+    const optionsHtml = letters.map((displayLetter, index) => {
+      const originalLetter = optionOrder[index] || displayLetter;
       let classes = "option";
-      const isSelected = selected.includes(letter);
+      const isSelected = selected.includes(displayLetter);
       if (isSelected) classes += " selected";
-      if (submitted && answerLetters.includes(letter)) classes += " correct";
-      if (submitted && isSelected && !answerLetters.includes(letter)) classes += " incorrect";
-      const why = submitted && !answerLetters.includes(letter) ? optionWhy(q.analysis, letter) : "";
-      return `<button class="${classes}" type="button" data-choice="${letter}" ${submitted ? "disabled" : ""}>
-        <span class="option-key">${letter}</span><span class="option-main"><span class="option-text">${escapeHtml(q.options[letter] || "")}</span>${why ? `<span class="option-why">${escapeHtml(why)}</span>` : ""}</span></button>`;
+      if (submitted && answerLetters.includes(originalLetter)) classes += " correct";
+      if (submitted && isSelected && !answerLetters.includes(originalLetter)) classes += " incorrect";
+      const why = submitted && !answerLetters.includes(originalLetter) ? optionWhy(q.analysis, originalLetter) : "";
+      return `<button class="${classes}" type="button" data-choice="${displayLetter}" ${submitted ? "disabled" : ""}>
+        <span class="option-key">${displayLetter}</span><span class="option-main"><span class="option-text">${escapeHtml(q.options[originalLetter] || "")}</span>${why ? `<span class="option-why">${escapeHtml(why)}</span>` : ""}</span></button>`;
     }).join("");
     const answerBox = submitted ? `<div class="answer-box">
-      <p class="answer-result ${correct ? "good" : "bad"}">${correct ? "回答正确" : `正确答案：${answerLetters.join("、")}`} · ${correct ? "记得很好，继续保持。" : "看看解析，下一次就能答对。"}</p>
+      <p class="answer-result ${correct ? "good" : "bad"}">${correct ? "回答正确" : `正确答案：${displayAnswerLetters.join("、")}`} · ${correct ? "记得很好，继续保持。" : "看看解析，下一次就能答对。"}</p>
       <p class="answer-text">${renderAnalysis(q.analysis || "这道题暂无解析。")}</p>
     </div>` : "";
     host.innerHTML = `<div class="question-topline">
@@ -803,13 +857,14 @@
         </div>
       </div>${answerBox}`;
     host.querySelectorAll("[data-choice]").forEach(button => button.addEventListener("click", () => {
+      const originalChoice = originalLetterForDisplay(optionOrder, button.dataset.choice);
       if (q.type === "multiple") {
         const chosen = new Set(String(state.choices[q.id] || "").split("").filter(Boolean));
-        if (chosen.has(button.dataset.choice)) chosen.delete(button.dataset.choice);
-        else chosen.add(button.dataset.choice);
+        if (chosen.has(originalChoice)) chosen.delete(originalChoice);
+        else chosen.add(originalChoice);
         state.choices[q.id] = [...chosen].sort().join("");
       } else {
-        state.choices[q.id] = button.dataset.choice;
+        state.choices[q.id] = originalChoice;
       }
       saveState();
       queueAutoUpload();
@@ -833,6 +888,7 @@
     state.reviewMastered.add(q.id);
     state.submitted.delete(q.id);
     delete state.choices[q.id];
+    clearOptionOrder(q.id);
     const key = scopeKey();
     const rec = state.roundsByScope[key];
     if (rec && !rec.done) {
@@ -1038,6 +1094,7 @@
   $("reset-progress")?.addEventListener("click", () => {
     if (!confirm(keepRoundPool ? "要清空这台设备上的答题记录，并恢复已删除的题目吗？" : "要清空这台设备上的全部答题记录和错题本吗？")) return;
     state.attempted.clear(); state.correct.clear(); state.wrong.clear(); state.submitted.clear(); state.choices = {};
+    state.optionOrders = {};
     state.coverPhase = "unanswered";
     state.reviewMastered = new Set();
     state.removed = new Set();
