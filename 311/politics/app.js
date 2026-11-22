@@ -31,7 +31,13 @@
     if (aIndex >= 0 || bIndex >= 0) return (aIndex < 0 ? Infinity : aIndex) - (bIndex < 0 ? Infinity : bIndex);
     return a.localeCompare(b, "zh-CN");
   });
-  const defaultSyncCode = "1234";
+  const legacySharedSyncCode = "1234";
+  const defaultSyncCode = "";
+
+  function normalizeSyncCode(value) {
+    const code = typeof value === "string" ? value.trim() : "";
+    return code.length >= 4 && code !== legacySharedSyncCode ? code : defaultSyncCode;
+  }
 
   function resolveMode(value) {
     if (appConfig.roundOnly) return orderRound ? "order" : "random-cover";
@@ -85,9 +91,7 @@
         optionOrders: saved.optionOrders && typeof saved.optionOrders === "object" && !Array.isArray(saved.optionOrders)
           ? saved.optionOrders
           : {},
-        syncCode: (typeof saved.syncCode === "string" && saved.syncCode.trim().length >= 4)
-          ? saved.syncCode.trim()
-          : defaultSyncCode
+        syncCode: normalizeSyncCode(saved.syncCode)
       };
     } catch {
       return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastQuestionId: "", mode: resolveMode(appConfig.defaultMode), shuffleKey: "", shuffleOrder: [], listIndex: 0, coverPhase: "unanswered", reviewMastered: new Set(), removed: new Set(), wrongCounts: {}, roundsByScope: {}, poolLocked: false, optionOrders: {}, syncCode: defaultSyncCode };
@@ -111,7 +115,7 @@
       roundsByScope: state.roundsByScope || {},
       poolLocked: state.poolLocked === true,
       optionOrders: state.optionOrders || {},
-      syncCode: $("sync-code")?.value.trim() || state.syncCode
+      syncCode: $("sync-code") ? $("sync-code").value.trim() : state.syncCode
     }));
     updateStats();
   }
@@ -1104,10 +1108,15 @@
     Q.clearQueue(state);
     saveState(); buildList(); queueAutoUpload(); showToast("学习记录已清空");
   });
-  function syncCode() {
-    const code = ($("sync-code")?.value || state.syncCode).trim();
+  function syncCode({ prompt = true, allowLegacy = false } = {}) {
+    const input = $("sync-code");
+    const code = String(input ? input.value : state.syncCode || "").trim();
+    if (code === legacySharedSyncCode && !allowLegacy) {
+      if (prompt) alert("这是旧的共享默认同步码，不能继续上传。请设置个人同步码，或手动拉取旧记录后改用个人同步码。");
+      return "";
+    }
     if (code.length < 4) {
-      alert("请设置至少 4 位的同步码；电脑和手机需要使用同一个同步码。");
+      if (prompt) alert("请设置至少 4 位的个人同步码；电脑和手机使用同一个同步码。");
       return "";
     }
     state.syncCode = code;
@@ -1127,7 +1136,7 @@
   }
 
   async function uploadProgress({ automatic = false } = {}) {
-    const code = syncCode();
+    const code = syncCode({ prompt: !automatic });
     if (!code) return;
     setSyncStatus("正在上传…");
     const payload = {
@@ -1154,7 +1163,7 @@
   }
 
   async function downloadProgress({ automatic = false } = {}) {
-    const code = automatic ? (state.syncCode.length >= 4 ? syncNamespace + state.syncCode : "") : syncCode();
+    const code = syncCode({ prompt: !automatic, allowLegacy: !automatic });
     if (!code) return;
     setSyncStatus("正在拉取…");
     try {
@@ -1252,8 +1261,9 @@
   if (syncCodeInput) {
     syncCodeInput.value = state.syncCode;
     syncCodeInput.addEventListener("change", () => {
+      state.syncCode = syncCodeInput.value.trim();
       saveState();
-      if (syncCodeInput.value.trim().length >= 4) downloadProgress({ automatic: true });
+      if (state.syncCode.length >= 4) downloadProgress({ automatic: true });
     });
   }
   $("sync-upload")?.addEventListener("click", uploadProgress);
