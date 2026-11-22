@@ -1,5 +1,10 @@
 (() => {
   const bank = window.QUESTION_BANK || [];
+  const QUESTION_BANK_REVISION = "politics-docx-batches-20261122";
+  const importedDocIds = new Set(bank.filter(q => [
+    "政治错题解析（通俗版）",
+    "考研政治错题解析（通俗区分版·第二批75题）",
+  ].includes(q.sourceDocument)).map(q => q.id));
   if (!window.StudyListQueue) {
     const showBootError = () => {
       const host = document.getElementById("question-view");
@@ -82,6 +87,7 @@
         wrongCounts: saved.wrongCounts && typeof saved.wrongCounts === "object" ? saved.wrongCounts : {},
         roundsByScope: saved.roundsByScope && typeof saved.roundsByScope === "object" ? saved.roundsByScope : {},
         poolLocked: saved.poolLocked === true,
+        questionBankRevision: saved.questionBankRevision || "",
         optionOrders: saved.optionOrders && typeof saved.optionOrders === "object" && !Array.isArray(saved.optionOrders)
           ? saved.optionOrders
           : {},
@@ -90,7 +96,7 @@
           : defaultSyncCode
       };
     } catch {
-      return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastQuestionId: "", mode: resolveMode(appConfig.defaultMode), shuffleKey: "", shuffleOrder: [], listIndex: 0, coverPhase: "unanswered", reviewMastered: new Set(), removed: new Set(), wrongCounts: {}, roundsByScope: {}, poolLocked: false, optionOrders: {}, syncCode: defaultSyncCode };
+      return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastQuestionId: "", mode: resolveMode(appConfig.defaultMode), shuffleKey: "", shuffleOrder: [], listIndex: 0, coverPhase: "unanswered", reviewMastered: new Set(), removed: new Set(), wrongCounts: {}, roundsByScope: {}, poolLocked: false, questionBankRevision: "", optionOrders: {}, syncCode: defaultSyncCode };
     }
   }
 
@@ -110,6 +116,7 @@
       wrongCounts: state.wrongCounts,
       roundsByScope: state.roundsByScope || {},
       poolLocked: state.poolLocked === true,
+      questionBankRevision: state.questionBankRevision || "",
       optionOrders: state.optionOrders || {},
       syncCode: $("sync-code") ? $("sync-code").value.trim() : state.syncCode
     }));
@@ -393,6 +400,18 @@
     const set = rec?.set || [];
     if (set.includes(lastId)) return lastId;
     return remainingIds[0] || "";
+  }
+
+  function migrateDocQuestionsIntoActiveRound() {
+    if (state.questionBankRevision === QUESTION_BANK_REVISION) return;
+    importedDocIds.forEach(id => state.removed.delete(id));
+    const key = scopeKey();
+    const rec = Q.normalizeRoundRecord(state.roundsByScope[key]);
+    if (rec && !rec.done) {
+      const additions = bank.filter(q => importedDocIds.has(q.id) && matchesCategory(q)).map(q => q.id);
+      state.roundsByScope[key] = { ...rec, set: uniqueRoundIds([...(rec.set || []), ...additions]) };
+    }
+    state.questionBankRevision = QUESTION_BANK_REVISION;
   }
 
   function buildRoundSession(focusQuestionId) {
@@ -1132,7 +1151,7 @@
     if (!code) return;
     setSyncStatus("正在上传…");
     const payload = {
-      app: appId, version: 3, attempted: [...state.attempted], correct: [...state.correct],
+      app: appId, version: 3, questionBankRevision: state.questionBankRevision || "", attempted: [...state.attempted], correct: [...state.correct],
       wrong: [...state.wrong], choices: state.choices, submitted: [...state.submitted],
       lastCategory: state.lastCategory, lastQuestionId: state.lastQuestionId, mode: state.mode,
       ...Q.queuePayloadSlice(state, currentIndex),
@@ -1167,7 +1186,7 @@
       if (!data || data.app !== appId) {
         setSyncStatus("云端暂无记录");
         if (!automatic) alert("云端还没有这个同步码的刷题进度，请先在已有记录的设备上上传。");
-        else buildList(false);
+        else { migrateDocQuestionsIntoActiveRound(); buildList(false); }
         return;
       }
       const incomingRounds = (data.roundsByScope && typeof data.roundsByScope === "object" && !Array.isArray(data.roundsByScope))
@@ -1201,9 +1220,14 @@
       state.mode = resolveMode(data.mode);
       Q.applyQueuePayload(state, data);
       if (Array.isArray(data.reviewMastered)) state.reviewMastered = new Set(data.reviewMastered);
+      const remoteHasQuestionBankRevision = data.questionBankRevision === QUESTION_BANK_REVISION;
+      if (remoteHasQuestionBankRevision) state.questionBankRevision = QUESTION_BANK_REVISION;
       if (Array.isArray(data.removed)) {
-        if (!automatic) state.removed = new Set(data.removed);
-        else data.removed.forEach(id => state.removed.add(id));
+        const remoteRemoved = remoteHasQuestionBankRevision
+          ? data.removed
+          : data.removed.filter(id => !importedDocIds.has(id));
+        if (!automatic) state.removed = new Set(remoteRemoved);
+        else remoteRemoved.forEach(id => state.removed.add(id));
       }
       if (data.wrongCounts && typeof data.wrongCounts === "object") {
         state.wrongCounts = mergeWrongCounts(state.wrongCounts, data.wrongCounts);
@@ -1233,6 +1257,7 @@
       }
       if (!automatic) state.poolLocked = data.poolLocked === true;
       else if (data.poolLocked === true) state.poolLocked = true;
+      if (!remoteHasQuestionBankRevision) migrateDocQuestionsIntoActiveRound();
       currentCategory = singlePool ? "全部题目" : (isValidCategory(state.lastCategory) ? state.lastCategory : "全部题目");
       mode = state.mode;
       populateCategories();
