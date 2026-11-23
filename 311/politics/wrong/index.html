@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f6f3ed">
   <title>政治错题</title>
-  <link rel="stylesheet" href="../style.css?v=option-shuffle-20261119">
+  <link rel="stylesheet" href="../style.css?v=restart-pool-20261123">
   <script src="questions.js?v=politics-docx-merge-20261123-v3"></script>
   <script src="questions-docx-batch-1.js?v=politics-docx-merge-20261123-v3"></script>
   <script src="questions-docx-batch-2.js?v=politics-docx-merge-20261123-v3"></script>
@@ -31,8 +31,8 @@
       ]
     };
   </script>
-  <script defer src="../../study-list.js?v=round-nav-20261115"></script>
-  <script defer src="../app.js?v=politics-docx-merge-20261123-v3"></script>
+  <script defer src="../../study-list.js?v=restart-pool-20261123"></script>
+  <script defer src="../app.js?v=restart-pool-20261123"></script>
 </head>
 <body>
   <header class="topbar">
@@ -70,7 +70,8 @@
           <p class="sync-help">换设备：旧机先「上传」，新机「拉取」。政治错题的进度和题池单独保存，不改 311。</p>
           <p id="sync-status" class="sync-status" role="status"></p>
         </section>
-        <div class="sidebar-note"><span class="note-mark">✳</span><p>左侧可选模块或知识点专攻；史纲 / 新思想 / 毛中特 / 思修已按题干与正确选项细分。答对不剔除，点「我会了 · 删除」才缩小题池。</p></div>
+        <button id="restart-pool" class="pool-restart-btn" type="button">重刷本池</button>
+        <div class="sidebar-note"><span class="note-mark">✳</span><p>左侧可选模块或知识点专攻；史纲 / 新思想 / 毛中特 / 思修已按题干与正确选项细分。答对不剔除，点「我会了 · 删除」才缩小题池。点「重刷这 N」只清空本轮进度并重新打乱，不会动已删除的题。</p></div>
         <button id="reset-progress" class="text-button" type="button">清空本机学习记录</button>
       </aside>
 

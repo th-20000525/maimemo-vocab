@@ -152,6 +152,16 @@
     $("wrong-filter")?.classList.toggle("active", wrongOnly);
     $("pending-filter")?.classList.toggle("active", pendingOnly);
     setText("pending-count", currentScope.filter(q => !state.attempted.has(q.id)).length);
+    const restartBtn = $("restart-pool");
+    if (restartBtn) {
+      if (keepRoundPool) {
+        restartBtn.hidden = false;
+        restartBtn.disabled = currentScope.length === 0;
+        restartBtn.textContent = currentScope.length ? `重刷这 ${currentScope.length}` : "重刷本池";
+      } else {
+        restartBtn.hidden = true;
+      }
+    }
   }
 
   function isRemoved(id) {
@@ -621,8 +631,16 @@
         out[key] = inc;
         continue;
       }
-      if (inc.round > cur.round) {
+      const incEpoch = Number(inc.restartEpoch) || 0;
+      const curEpoch = Number(cur.restartEpoch) || 0;
+      // 重刷会抬高 restartEpoch 并回到第 1 轮；epoch 优先于 round，避免旧云端进度把本轮答完状态合回来
+      if (incEpoch > curEpoch) {
         out[key] = { ...inc, shuffled: true };
+        continue;
+      }
+      if (incEpoch < curEpoch) continue;
+      if (inc.round > cur.round) {
+        out[key] = { ...inc, shuffled: true, restartEpoch: curEpoch };
         continue;
       }
       if (inc.round < cur.round) continue;
@@ -637,20 +655,51 @@
         wrong,
         done: cur.done === true || inc.done === true,
         shuffled: true,
+        restartEpoch: curEpoch,
       };
     }
     return out;
   }
 
-  function restartRoundCycle() {
+  /**
+   * 清空当前范围本轮进度并重新打乱；不改 removed（我会了·删除）与 poolLocked。
+   * askConfirm：侧栏手动点「重刷」时二次确认。
+   */
+  function restartRoundCycle({ askConfirm = false } = {}) {
     const ids = roundOrderIds(scopeQuestionIds());
+    if (!ids.length) {
+      showToast("当前范围没有可刷的题");
+      return;
+    }
+    if (askConfirm) {
+      const ok = confirm(keepRoundPool
+        ? `清空本轮进度，重新打乱这 ${ids.length} 题？不会删除「我会了」的题，题池仍是这 ${ids.length} 道。`
+        : "要从第 1 轮重新开始吗？");
+      if (!ok) return;
+    }
+    const prev = Q.normalizeRoundRecord(state.roundsByScope[scopeKey()]);
+    const nextEpoch = (Number(prev?.restartEpoch) || 0) + 1;
     ids.forEach(id => { delete state.wrongCounts[id]; });
     clearRoundAnswers(ids);
-    state.roundsByScope[scopeKey()] = { round: 1, set: ids, answered: [], wrong: [], done: false, shuffled: true };
+    state.roundsByScope[scopeKey()] = {
+      round: 1,
+      set: ids,
+      answered: [],
+      wrong: [],
+      done: false,
+      shuffled: true,
+      restartEpoch: nextEpoch,
+    };
     state.coverPhase = "unanswered";
+    state.lastQuestionId = "";
     restorePosition = false;
     buildRoundSession();
-    showToast(isOrderRound() ? "从第 1 轮按题号顺序重新开始" : "从第 1 轮重新开始");
+    queueAutoUpload();
+    showToast(keepRoundPool
+      ? (isOrderRound()
+        ? `已重刷这 ${ids.length} 题 · 按题号顺序`
+        : `已重刷这 ${ids.length} 题 · 重新打乱`)
+      : (isOrderRound() ? "从第 1 轮按题号顺序重新开始" : "从第 1 轮重新开始"));
   }
 
   function resetReviewSessionForScope(needle) {
@@ -713,7 +762,7 @@
       <h2>${keepRoundPool ? (poolLeft ? "本轮已刷完" : "题池已清空") : "本范围各轮已完成"}</h2>
       <p class="report-summary">${summary}</p>
       ${listHtml}
-      <button id="review-restart-btn" class="btn btn-primary" type="button">${keepRoundPool ? "用当前题池从第 1 轮再来" : "从第 1 轮再来"}</button>
+      <button id="review-restart-btn" class="btn btn-primary" type="button">${keepRoundPool ? `重刷这 ${poolLeft || reportScope.filter(q => !state.removed.has(q.id)).length}` : "从第 1 轮再来"}</button>
     </div>`;
   }
 
@@ -803,7 +852,7 @@
         if (rec?.done) {
           host.innerHTML = renderReviewCompleteReport(needle);
           const restart = $("review-restart-btn");
-          if (restart) restart.addEventListener("click", restartRoundCycle);
+          if (restart) restart.addEventListener("click", () => restartRoundCycle());
           return;
         }
         if (wrongOnly) {
@@ -1153,6 +1202,7 @@
   searchInput?.addEventListener("input", () => { query = searchInput.value; buildList(); });
   $("wrong-filter")?.addEventListener("click", () => { wrongOnly = !wrongOnly; if (wrongOnly) pendingOnly = false; buildList(); updateStats(); });
   $("pending-filter")?.addEventListener("click", () => { pendingOnly = !pendingOnly; if (pendingOnly) wrongOnly = false; buildList(); updateStats(); });
+  $("restart-pool")?.addEventListener("click", () => restartRoundCycle({ askConfirm: true }));
   $("reset-progress")?.addEventListener("click", () => {
     if (!confirm(keepRoundPool ? "要清空这台设备上的答题记录，并恢复已删除的题目吗？" : "要清空这台设备上的全部答题记录和错题本吗？")) return;
     state.attempted.clear(); state.correct.clear(); state.wrong.clear(); state.submitted.clear(); state.choices = {};
@@ -1242,8 +1292,16 @@
       const scope = singlePool ? "全部题目" : (isValidCategory(state.lastCategory) ? state.lastCategory : "全部题目");
       const localRec = Q.normalizeRoundRecord(state.roundsByScope[scope]);
       const remoteRec = Q.normalizeRoundRecord(incomingRounds[scope]);
-      const localRoundAhead = !!(keepRoundPool && automatic && localRec && remoteRec && localRec.round > remoteRec.round);
-      const remoteRoundAhead = !!(keepRoundPool && remoteRec && (!localRec || remoteRec.round > localRec.round));
+      const localEpoch = Number(localRec?.restartEpoch) || 0;
+      const remoteEpoch = Number(remoteRec?.restartEpoch) || 0;
+      const localRoundAhead = !!(keepRoundPool && automatic && localRec && remoteRec && (
+        localEpoch > remoteEpoch || (localEpoch === remoteEpoch && localRec.round > remoteRec.round)
+      ));
+      const remoteRoundAhead = !!(keepRoundPool && remoteRec && (
+        !localRec
+        || remoteEpoch > localEpoch
+        || (remoteEpoch === localEpoch && remoteRec.round > localRec.round)
+      ));
 
       data.attempted?.forEach(id => state.attempted.add(id));
       data.correct?.forEach(id => state.correct.add(id));

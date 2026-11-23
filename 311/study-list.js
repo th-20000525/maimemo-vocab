@@ -137,6 +137,9 @@
   function normalizeRoundRecord(raw) {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
     const round = Number.isFinite(raw.round) && raw.round >= 1 ? Math.floor(raw.round) : 1;
+    const restartEpoch = Number.isFinite(raw.restartEpoch) && raw.restartEpoch >= 0
+      ? Math.floor(raw.restartEpoch)
+      : 0;
     return {
       round,
       set: uniqueIds(raw.set),
@@ -144,6 +147,7 @@
       wrong: uniqueIds(raw.wrong),
       done: raw.done === true,
       shuffled: raw.shuffled === true,
+      restartEpoch,
     };
   }
 
@@ -193,22 +197,48 @@
   }
 
   function recordRoundAnswer(record, id, isCorrect) {
-    const current = normalizeRoundRecord(record) || { round: 1, set: [], answered: [], wrong: [], done: false };
+    const current = normalizeRoundRecord(record) || { round: 1, set: [], answered: [], wrong: [], done: false, restartEpoch: 0 };
     const answered = uniqueIds([...current.answered, id]);
     const wrong = new Set(current.wrong);
     if (isCorrect) wrong.delete(id);
     else if (typeof id === "string" && id) wrong.add(id);
-    return { round: current.round, set: current.set, answered, wrong: [...wrong], done: false, shuffled: current.shuffled === true };
+    return {
+      round: current.round,
+      set: current.set,
+      answered,
+      wrong: [...wrong],
+      done: false,
+      shuffled: current.shuffled === true,
+      restartEpoch: current.restartEpoch || 0,
+    };
   }
 
   function advanceRound(record, shuffle, options = {}) {
     const keepSet = options && options.keepSet === true;
-    const current = normalizeRoundRecord(record) || { round: 1, set: [], answered: [], wrong: [], done: false };
+    const current = normalizeRoundRecord(record) || { round: 1, set: [], answered: [], wrong: [], done: false, restartEpoch: 0 };
     if (current.done) return current;
     const nextIds = keepSet ? uniqueIds(current.set) : uniqueIds(current.wrong);
-    if (!nextIds.length) return { round: current.round, set: [], answered: [], wrong: [], done: true, shuffled: current.shuffled === true };
+    if (!nextIds.length) {
+      return {
+        round: current.round,
+        set: [],
+        answered: [],
+        wrong: [],
+        done: true,
+        shuffled: current.shuffled === true,
+        restartEpoch: current.restartEpoch || 0,
+      };
+    }
     const order = typeof shuffle === "function" ? uniqueIds(shuffle(nextIds.slice())) : nextIds;
-    return { round: current.round + 1, set: order, answered: [], wrong: [], done: false, shuffled: typeof shuffle === "function" };
+    return {
+      round: current.round + 1,
+      set: order,
+      answered: [],
+      wrong: [],
+      done: false,
+      shuffled: typeof shuffle === "function",
+      restartEpoch: current.restartEpoch || 0,
+    };
   }
 
   window.StudyListQueue = {
