@@ -1,5 +1,5 @@
-window.QUESTION_BANK.push(
-[
+window.QUESTION_BANK.push(...[
+
   {
     "id": "politics-docx-batch2-001",
     "category": "马原·未细分",

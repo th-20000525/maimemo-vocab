@@ -1,10 +1,15 @@
 (() => {
-  const bank = window.QUESTION_BANK || [];
+  // 兼容误写成 push([..]) 的批次脚本：把嵌套数组摊平，避免 166 题变成 2 个无效元素
+  const bank = (window.QUESTION_BANK || []).flatMap(q => (Array.isArray(q) ? q : [q])).filter(q => q && typeof q === "object" && q.id);
   const QUESTION_BANK_REVISION = "politics-docx-batches-20261122";
-  const importedDocIds = new Set(bank.filter(q => [
+  const importedDocSourceDocs = new Set([
     "政治错题解析（通俗版）",
     "考研政治错题解析（通俗区分版·第二批75题）",
-  ].includes(q.sourceDocument)).map(q => q.id));
+  ]);
+  const importedDocIds = new Set(bank.filter(q => (
+    importedDocSourceDocs.has(q.sourceDocument)
+    || /^politics-docx-batch[12]-/.test(String(q.id || ""))
+  )).map(q => q.id));
   if (!window.StudyListQueue) {
     const showBootError = () => {
       const host = document.getElementById("question-view");
@@ -402,16 +407,54 @@
     return remainingIds[0] || "";
   }
 
+  function questionMatchesScopeKey(q, key) {
+    if (!q) return false;
+    if (!key || key === "全部题目") return true;
+    if (key.startsWith("subject:")) return q.subjectLabel === key.slice(8);
+    return q.category === key;
+  }
+
+  /**
+   * 把 docx 批次题并入当前锁定活跃池：首次吸收时从 removed 剔除；其后只把「未删除」的批次补进各轮 set。
+   * revision 已对齐后尊重用户对批次题的「我会了」删除。
+   * @returns {boolean} 是否改动了进度（调用方据此决定是否回写云端）
+   */
   function migrateDocQuestionsIntoActiveRound() {
-    if (state.questionBankRevision === QUESTION_BANK_REVISION) return;
-    importedDocIds.forEach(id => state.removed.delete(id));
-    const key = scopeKey();
-    const rec = Q.normalizeRoundRecord(state.roundsByScope[key]);
-    if (rec && !rec.done) {
-      const additions = bank.filter(q => importedDocIds.has(q.id) && matchesCategory(q)).map(q => q.id);
-      state.roundsByScope[key] = { ...rec, set: uniqueRoundIds([...(rec.set || []), ...additions]) };
+    if (!importedDocIds.size) {
+      if (state.questionBankRevision !== QUESTION_BANK_REVISION) {
+        state.questionBankRevision = QUESTION_BANK_REVISION;
+        return true;
+      }
+      return false;
     }
-    state.questionBankRevision = QUESTION_BANK_REVISION;
+    let changed = false;
+    const firstAbsorb = state.questionBankRevision !== QUESTION_BANK_REVISION;
+    if (firstAbsorb) {
+      importedDocIds.forEach(id => {
+        if (state.removed.has(id)) {
+          state.removed.delete(id);
+          changed = true;
+        }
+      });
+    }
+    const byId = new Map(bank.map(q => [q.id, q]));
+    for (const [key, raw] of Object.entries(state.roundsByScope || {})) {
+      const rec = Q.normalizeRoundRecord(raw);
+      if (!rec || rec.done) continue;
+      const additions = [...importedDocIds].filter(id => {
+        if (state.removed.has(id)) return false;
+        const q = byId.get(id);
+        return q && questionMatchesScopeKey(q, key) && !(rec.set || []).includes(id);
+      });
+      if (!additions.length) continue;
+      state.roundsByScope[key] = { ...rec, set: uniqueRoundIds([...(rec.set || []), ...additions]) };
+      changed = true;
+    }
+    if (firstAbsorb) {
+      state.questionBankRevision = QUESTION_BANK_REVISION;
+      changed = true;
+    }
+    return changed;
   }
 
   function buildRoundSession(focusQuestionId) {
@@ -1186,7 +1229,11 @@
       if (!data || data.app !== appId) {
         setSyncStatus("云端暂无记录");
         if (!automatic) alert("云端还没有这个同步码的刷题进度，请先在已有记录的设备上上传。");
-        else { migrateDocQuestionsIntoActiveRound(); buildList(false); }
+        else {
+          const migrated = migrateDocQuestionsIntoActiveRound();
+          buildList(false);
+          if (migrated) queueAutoUpload();
+        }
         return;
       }
       const incomingRounds = (data.roundsByScope && typeof data.roundsByScope === "object" && !Array.isArray(data.roundsByScope))
@@ -1221,13 +1268,18 @@
       Q.applyQueuePayload(state, data);
       if (Array.isArray(data.reviewMastered)) state.reviewMastered = new Set(data.reviewMastered);
       const remoteHasQuestionBankRevision = data.questionBankRevision === QUESTION_BANK_REVISION;
+      // 仅当云端已带 revision 时才采纳其 revision；缺省时留给 migrate 写入，避免旧拉取把本地 revision 抹掉
       if (remoteHasQuestionBankRevision) state.questionBankRevision = QUESTION_BANK_REVISION;
       if (Array.isArray(data.removed)) {
+        // 云端尚未吸收批次 revision 时，绝不能把批次 id 写进 removed（否则会再次踢出锁定池）
         const remoteRemoved = remoteHasQuestionBankRevision
           ? data.removed
           : data.removed.filter(id => !importedDocIds.has(id));
         if (!automatic) state.removed = new Set(remoteRemoved);
-        else remoteRemoved.forEach(id => state.removed.add(id));
+        else {
+          remoteRemoved.forEach(id => state.removed.add(id));
+          if (!remoteHasQuestionBankRevision) importedDocIds.forEach(id => state.removed.delete(id));
+        }
       }
       if (data.wrongCounts && typeof data.wrongCounts === "object") {
         state.wrongCounts = mergeWrongCounts(state.wrongCounts, data.wrongCounts);
@@ -1257,7 +1309,8 @@
       }
       if (!automatic) state.poolLocked = data.poolLocked === true;
       else if (data.poolLocked === true) state.poolLocked = true;
-      if (!remoteHasQuestionBankRevision) migrateDocQuestionsIntoActiveRound();
+      // 无论云端是否已有 revision，都跑一遍修补：防止 replace 轮次 / 旧 removed 把批次踢出池
+      const migrated = migrateDocQuestionsIntoActiveRound();
       currentCategory = singlePool ? "全部题目" : (isValidCategory(state.lastCategory) ? state.lastCategory : "全部题目");
       mode = state.mode;
       populateCategories();
@@ -1265,6 +1318,7 @@
       if (modeSelect) modeSelect.value = mode;
       restorePosition = true;
       buildList(false);
+      if (migrated || !remoteHasQuestionBankRevision) queueAutoUpload();
       setSyncStatus(`已拉取 · ${new Date().toLocaleTimeString()}`);
       if (!automatic) alert(`云端进度已合并，本机已答 ${state.attempted.size} 题。`);
     } catch (error) {
