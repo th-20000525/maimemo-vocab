@@ -18,6 +18,8 @@
       roundOnly: true,
       orderRound: false,
       keepRoundPool: true,
+      // 第1轮整池过一遍；从第2轮起答对→点下一题自动剔除
+      autoRemoveCorrectFromRound: 2,
       lockPoolFromProgress: true,
       shuffleOptions: true,
       singlePool: false,
@@ -32,13 +34,13 @@
     };
   </script>
   <script defer src="../../study-list.js?v=restart-pool-20261123"></script>
-  <script defer src="../app.js?v=restart-pool-20261123"></script>
+  <script defer src="../app.js?v=auto-remove-r2-20261127"></script>
 </head>
 <body>
   <header class="topbar">
     <a class="brand" href="./" aria-label="政治错题">
       <span class="brand-mark">政</span>
-      <span class="brand-copy"><strong>政治错题</strong><small>固定题池随机，答对不剔除</small></span>
+      <span class="brand-copy"><strong>政治错题</strong><small>第1轮整池 · 第2轮起答对剔除</small></span>
     </a>
     <div class="topbar-right"><span class="offline-dot"></span><span>离线可用 · 云端进度同步</span></div>
   </header>
@@ -47,8 +49,8 @@
     <section class="intro-row">
       <div>
         <p class="eyebrow">STUDY DESK <span>·</span> 政治错题</p>
-        <h1>固定题池按轮随机：答对不剔除，会了再自己删。</h1>
-        <p class="intro-copy">当前范围一共 <strong id="bank-total">—</strong> 题（已从上一轮错题锁定；可按模块 / 知识点筛选）。每一轮把<strong>当前范围</strong>打乱后逐题过一遍；每次作答时 A/B/C/D 选项顺序也会重排，按内容判对错，避免死记固定位置。答对<strong>不会</strong>自动消失。只有你点「我会了 · 删除」，这道题才离开题池。刷新后仍停在上次那一题。</p>
+        <h1>第1轮整池刷完，第2轮起答对就剔除。</h1>
+        <p class="intro-copy">当前范围一共 <strong id="bank-total">—</strong> 题（可按模块 / 知识点筛选）。<strong>第1轮</strong>：打乱后逐题过一遍，答对<strong>不剔除</strong>。<strong>第2轮起</strong>：答对后点「下一题」，本题离开题池；答错则留下继续刷。选项每次重排，按内容判对错。仍可点「我会了 · 删除」手动剔除。刷新后仍停在上次那一题。</p>
         <p class="intro-copy"><a href="../政治错题解析（通俗版）.docx" download>下载政治错题解析（通俗版）DOCX ↗</a></p>
       </div>
       <div class="stats" aria-label="学习统计">
@@ -71,7 +73,7 @@
           <p id="sync-status" class="sync-status" role="status"></p>
         </section>
         <button id="restart-pool" class="pool-restart-btn" type="button">重刷本池</button>
-        <div class="sidebar-note"><span class="note-mark">✳</span><p>左侧可选模块或知识点专攻；史纲 / 新思想 / 毛中特 / 思修已按题干与正确选项细分。答对不剔除，点「我会了 · 删除」才缩小题池。点「重刷这 N」只清空本轮进度并重新打乱，不会动已删除的题。</p></div>
+        <div class="sidebar-note"><span class="note-mark">✳</span><p>你现在刷的是第1轮：整池过一遍。明天过完进入第2轮后，答对点下一题即剔除；答错的留下。点「重刷本池」只清空本轮进度并重新打乱，不会恢复已剔除的题。</p></div>
         <button id="reset-progress" class="text-button" type="button">清空本机学习记录</button>
       </aside>
 
@@ -79,7 +81,7 @@
         <div id="question-view"></div>
       </section>
     </section>
-    <footer class="footer"><span>专注当下这一题。</span><span>政治错题 <i>·</i> 固定池随机</span></footer>
+    <footer class="footer"><span>专注当下这一题。</span><span>政治错题 <i>·</i> 第2轮起答对剔除</span></footer>
   </main>
   <div id="toast" class="toast" role="status"></div>
 </body>
