@@ -32,6 +32,8 @@
   const subjectOrder = appConfig.subjectOrder || [];
   const singlePool = appConfig.singlePool === true;
   const keepRoundPool = appConfig.keepRoundPool === true;
+  // 从第 N 轮起：答对后点「下一题」自动剔除。0=关闭（仅「我会了」删除）
+  const autoRemoveCorrectFromRound = Math.max(0, Number(appConfig.autoRemoveCorrectFromRound) || 0);
   const orderRound = appConfig.orderRound === true;
   const lockPoolFromProgress = appConfig.lockPoolFromProgress === true;
   const shuffleOptions = appConfig.shuffleOptions === true;
@@ -755,7 +757,9 @@
         `<li class="miss-row"><span class="miss-count">错 ${misses} 次</span><span class="miss-stem">${escapeHtml(q.stem)}</span></li>`).join("")}</ul>`
       : `<p class="report-empty">${keepRoundPool ? "没有留下反复错的题。" : "这一轮每题都一次答对，没有反复错的题。"}</p>`;
     const summary = keepRoundPool
-      ? `原题库 ${reportScope.length} 题，题池还剩 ${poolLeft} 题（已手动删除 ${state.removed.size}）。每一轮固定随机过一遍，答对不剔除；点「我会了」才会删掉。${troubled.length ? `下面 ${troubled.length} 道题曾答错，可按错次回看。` : ""}`
+      ? (autoRemoveCorrectFromRound > 0
+        ? `原题库 ${reportScope.length} 题，题池还剩 ${poolLeft} 题（已剔除 ${state.removed.size}）。第 1 轮整池过一遍；从第 ${autoRemoveCorrectFromRound} 轮起答对点下一题即剔除。${troubled.length ? `下面 ${troubled.length} 道题曾答错，可按错次回看。` : ""}`
+        : `原题库 ${reportScope.length} 题，题池还剩 ${poolLeft} 题（已手动删除 ${state.removed.size}）。每一轮固定随机过一遍，答对不剔除；点「我会了」才会删掉。${troubled.length ? `下面 ${troubled.length} 道题曾答错，可按错次回看。` : ""}`)
       : `共 ${reportScope.length} 题。第 1 轮过后，每一轮只出现上一轮答错的题；最后一轮没有答错。${troubled.length ? `下面 ${troubled.length} 道题曾答错，按错次从高到低排列，建议重点回看。` : ""}`;
     return `<div class="empty-state review-report">
       <span class="empty-symbol">✓</span>
@@ -944,8 +948,8 @@
           : `第 ${q.number} 题`} <span>·</span> ${inRound
           ? (keepRoundPool
             ? (isOrderRound()
-              ? `第 ${roundRec.round} 轮 · 固定题池按题号顺序`
-              : `第 ${roundRec.round} 轮 · 固定题池随机过一遍`)
+              ? `第 ${roundRec.round} 轮 · 固定题池按题号顺序${autoRemoveCorrectFromRound && roundRec.round >= autoRemoveCorrectFromRound ? " · 答对剔除" : ""}`
+              : `第 ${roundRec.round} 轮 · 固定题池随机过一遍${autoRemoveCorrectFromRound && roundRec.round >= autoRemoveCorrectFromRound ? " · 答对剔除" : (autoRemoveCorrectFromRound ? " · 答对不剔除" : "")}`)
             : (isOrderRound()
               ? (roundRec.round <= 1 ? "第 1 轮 · 按题号顺序每题做一次" : `第 ${roundRec.round} 轮 · 上一轮错题，按题号顺序`)
               : (roundRec.round <= 1 ? "第 1 轮 · 打乱后每题做一次" : `第 ${roundRec.round} 轮 · 上一轮错题，重新打乱`)))
@@ -1035,6 +1039,12 @@
       if (isCorrect) {
         state.correct.add(q.id);
         state.wrong.delete(q.id);
+        if (keepRoundPool && autoRemoveCorrectFromRound > 0) {
+          const roundNow = state.roundsByScope[scopeKey()]?.round || 1;
+          if (roundNow >= autoRemoveCorrectFromRound) {
+            showToast("答对 · 点「下一题」后本题剔除");
+          }
+        }
       } else {
         state.wrongCounts[q.id] = (state.wrongCounts[q.id] || 0) + 1;
         state.correct.delete(q.id);
@@ -1087,11 +1097,48 @@
     else buildList(false);
   }
 
+  function shouldAutoRemoveOnAdvance(q) {
+    if (!keepRoundPool || !autoRemoveCorrectFromRound || !q) return false;
+    const rec = state.roundsByScope[scopeKey()];
+    if (!rec || rec.done || rec.round < autoRemoveCorrectFromRound) return false;
+    return state.submitted.has(q.id) && state.correct.has(q.id) && !state.removed.has(q.id);
+  }
+
   function go(delta) {
     if (isRoundCover()) {
       if (delta > 0) {
         const cur = questions[currentIndex];
         if (!cur || !state.submitted.has(cur.id)) return;
+        // 第 N 轮起：答对后点下一题 → 自动剔除（先看解析，再离开题池）
+        if (shouldAutoRemoveOnAdvance(cur)) {
+          const nextFocusId = questions[currentIndex + 1]?.id || questions[currentIndex - 1]?.id || "";
+          state.removed.add(cur.id);
+          state.wrong.delete(cur.id);
+          state.reviewMastered.add(cur.id);
+          state.submitted.delete(cur.id);
+          delete state.choices[cur.id];
+          clearOptionOrder(cur.id);
+          const key = scopeKey();
+          const rec = state.roundsByScope[key];
+          if (rec && !rec.done) {
+            const known = new Set(scopeQuestionIds());
+            const nextSet = uniqueRoundIds((rec.set || []).filter(id => id !== cur.id && known.has(id)));
+            state.roundsByScope[key] = {
+              ...rec,
+              set: nextSet,
+              answered: uniqueRoundIds((rec.answered || []).filter(id => id !== cur.id && known.has(id))),
+              wrong: uniqueRoundIds((rec.wrong || []).filter(id => id !== cur.id && known.has(id))),
+              done: nextSet.length === 0,
+            };
+          }
+          const scopedLeft = bank.filter(matchesCategory).length;
+          showToast(`答对已剔除 · 题池还剩 ${scopedLeft} 题`);
+          populateCategories();
+          restorePosition = false;
+          buildRoundSession(nextFocusId || undefined);
+          queueAutoUpload();
+          return;
+        }
         const nextId = questions[currentIndex + 1]?.id;
         if (nextId) {
           // 固定题池完整队列内翻页，不必整表重建
