@@ -101,12 +101,13 @@
         correctStreak: saved.correctStreak && typeof saved.correctStreak === "object" && !Array.isArray(saved.correctStreak)
           ? saved.correctStreak
           : null,
+        keepThisTime: new Set(saved.keepThisTime || []),
         syncCode: (typeof saved.syncCode === "string" && saved.syncCode.trim().length >= 4)
           ? saved.syncCode.trim()
           : defaultSyncCode
       };
     } catch {
-      return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastQuestionId: "", mode: resolveMode(appConfig.defaultMode), shuffleKey: "", shuffleOrder: [], listIndex: 0, coverPhase: "unanswered", reviewMastered: new Set(), removed: new Set(), wrongCounts: {}, roundsByScope: {}, poolLocked: false, questionBankRevision: "", optionOrders: {}, correctStreak: null, syncCode: defaultSyncCode };
+      return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastQuestionId: "", mode: resolveMode(appConfig.defaultMode), shuffleKey: "", shuffleOrder: [], listIndex: 0, coverPhase: "unanswered", reviewMastered: new Set(), removed: new Set(), wrongCounts: {}, roundsByScope: {}, poolLocked: false, questionBankRevision: "", optionOrders: {}, correctStreak: null, keepThisTime: new Set(), syncCode: defaultSyncCode };
     }
   }
 
@@ -129,6 +130,7 @@
       questionBankRevision: state.questionBankRevision || "",
       optionOrders: state.optionOrders || {},
       correctStreak: state.correctStreak || {},
+      keepThisTime: [...(state.keepThisTime || [])],
       syncCode: $("sync-code") ? $("sync-code").value.trim() : state.syncCode
     }));
     updateStats();
@@ -236,6 +238,7 @@
   } else {
     state.correctStreak = state.correctStreak && typeof state.correctStreak === "object" ? state.correctStreak : {};
   }
+  if (!(state.keepThisTime instanceof Set)) state.keepThisTime = new Set(state.keepThisTime || []);
 
   function streakOf(id) {
     return Math.max(0, Number(state.correctStreak?.[id]) || 0);
@@ -245,6 +248,33 @@
     if (!state.correctStreak || typeof state.correctStreak !== "object") state.correctStreak = {};
     if (n <= 0) delete state.correctStreak[id];
     else state.correctStreak[id] = n;
+  }
+
+  function canOfferKeepThisTime(q) {
+    return !!(
+      keepRoundPool
+      && autoRemoveCorrectStreak > 0
+      && q
+      && state.submitted.has(q.id)
+      && state.correct.has(q.id)
+      && !state.removed.has(q.id)
+      && streakOf(q.id) >= autoRemoveCorrectStreak
+    );
+  }
+
+  function toggleKeepThisTime() {
+    const q = questions[currentIndex];
+    if (!canOfferKeepThisTime(q)) return;
+    if (state.keepThisTime.has(q.id)) {
+      state.keepThisTime.delete(q.id);
+      showToast("已取消 · 点「下一题」将剔除本题");
+    } else {
+      state.keepThisTime.add(q.id);
+      showToast("已选择留下 · 点「下一题」不会剔除");
+    }
+    saveState();
+    queueAutoUpload();
+    render();
   }
 
   function listScopeKey(needle) {
@@ -992,6 +1022,9 @@
             : `<button id="save-btn" class="btn btn-save ${state.wrong.has(q.id) ? "saved" : ""}" type="button">${state.wrong.has(q.id) ? "◇ 已在错题本" : "◇ 加入错题本"}</button>`}
         </div>
         <div class="control-right">
+          ${canOfferKeepThisTime(q)
+            ? `<button id="keep-btn" class="btn btn-ghost" type="button">${state.keepThisTime.has(q.id) ? "取消留下" : "这次不剔除"}</button>`
+            : ""}
           <button id="submit-btn" class="btn btn-primary" type="button" ${submitted || !selected ? "disabled" : ""}>确认答案</button>
           <button id="next-btn" class="btn ${submitted ? "btn-primary" : ""}" type="button" ${nextDisabled ? "disabled" : ""}>${inRound ? "下一题 →" : inReview ? "随机下一题 →" : "下一题 →"}</button>
         </div>
@@ -1014,6 +1047,7 @@
     $("next-btn").addEventListener("click", () => go(1));
     if (keepRoundPool) $("master-btn")?.addEventListener("click", markMasteredAndRemove);
     else $("save-btn")?.addEventListener("click", toggleWrong);
+    $("keep-btn")?.addEventListener("click", toggleKeepThisTime);
     const submitButton = $("submit-btn");
     if (submitButton) submitButton.addEventListener("click", submitAnswer);
   }
@@ -1068,8 +1102,9 @@
         if (keepRoundPool && autoRemoveCorrectStreak > 0) {
           const streak = streakOf(q.id) + 1;
           setStreak(q.id, streak);
+          state.keepThisTime.delete(q.id);
           if (streak >= autoRemoveCorrectStreak) {
-            showToast(`连续答对 ${streak} 次 · 点「下一题」后本题剔除`);
+            showToast(`连续答对 ${streak} 次 · 点「下一题」剔除，或点「这次不剔除」留下`);
           } else {
             showToast(`答对 · 连续 ${streak}/${autoRemoveCorrectStreak}，再对一次才剔除`);
           }
@@ -1078,7 +1113,10 @@
         state.wrongCounts[q.id] = (state.wrongCounts[q.id] || 0) + 1;
         state.correct.delete(q.id);
         state.wrong.add(q.id);
-        if (keepRoundPool && autoRemoveCorrectStreak > 0) setStreak(q.id, 0);
+        if (keepRoundPool && autoRemoveCorrectStreak > 0) {
+          setStreak(q.id, 0);
+          state.keepThisTime.delete(q.id);
+        }
       }
       saveState();
       queueAutoUpload();
@@ -1132,6 +1170,7 @@
     const rec = state.roundsByScope[scopeKey()];
     if (!rec || rec.done) return false;
     if (!state.submitted.has(q.id) || !state.correct.has(q.id) || state.removed.has(q.id)) return false;
+    if (state.keepThisTime.has(q.id)) return false;
     return streakOf(q.id) >= autoRemoveCorrectStreak;
   }
 
@@ -1140,8 +1179,14 @@
       if (delta > 0) {
         const cur = questions[currentIndex];
         if (!cur || !state.submitted.has(cur.id)) return;
-        // 第 N 轮起：答对后点下一题 → 自动剔除（先看解析，再离开题池）
-        if (shouldAutoRemoveOnAdvance(cur)) {
+        // 若点了「这次不剔除」：留下，连续计数降为 1，然后正常翻到下一题
+        if (state.keepThisTime.has(cur.id)) {
+          state.keepThisTime.delete(cur.id);
+          if (state.correct.has(cur.id)) setStreak(cur.id, 1);
+          saveState();
+          queueAutoUpload();
+          // 不走剔除，落到下面的正常翻页
+        } else if (shouldAutoRemoveOnAdvance(cur)) {
           const nextFocusId = questions[currentIndex + 1]?.id || questions[currentIndex - 1]?.id || "";
           state.removed.add(cur.id);
           state.wrong.delete(cur.id);
@@ -1150,6 +1195,7 @@
           delete state.choices[cur.id];
           clearOptionOrder(cur.id);
           setStreak(cur.id, 0);
+          state.keepThisTime.delete(cur.id);
           const key = scopeKey();
           const rec = state.roundsByScope[key];
           if (rec && !rec.done) {
@@ -1291,6 +1337,7 @@
     state.removed = new Set();
     state.wrongCounts = {};
     state.correctStreak = {};
+    state.keepThisTime = new Set();
     state.roundsByScope = {};
     state.poolLocked = false;
     Q.clearQueue(state);
@@ -1332,6 +1379,7 @@
       removed: [...state.removed],
       poolLocked: state.poolLocked === true,
       correctStreak: state.correctStreak || {},
+      keepThisTime: [...(state.keepThisTime || [])],
     };
     try {
       const response = await fetch(`${SB_URL}/rest/v1/vocab_progress?on_conflict=sync_code`, {
@@ -1437,6 +1485,10 @@
           }
           state.correctStreak = merged;
         }
+      }
+      if (Array.isArray(data.keepThisTime)) {
+        if (!automatic) state.keepThisTime = new Set(data.keepThisTime);
+        else data.keepThisTime.forEach(id => state.keepThisTime.add(id));
       }
       if (Object.keys(incomingRounds).length || !automatic) {
         state.roundsByScope = mergeRoundsByScope(state.roundsByScope, incomingRounds, { replace: !automatic });

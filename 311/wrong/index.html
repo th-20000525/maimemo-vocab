@@ -21,7 +21,7 @@
     };
   </script>
   <script defer src="../study-list.js?v=round-nav-20261115"></script>
-  <script defer src="../politics/app.js?v=streak-remove-20261127"></script>
+  <script defer src="../politics/app.js?v=keep-this-time-20261127"></script>
 </head>
 <body>
   <header class="topbar">
@@ -56,7 +56,7 @@
           <p class="sync-help">换设备：旧机先「上传」，新机「拉取」。311 错题的进度、轮次和已删除题目单独保存。</p>
           <p id="sync-status" class="sync-status" role="status"></p>
         </section>
-        <div class="sidebar-note"><span class="note-mark">✳</span><p>例：对→错→对，不会剔除（中间断了）；对→对，第二次点下一题后剔除。</p></div>
+        <div class="sidebar-note"><span class="note-mark">✳</span><p>连续对满 2 次会出现「这次不剔除」：点了就留下；不点直接「下一题」则剔除。对→错→对不会剔除。</p></div>
         <button id="reset-progress" class="text-button" type="button">清空本机学习记录</button>
       </aside>
 
