@@ -102,12 +102,14 @@
           ? saved.correctStreak
           : null,
         keepThisTime: new Set(saved.keepThisTime || []),
+        dailyDate: typeof saved.dailyDate === "string" ? saved.dailyDate : "",
+        dailyAnswered: new Set(Array.isArray(saved.dailyAnswered) ? saved.dailyAnswered : []),
         syncCode: (typeof saved.syncCode === "string" && saved.syncCode.trim().length >= 4)
           ? saved.syncCode.trim()
           : defaultSyncCode
       };
     } catch {
-      return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastQuestionId: "", mode: resolveMode(appConfig.defaultMode), shuffleKey: "", shuffleOrder: [], listIndex: 0, coverPhase: "unanswered", reviewMastered: new Set(), removed: new Set(), wrongCounts: {}, roundsByScope: {}, poolLocked: false, questionBankRevision: "", optionOrders: {}, correctStreak: null, keepThisTime: new Set(), syncCode: defaultSyncCode };
+      return { attempted: new Set(), correct: new Set(), wrong: new Set(), choices: {}, submitted: new Set(), lastCategory: "全部题目", lastQuestionId: "", mode: resolveMode(appConfig.defaultMode), shuffleKey: "", shuffleOrder: [], listIndex: 0, coverPhase: "unanswered", reviewMastered: new Set(), removed: new Set(), wrongCounts: {}, roundsByScope: {}, poolLocked: false, questionBankRevision: "", optionOrders: {}, correctStreak: null, keepThisTime: new Set(), dailyDate: "", dailyAnswered: new Set(), syncCode: defaultSyncCode };
     }
   }
 
@@ -131,9 +133,34 @@
       optionOrders: state.optionOrders || {},
       correctStreak: state.correctStreak || {},
       keepThisTime: [...(state.keepThisTime || [])],
+      dailyDate: state.dailyDate || todayKey(),
+      dailyAnswered: [...(state.dailyAnswered || [])],
       syncCode: $("sync-code") ? $("sync-code").value.trim() : state.syncCode
     }));
     updateStats();
+  }
+
+  function todayKey() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+
+  function ensureDailyBucket() {
+    const today = todayKey();
+    if (!(state.dailyAnswered instanceof Set)) state.dailyAnswered = new Set(state.dailyAnswered || []);
+    if (state.dailyDate !== today) {
+      state.dailyDate = today;
+      state.dailyAnswered = new Set();
+    }
+  }
+
+  function markAnsweredToday(id) {
+    if (!id) return;
+    ensureDailyBucket();
+    state.dailyAnswered.add(id);
   }
 
   function setText(id, value) {
@@ -142,6 +169,7 @@
   }
 
   function updateStats() {
+    ensureDailyBucket();
     const rec = isRoundCover() ? state.roundsByScope[scopeKey()] : null;
     if (rec && !rec.done) {
       const answered = rec.answered || [];
@@ -155,6 +183,7 @@
     const currentScope = bank.filter(matchesCategory);
     const poolLeft = keepRoundPool ? currentScope.length : state.wrong.size;
     setText("stat-wrong", poolLeft);
+    setText("stat-today", state.dailyAnswered.size);
     setText("wrong-count", state.wrong.size);
     setText("bank-total", keepRoundPool ? String(currentScope.length) : String(bank.length));
     $("wrong-filter")?.classList.toggle("active", wrongOnly);
@@ -239,6 +268,8 @@
     state.correctStreak = state.correctStreak && typeof state.correctStreak === "object" ? state.correctStreak : {};
   }
   if (!(state.keepThisTime instanceof Set)) state.keepThisTime = new Set(state.keepThisTime || []);
+  if (!(state.dailyAnswered instanceof Set)) state.dailyAnswered = new Set(state.dailyAnswered || []);
+  ensureDailyBucket();
 
   function streakOf(id) {
     return Math.max(0, Number(state.correctStreak?.[id]) || 0);
@@ -1095,6 +1126,7 @@
       if (!rec || rec.done) return;
       state.attempted.add(q.id);
       state.submitted.add(q.id);
+      markAnsweredToday(q.id);
       state.roundsByScope[key] = Q.recordRoundAnswer(rec, q.id, isCorrect);
       if (isCorrect) {
         state.correct.add(q.id);
@@ -1126,6 +1158,7 @@
     const coverPhase = getCoverPhase(query.trim().toLowerCase());
     state.attempted.add(q.id);
     state.submitted.add(q.id);
+    markAnsweredToday(q.id);
     if (coverPhase === "review") {
       if (isCorrect) {
         state.reviewMastered.add(q.id);
@@ -1338,6 +1371,8 @@
     state.wrongCounts = {};
     state.correctStreak = {};
     state.keepThisTime = new Set();
+    state.dailyDate = todayKey();
+    state.dailyAnswered = new Set();
     state.roundsByScope = {};
     state.poolLocked = false;
     Q.clearQueue(state);
@@ -1380,6 +1415,8 @@
       poolLocked: state.poolLocked === true,
       correctStreak: state.correctStreak || {},
       keepThisTime: [...(state.keepThisTime || [])],
+      dailyDate: state.dailyDate || todayKey(),
+      dailyAnswered: [...(state.dailyAnswered || [])],
     };
     try {
       const response = await fetch(`${SB_URL}/rest/v1/vocab_progress?on_conflict=sync_code`, {
@@ -1489,6 +1526,14 @@
       if (Array.isArray(data.keepThisTime)) {
         if (!automatic) state.keepThisTime = new Set(data.keepThisTime);
         else data.keepThisTime.forEach(id => state.keepThisTime.add(id));
+      }
+      ensureDailyBucket();
+      if (typeof data.dailyDate === "string" && Array.isArray(data.dailyAnswered)) {
+        if (data.dailyDate === todayKey()) {
+          if (!automatic) state.dailyAnswered = new Set(data.dailyAnswered);
+          else data.dailyAnswered.forEach(id => state.dailyAnswered.add(id));
+          state.dailyDate = todayKey();
+        }
       }
       if (Object.keys(incomingRounds).length || !automatic) {
         state.roundsByScope = mergeRoundsByScope(state.roundsByScope, incomingRounds, { replace: !automatic });
