@@ -491,6 +491,7 @@
     state.coverPhase = "unanswered";
     state.poolLocked = true;
     restorePosition = false;
+    currentIndex = 0;
     state.lastQuestionId = "";
     showToast(`已锁定题池 ${ordered.length} 题：答对不剔除，按轮随机刷`);
   }
@@ -555,7 +556,7 @@
     return changed;
   }
 
-  function buildRoundSession(focusQuestionId) {
+  function buildRoundSession(focusQuestionId, { reset = false } = {}) {
     lockKeepPoolFromProgress();
     const needle = query.trim().toLowerCase();
     const key = scopeKey();
@@ -580,6 +581,7 @@
       rec = { ...rec, set: roundOrderIds(rec.set), shuffled: true };
       state.roundsByScope[key] = rec;
       restorePosition = false;
+      reset = true;
     }
     const known = new Set(scopeQuestionIds());
     if (rec && !rec.done) {
@@ -600,6 +602,10 @@
           state.submitted.has(id) && (answeredSet.has(id) || !!state.choices[id])
         ));
         answered = uniqueRoundIds([...answered, ...fromSubmitted]);
+        const answeredFinal = new Set(answered);
+        pruned.forEach(id => {
+          if (!answeredFinal.has(id)) state.submitted.delete(id);
+        });
         wrong = uniqueRoundIds([...wrong, ...answered.filter(id => state.wrong.has(id) && !state.correct.has(id))]);
       } else if (rec.round <= 1) {
         const answeredFromRecords = pruned.filter(id => state.submitted.has(id) || !!state.choices[id]);
@@ -644,7 +650,7 @@
       : remaining;
     questions = queueIds.map(id => byId.get(id)).filter(matchesRoundQuestion);
     const resumeId = (!focusQuestionId && !enteredRound && restorePosition)
-      ? resolveRoundResumeId(rec, state.lastQuestionId, keepRoundPool ? queueIds : remaining)
+      ? resolveRoundResumeId(rec, state.lastQuestionId, remaining)
       : "";
     // 非固定池：刷新时若停在已答那题，临时插回队列以便看解析
     if (!keepRoundPool && resumeId && !questions.some(q => q.id === resumeId)) {
@@ -660,12 +666,12 @@
     } else if (keepRoundPool && resumeId && (rec.answered || []).includes(resumeId)) {
       state.submitted.add(resumeId);
     }
-    if (focusQuestionId) {
-      const idx = questions.findIndex(q => q.id === focusQuestionId);
-      currentIndex = idx >= 0 ? idx : 0;
-    } else if (enteredRound) {
+    if (enteredRound) {
       currentIndex = 0;
       restorePosition = false;
+    } else if (focusQuestionId) {
+      const idx = questions.findIndex(q => q.id === focusQuestionId);
+      currentIndex = idx >= 0 ? idx : 0;
     } else if (restorePosition) {
       const target = resumeId || state.lastQuestionId;
       const idx = questions.findIndex(q => q.id === target);
@@ -676,6 +682,13 @@
         currentIndex = firstPending >= 0 ? firstPending : 0;
       } else currentIndex = 0;
       restorePosition = false;
+    } else if (reset) {
+      if (keepRoundPool) {
+        const firstPending = questions.findIndex(q => !(rec.answered || []).includes(q.id));
+        currentIndex = firstPending >= 0 ? firstPending : 0;
+      } else {
+        currentIndex = 0;
+      }
     } else {
       currentIndex = Math.min(currentIndex, Math.max(0, questions.length - 1));
     }
@@ -781,7 +794,7 @@
     state.coverPhase = "unanswered";
     state.lastQuestionId = "";
     restorePosition = false;
-    buildRoundSession();
+    buildRoundSession(undefined, { reset: true });
     queueAutoUpload();
     showToast(keepRoundPool
       ? (isOrderRound()
@@ -858,7 +871,7 @@
 
   function buildList(reset = true, focusQuestionId, retried = false) {
     if (isRoundCover()) {
-      buildRoundSession(focusQuestionId);
+      buildRoundSession(focusQuestionId, { reset });
       return;
     }
     const needle = query.trim().toLowerCase();
@@ -1083,11 +1096,26 @@
     if (submitButton) submitButton.addEventListener("click", submitAnswer);
   }
 
+  function pickNextFocusAfterRemoval(removedId, prevIndex) {
+    const rec = state.roundsByScope[scopeKey()];
+    if (!rec || rec.done) return undefined;
+    const known = new Set(scopeQuestionIds());
+    const remaining = Q.roundRemainingIds(rec, known);
+    if (!remaining.length) return undefined;
+    const remainingSet = new Set(remaining);
+    const after = questions.slice(prevIndex + 1).filter(q => q.id !== removedId && known.has(q.id));
+    if (after.some(q => remainingSet.has(q.id))) return after[0].id;
+    const visibleAfter = new Set(questions.map(q => q.id).filter(id => id !== removedId && known.has(id)));
+    const wrapId = remaining.find(id => visibleAfter.has(id));
+    if (wrapId) return wrapId;
+    return after[0]?.id || questions[prevIndex - 1]?.id || undefined;
+  }
+
   function markMasteredAndRemove() {
     if (!keepRoundPool) return;
     const q = questions[currentIndex];
     if (!q) return;
-    const nextFocusId = questions[currentIndex + 1]?.id || questions[currentIndex - 1]?.id || "";
+    const prevIndex = currentIndex;
     state.removed.add(q.id);
     state.wrong.delete(q.id);
     state.reviewMastered.add(q.id);
@@ -1108,11 +1136,12 @@
         done: nextSet.length === 0,
       };
     }
+    const nextFocusId = pickNextFocusAfterRemoval(q.id, prevIndex);
     const scopedLeft = bank.filter(matchesCategory).length;
     showToast(`已删除 · 当前范围还剩 ${scopedLeft} 题`);
     populateCategories();
     restorePosition = false;
-    buildRoundSession(nextFocusId || undefined);
+    buildRoundSession(nextFocusId);
     queueAutoUpload();
   }
 
@@ -1220,7 +1249,7 @@
           queueAutoUpload();
           // 不走剔除，落到下面的正常翻页
         } else if (shouldAutoRemoveOnAdvance(cur)) {
-          const nextFocusId = questions[currentIndex + 1]?.id || questions[currentIndex - 1]?.id || "";
+          const prevIndex = currentIndex;
           state.removed.add(cur.id);
           state.wrong.delete(cur.id);
           state.reviewMastered.add(cur.id);
@@ -1242,18 +1271,28 @@
               done: nextSet.length === 0,
             };
           }
+          const nextFocusId = pickNextFocusAfterRemoval(cur.id, prevIndex);
           const scopedLeft = bank.filter(matchesCategory).length;
           showToast(`连续答对已剔除 · 题池还剩 ${scopedLeft} 题`);
           populateCategories();
           restorePosition = false;
-          buildRoundSession(nextFocusId || undefined);
+          buildRoundSession(nextFocusId);
           queueAutoUpload();
           return;
         }
+        const rec = state.roundsByScope[scopeKey()];
+        const remaining = Q.roundRemainingIds(rec, new Set(scopeQuestionIds()));
+        const visible = new Set(questions.map(q => q.id));
         const nextId = questions[currentIndex + 1]?.id;
-        if (nextId) {
-          // 固定题池完整队列内翻页，不必整表重建
-          if (keepRoundPool) {
+        if (keepRoundPool) {
+          if (remaining.length === 0) {
+            buildRoundSession();
+            queueAutoUpload();
+            return;
+          }
+          const remainingSet = new Set(remaining);
+          const hasPendingAhead = questions.slice(currentIndex + 1).some(q => remainingSet.has(q.id));
+          if (nextId && hasPendingAhead) {
             currentIndex += 1;
             state.lastQuestionId = nextId;
             render();
@@ -1261,17 +1300,42 @@
             queueAutoUpload();
             return;
           }
+          const wrapId = remaining.find(id => visible.has(id) && id !== cur.id);
+          if (wrapId) {
+            const wrapIdx = questions.findIndex(q => q.id === wrapId);
+            if (wrapIdx >= 0) {
+              currentIndex = wrapIdx;
+              state.lastQuestionId = wrapId;
+              showToast(`前面还有 ${remaining.length} 道未答题，已跳回继续本轮`);
+              render();
+              saveState();
+              queueAutoUpload();
+              return;
+            }
+          }
+          if (remaining.some(id => !visible.has(id))) {
+            showToast("还有题目不在当前筛选里。清空搜索、关掉「只练错题」后会继续这一轮");
+            return;
+          }
+          buildRoundSession();
+          queueAutoUpload();
+          return;
+        }
+        if (nextId) {
           buildRoundSession(nextId);
           return;
         }
-        const rec = state.roundsByScope[scopeKey()];
-        const remaining = Q.roundRemainingIds(rec, new Set(scopeQuestionIds()));
-        const visible = new Set(questions.map(q => q.id));
+        const wrapId = remaining.find(id => visible.has(id) && id !== cur.id);
+        if (wrapId) {
+          buildRoundSession(wrapId);
+          return;
+        }
         if (remaining.some(id => !visible.has(id))) {
           showToast("还有题目不在当前筛选里。清空搜索、关掉「只练错题」后会继续这一轮");
           return;
         }
         buildRoundSession();
+        queueAutoUpload();
         return;
       }
       currentIndex = Math.max(0, Math.min(questions.length - 1, currentIndex + delta));
