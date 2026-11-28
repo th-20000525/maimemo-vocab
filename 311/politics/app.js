@@ -2,14 +2,15 @@
   // 兼容误写成 push([..]) 的批次脚本：把嵌套数组摊平，避免 166 题变成 2 个无效元素
   const bank = (window.QUESTION_BANK || []).flatMap(q => (Array.isArray(q) ? q : [q])).filter(q => q && typeof q === "object" && q.id);
   const bankIndex = new Map(bank.map((q, i) => [q.id, i]));
-  const QUESTION_BANK_REVISION = "politics-docx-batches-20261122";
+  const QUESTION_BANK_REVISION = "politics-docx-batches-20261128-batch3";
   const importedDocSourceDocs = new Set([
     "政治错题解析（通俗版）",
     "考研政治错题解析（通俗区分版·第二批75题）",
+    "考研政治错题解析（第三批65题）",
   ]);
   const importedDocIds = new Set(bank.filter(q => (
     importedDocSourceDocs.has(q.sourceDocument)
-    || /^politics-docx-batch[12]-/.test(String(q.id || ""))
+    || /^politics-docx-batch[123]-/.test(String(q.id || ""))
   )).map(q => q.id));
   if (!window.StudyListQueue) {
     const showBootError = () => {
@@ -258,12 +259,13 @@
 
   const Q = window.StudyListQueue;
   state.roundsByScope = Q.sanitizeRounds(state.roundsByScope);
-  // 连续答对计数：首次启用时，当前标记为「答对」的题记 1 次（下一轮再对才满 2 次剔除）
+  // 连续答对计数：当前仍标记为「答对」且未剔除的题，至少记 1 次（下一轮再对才满 2 次剔除）。
+  // 功能上线前答对、或云端旧进度缺 streak 的题也一并回填，避免实际要连对 3 次才剔除。
   if (autoRemoveCorrectStreak > 0) {
-    if (!state.correctStreak || typeof state.correctStreak !== "object") {
-      state.correctStreak = {};
-      for (const id of state.correct) {
-        if (!state.removed.has(id)) state.correctStreak[id] = 1;
+    if (!state.correctStreak || typeof state.correctStreak !== "object") state.correctStreak = {};
+    for (const id of state.correct) {
+      if (!state.removed.has(id) && !(Number(state.correctStreak[id]) > 0)) {
+        state.correctStreak[id] = 1;
       }
     }
   } else {
@@ -598,6 +600,8 @@
 
   function buildRoundSession(focusQuestionId, { reset = false } = {}) {
     reviewBackDepth = 0;
+    // 新批次题入库后，即使暂时没拉到云端，进轮时也要并入当前锁定池
+    migrateDocQuestionsIntoActiveRound();
     lockKeepPoolFromProgress();
     const needle = query.trim().toLowerCase();
     const key = scopeKey();
