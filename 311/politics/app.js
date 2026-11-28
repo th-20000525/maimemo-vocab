@@ -1,6 +1,7 @@
 (() => {
   // 兼容误写成 push([..]) 的批次脚本：把嵌套数组摊平，避免 166 题变成 2 个无效元素
   const bank = (window.QUESTION_BANK || []).flatMap(q => (Array.isArray(q) ? q : [q])).filter(q => q && typeof q === "object" && q.id);
+  const bankIndex = new Map(bank.map((q, i) => [q.id, i]));
   const QUESTION_BANK_REVISION = "politics-docx-batches-20261122";
   const importedDocSourceDocs = new Set([
     "政治错题解析（通俗版）",
@@ -519,6 +520,36 @@
    * revision 已对齐后尊重用户对批次题的「我会了」删除。
    * @returns {boolean} 是否改动了进度（调用方据此决定是否回写云端）
    */
+  function hasSequentialRun(ids) {
+    if (!Array.isArray(ids) || ids.length < 6) return false;
+    let run = 1;
+    let adjacent = 0;
+    let prev = bankIndex.get(ids[0]);
+    for (let i = 1; i < ids.length; i++) {
+      const cur = bankIndex.get(ids[i]);
+      if (Number.isInteger(prev) && Number.isInteger(cur) && cur === prev + 1) {
+        run += 1;
+        adjacent += 1;
+        if (run >= 6) return true;
+      } else {
+        run = 1;
+      }
+      prev = cur;
+    }
+    return ids.length >= 12 && adjacent / (ids.length - 1) >= 0.35;
+  }
+
+  function shufflePendingPreservingCurrent(pruned, answeredIds, preserveId) {
+    const answeredSet = new Set(answeredIds);
+    const answeredInOrder = pruned.filter(id => answeredSet.has(id));
+    const pending = pruned.filter(id => !answeredSet.has(id));
+    let shuffledPending = shuffle(pending);
+    if (preserveId && !answeredSet.has(preserveId) && shuffledPending.includes(preserveId)) {
+      shuffledPending = [preserveId, ...shuffledPending.filter(id => id !== preserveId)];
+    }
+    return [...answeredInOrder, ...shuffledPending];
+  }
+
   function migrateDocQuestionsIntoActiveRound() {
     if (!importedDocIds.size) {
       if (state.questionBankRevision !== QUESTION_BANK_REVISION) {
@@ -547,7 +578,8 @@
         return q && questionMatchesScopeKey(q, key) && !(rec.set || []).includes(id);
       });
       if (!additions.length) continue;
-      state.roundsByScope[key] = { ...rec, set: uniqueRoundIds([...(rec.set || []), ...additions]) };
+      const toAppend = isOrderRound() ? additions : shuffle(additions);
+      state.roundsByScope[key] = { ...rec, set: uniqueRoundIds([...(rec.set || []), ...toAppend]) };
       changed = true;
     }
     if (firstAbsorb) {
@@ -586,12 +618,17 @@
       reset = true;
     }
     const known = new Set(scopeQuestionIds());
+    let repairedOrder = false;
     if (rec && !rec.done) {
       let pruned = uniqueRoundIds((rec.set || []).filter(id => known.has(id)));
       // 固定题池：题库/未删除题若比当前 set 多，补进本轮，避免只刷到一部分
+      let missingAdded = false;
       if (keepRoundPool) {
         const missing = scopeQuestionIds().filter(id => !pruned.includes(id));
-        if (missing.length) pruned = uniqueRoundIds([...pruned, ...missing]);
+        if (missing.length) {
+          pruned = uniqueRoundIds([...pruned, ...(isOrderRound() ? missing : shuffle(missing))]);
+          missingAdded = true;
+        }
       }
       if (isOrderRound()) pruned = sortIdsByNumber(pruned);
       // 回填 answered：只用本轮 submitted（换轮时 clearRoundAnswers 会清掉），绝不用 attempted 跨轮回填。
@@ -613,6 +650,15 @@
         const answeredFromRecords = pruned.filter(id => state.submitted.has(id) || !!state.choices[id]);
         answered = uniqueRoundIds([...answered, ...answeredFromRecords]);
         wrong = uniqueRoundIds([...wrong, ...answered.filter(id => state.wrong.has(id) && !state.correct.has(id))]);
+      }
+      if (!isOrderRound() && pruned.length > 0) {
+        const answeredSetNow = new Set(answered);
+        const pendingInPruned = pruned.filter(id => !answeredSetNow.has(id));
+        if (missingAdded || hasSequentialRun(pendingInPruned)) {
+          const keepCurrentId = focusQuestionId || (restorePosition ? state.lastQuestionId : "");
+          pruned = shufflePendingPreservingCurrent(pruned, answered, keepCurrentId);
+          repairedOrder = true;
+        }
       }
       const setChanged = pruned.join("\0") !== (rec.set || []).join("\0");
       const ansChanged = answered.join("\0") !== (rec.answered || []).join("\0");
@@ -705,6 +751,7 @@
     }
     render();
     saveState();
+    if (repairedOrder) queueAutoUpload();
   }
 
   function uniqueRoundIds(ids) {
@@ -750,7 +797,13 @@
       const answered = uniqueRoundIds([...(cur.answered || []), ...(inc.answered || [])]);
       const set = uniqueRoundIds([...(cur.set || []), ...(inc.set || [])]);
       const wrong = uniqueRoundIds([...(cur.wrong || []), ...(inc.wrong || [])].filter(id => answered.includes(id)));
-      const preferIncSet = (inc.answered || []).length > (cur.answered || []).length;
+      const curAnsweredCount = (cur.answered || []).length;
+      const incAnsweredCount = (inc.answered || []).length;
+      const answeredSet = new Set(answered);
+      const curPendingSeq = !isOrderRound() && hasSequentialRun((cur.set || []).filter(id => !answeredSet.has(id)));
+      const incPendingSeq = !isOrderRound() && hasSequentialRun((inc.set || []).filter(id => !answeredSet.has(id)));
+      const preferIncSet = incAnsweredCount > curAnsweredCount
+        || (incAnsweredCount === curAnsweredCount && curPendingSeq && !incPendingSeq);
       out[key] = {
         round: cur.round,
         set: preferIncSet ? uniqueRoundIds([...(inc.set || []), ...(cur.set || [])]) : set,
