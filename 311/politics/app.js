@@ -64,6 +64,7 @@
   let mode = state.mode;
   let questions = [];
   let currentIndex = 0;
+  let reviewBackDepth = 0;
   let restorePosition = true;
   let toastTimer;
   let autoUploadTimer;
@@ -557,6 +558,7 @@
   }
 
   function buildRoundSession(focusQuestionId, { reset = false } = {}) {
+    reviewBackDepth = 0;
     lockKeepPoolFromProgress();
     const needle = query.trim().toLowerCase();
     const key = scopeKey();
@@ -1104,7 +1106,8 @@
     if (!remaining.length) return undefined;
     const remainingSet = new Set(remaining);
     const after = questions.slice(prevIndex + 1).filter(q => q.id !== removedId && known.has(q.id));
-    if (after.some(q => remainingSet.has(q.id))) return after[0].id;
+    const nextPendingAhead = after.find(q => remainingSet.has(q.id));
+    if (nextPendingAhead) return nextPendingAhead.id;
     const visibleAfter = new Set(questions.map(q => q.id).filter(id => id !== removedId && known.has(id)));
     const wrapId = remaining.find(id => visibleAfter.has(id));
     if (wrapId) return wrapId;
@@ -1155,6 +1158,7 @@
       if (!rec || rec.done) return;
       state.attempted.add(q.id);
       state.submitted.add(q.id);
+      reviewBackDepth = 0;
       markAnsweredToday(q.id);
       state.roundsByScope[key] = Q.recordRoundAnswer(rec, q.id, isCorrect);
       if (isCorrect) {
@@ -1285,16 +1289,25 @@
         const visible = new Set(questions.map(q => q.id));
         const nextId = questions[currentIndex + 1]?.id;
         if (keepRoundPool) {
+          if (reviewBackDepth > 0 && nextId) {
+            reviewBackDepth -= 1;
+            currentIndex += 1;
+            state.lastQuestionId = nextId;
+            render();
+            saveState();
+            queueAutoUpload();
+            return;
+          }
           if (remaining.length === 0) {
             buildRoundSession();
             queueAutoUpload();
             return;
           }
           const remainingSet = new Set(remaining);
-          const hasPendingAhead = questions.slice(currentIndex + 1).some(q => remainingSet.has(q.id));
-          if (nextId && hasPendingAhead) {
-            currentIndex += 1;
-            state.lastQuestionId = nextId;
+          const nextPendingAheadIdx = questions.findIndex((q, idx) => idx > currentIndex && remainingSet.has(q.id));
+          if (nextPendingAheadIdx >= 0) {
+            currentIndex = nextPendingAheadIdx;
+            state.lastQuestionId = questions[nextPendingAheadIdx].id;
             render();
             saveState();
             queueAutoUpload();
@@ -1338,7 +1351,9 @@
         queueAutoUpload();
         return;
       }
-      currentIndex = Math.max(0, Math.min(questions.length - 1, currentIndex + delta));
+      const nextIdx = Math.max(0, Math.min(questions.length - 1, currentIndex + delta));
+      if (nextIdx < currentIndex) reviewBackDepth += 1;
+      currentIndex = nextIdx;
       const cur = questions[currentIndex];
       if (cur) state.lastQuestionId = cur.id;
       render();
