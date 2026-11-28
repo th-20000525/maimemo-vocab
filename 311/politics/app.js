@@ -342,19 +342,26 @@
     return bank.filter(q => matchesScopeBase(q, needle) && state.wrong.has(q.id)).length;
   }
 
-  function isValidOptionOrder(order) {
+  function optionLettersOf(q) {
+    const opts = q && q.options ? q.options : {};
+    const present = letters.filter(letter => opts[letter] != null && String(opts[letter]).trim() !== "");
+    return present.length ? present : letters.slice();
+  }
+
+  function isValidOptionOrder(order, activeLetters = letters) {
     return Array.isArray(order)
-      && order.length === letters.length
-      && letters.every(letter => order.includes(letter));
+      && order.length === activeLetters.length
+      && activeLetters.every(letter => order.includes(letter));
   }
 
   /** Display slot A–D → original bank letter. Persists for one attempt so mid-answer refresh stays stable. */
   function ensureOptionOrder(q) {
-    if (!shuffleOptions || !q) return letters.slice();
+    const active = optionLettersOf(q);
+    if (!shuffleOptions || !q) return active;
     const saved = state.optionOrders[q.id];
-    if (isValidOptionOrder(saved)) return saved.slice();
-    if (state.submitted.has(q.id)) return letters.slice();
-    const order = shuffle(letters.slice());
+    if (isValidOptionOrder(saved, active)) return saved.slice();
+    if (state.submitted.has(q.id)) return active;
+    const order = shuffle(active.slice());
     state.optionOrders[q.id] = order;
     return order.slice();
   }
@@ -1072,8 +1079,8 @@
       }
       return q.category;
     })();
-    const optionsHtml = letters.map((displayLetter, index) => {
-      const originalLetter = optionOrder[index] || displayLetter;
+    const optionsHtml = optionOrder.map((originalLetter, index) => {
+      const displayLetter = letters[index] || originalLetter;
       let classes = "option";
       const isSelected = selected.includes(displayLetter);
       if (isSelected) classes += " selected";
